@@ -24,6 +24,7 @@
     <% if (p.blocked) { %>
       <p class="small" style="color:var(--err)"><%= p.blocked %></p>
     <% } else if (paymentMode !== 'disabled' || p.quote.amountCents === 0) { %>
+      <% if (!membership.active && p.calendar_year) { %><p class="small muted">Memberships run Jan 1 – Dec 31. Joining now covers you through <strong>Dec 31, <%= new Date().getFullYear() %></strong>.</p><% } %>
       <form method="post" action="/membership/pay"><%- include('../partials/csrf') %><input type="hidden" name="plan_id" value="<%= p.id %>">
         <button class="btn <%= isCurrent || !membership.active ? '' : 'secondary' %>">
           <% if (p.quote.kind === 'membership_upgrade') { %>Upgrade — pay <%= money(p.quote.amountCents) %> difference

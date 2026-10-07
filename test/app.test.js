@@ -287,6 +287,8 @@ test('membership levels: join, members-only events, renewal extends to next year
   assert.match(res.text, /active membership/);
 
   await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' }); // Individual is 18+
+  res = await m.get('/membership');
+  assert.match(res.text, new RegExp(`Joining now covers you through <strong>Dec 31, ${new Date().getFullYear()}`));
   res = await m.post('/membership/pay', { plan_id: String(planId('Individual')) });
   const paymentId = Number(res.location.match(/\/pay\/(\d+)\/demo/)[1]);
   assert.equal(db.prepare('SELECT amount_cents FROM payments WHERE id = ?').get(paymentId).amount_cents, 16500);
