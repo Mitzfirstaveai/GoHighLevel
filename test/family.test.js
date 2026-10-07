@@ -225,8 +225,15 @@ test('someone who already has a login can join with the link, unless that accoun
   await m.post(`/profile/household/${child}/invite`, {});
   const token = t.db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(child).invite_token;
 
-  // The member's own link, opened by themselves.
-  assert.match((await m.get(`/join/family/${token}`)).text, /This is your own invite link/);
+  // The member's own link, opened by themselves: they can sign out and carry on as the invited person.
+  let own = await m.get(`/join/family/${token}`);
+  assert.match(own.text, /This is your own invite link/);
+  assert.match(own.text, /Sign out and create Child 2&#39;s login/);
+  own = await m.post(`/join/family/${token}/switch`, {});
+  assert.equal(own.location, `/join/family/${token}`);
+  own = await m.get(own.location);
+  assert.match(own.text, /Create my login/);
+  assert.equal((await m.get('/dashboard')).location, '/login'); // Priya is signed out
   // An account with its own Family membership can't be merged in.
   const other = await t.login('other@test.org', 'secret123');
   let res = await other.get(`/join/family/${token}`);

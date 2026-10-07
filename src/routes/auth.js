@@ -187,6 +187,13 @@ router.post('/join/family/:token', (req, res, next) => {
   }
 });
 
+// Opened while signed in as someone else (often the member who made the link, testing it on
+// their own phone): sign out and come back to the link to create the invited person's login.
+router.post('/join/family/:token/switch', (req, res) => {
+  const to = `/join/family/${encodeURIComponent(req.params.token)}`;
+  req.session.destroy(() => res.redirect(to));
+});
+
 // Already has an account: join the family with it.
 router.post('/join/family/:token/link', (req, res) => {
   if (!req.user) return res.redirect(`/join/family/${encodeURIComponent(req.params.token)}`);

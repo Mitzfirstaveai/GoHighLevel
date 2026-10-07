@@ -677,4 +677,6 @@ module.exports = {
   'This is your own invite link. Share it with {name} so they can join.': 'આ તમારી પોતાની આમંત્રણ લિંક છે. {name} જોડાઈ શકે તે માટે તેમની સાથે શેર કરો.',
   'Your account is already part of a family.': 'તમારું ખાતું પહેલેથી એક પરિવારનો ભાગ છે.',
   'Your account has its own membership, family list or event tickets, so it can’t be joined to another family here. Please ask a committee member.': 'તમારા ખાતામાં પોતાનું સભ્યપદ, પરિવારની યાદી અથવા કાર્યક્રમની ટિકિટો છે, એટલે તેને અહીં બીજા પરિવાર સાથે જોડી શકાશે નહીં. કૃપા કરી સમિતિના સભ્યને કહો.',
+  'Is this {name} on a shared phone or computer? Sign out first, then create their login.': 'શું {name} એ જ ફોન કે કમ્પ્યુટર વાપરે છે? પહેલાં સાઇન આઉટ કરો, પછી તેમનું લોગ ઇન બનાવો.',
+  "Sign out and create {name}'s login": 'સાઇન આઉટ કરીને {name}નું લોગ ઇન બનાવો',
 };

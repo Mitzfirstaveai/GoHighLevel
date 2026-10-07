@@ -7,6 +7,9 @@
   <% if (user) { %>
     <% if (problem) { %>
       <p class="flash info"><%= t(problem, { name: invite.name }) %></p>
+      <p class="small"><%= t('Is this {name} on a shared phone or computer? Sign out first, then create their login.', { name: invite.name }) %></p>
+      <form method="post" action="/join/family/<%= token %>/switch"><%- include('../partials/csrf') %>
+        <button class="btn big secondary"><%= t("Sign out and create {name}'s login", { name: invite.name }) %></button></form>
     <% } else { %>
       <p><%= t("You're signed in as {name}. Join {owner}'s family with this account?", { name: `${user.first_name} ${user.last_name}`, owner: invite.owner_first }) %></p>
       <form method="post" action="/join/family/<%= token %>/link"><%- include('../partials/csrf') %>
