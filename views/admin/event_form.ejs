@@ -1,0 +1,25 @@
+<%- include('../partials/head') %>
+<a class="back" href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">← Back</a>
+<div class="page-head"><h1><%= event.id ? 'Edit event' : 'New event' %></h1></div>
+<div class="card">
+  <form method="post" action="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Title <input name="title" value="<%= event.title || '' %>" required placeholder="e.g. Navratri Garba Night"></label>
+    <label>Description <textarea name="description"><%= event.description || '' %></textarea></label>
+    <div class="fields">
+      <label>Location <input name="location" value="<%= event.location || '' %>"></label>
+      <label>Starts <input type="datetime-local" name="starts_at" value="<%= event.starts_at || '' %>" required></label>
+      <label>Ends (optional) <input type="datetime-local" name="ends_at" value="<%= event.ends_at || '' %>"></label>
+      <label>RSVP deadline (optional) <input type="datetime-local" name="rsvp_deadline" value="<%= event.rsvp_deadline || '' %>"></label>
+      <label>Fee per person (0 = free) <input name="fee" inputmode="decimal" value="<%= event.fee_cents ? (event.fee_cents / 100).toFixed(2) : '0' %>"></label>
+      <label>Total capacity (blank = unlimited) <input name="capacity" type="number" min="1" value="<%= event.capacity || '' %>"></label>
+      <label>Max people per RSVP <input name="max_party_size" type="number" min="1" max="100" value="<%= event.max_party_size %>" required></label>
+      <label>Status <select name="status">
+        <% for (const s of ['published', 'draft', 'cancelled']) { %><option value="<%= s %>" <%= event.status === s ? 'selected' : '' %>><%= s[0].toUpperCase() + s.slice(1) %></option><% } %>
+      </select></label>
+    </div>
+    <label class="check"><input type="checkbox" name="members_only" value="1" <%= event.members_only ? 'checked' : '' %>> Only members with an active (paid) membership can RSVP</label>
+    <div class="actions"><button class="btn">Save event</button><a href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">Cancel</a></div>
+  </form>
+</div>
+<%- include('../partials/foot') %>

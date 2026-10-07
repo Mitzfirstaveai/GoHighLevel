@@ -1,0 +1,19 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Check-in scanner</h1></div>
+<div class="card" style="text-align:center">
+  <div id="reader"></div>
+  <p id="scan-status" class="muted">Point the camera at a member's QR code.</p>
+  <button id="start-btn" class="btn">Start camera</button>
+</div>
+<div class="card">
+  <h2>Enter code manually</h2>
+  <form method="post" action="/admin/checkin/lookup" class="actions">
+    <%- include('../partials/csrf') %>
+    <input name="code" placeholder="Ticket code or link" style="flex:1;min-width:200px" required>
+    <button class="btn secondary">Look up</button>
+  </form>
+  <p class="muted small">Tip: members' QR codes are links — you can also scan them with your phone's regular camera app while signed in here.</p>
+</div>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/checkin.js"></script>
+<%- include('../partials/foot') %>

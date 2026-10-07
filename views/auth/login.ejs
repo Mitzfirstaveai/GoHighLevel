@@ -1,0 +1,13 @@
+<%- include('../partials/head') %>
+<div class="card" style="max-width:420px;margin:20px auto">
+  <img src="/logo.png" alt="" width="80" height="80" style="display:block;margin:0 auto 8px;border-radius:50%">
+  <h1 style="text-align:center">Sign in</h1>
+  <form method="post" action="/login" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Email <input type="email" name="email" value="<%= email %>" required autocomplete="email"></label>
+    <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+    <button class="btn">Sign in</button>
+  </form>
+  <p class="muted small">New here? <a href="/register">Create your member account</a>. Forgot your password? Ask a committee member to reset it.</p>
+</div>
+<%- include('../partials/foot') %>

@@ -1,0 +1,18 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>My tickets</h1></div>
+<% if (!tickets.length) { %>
+  <div class="card"><p class="muted">You don't have any upcoming tickets.</p><a class="btn" href="/events">Browse events</a></div>
+<% } %>
+<div class="event-list">
+<% for (const t of tickets) { %>
+  <a class="card event-item" style="margin:0" href="<%= t.status === 'confirmed' ? `/tickets/${t.id}` : `/events/${t.event_id}` %>">
+    <%- include('../partials/date-chip', { when: t.starts_at }) %>
+    <div style="flex:1">
+      <strong><%= t.title %></strong> <%- include('../partials/rsvp-badge', { status: t.status }) %>
+      <div class="muted small"><%= fmtDate(t.starts_at) %><%= t.location ? ` · ${t.location}` : '' %></div>
+      <div class="small"><%= t.party_size %> <%= t.party_size === 1 ? 'person' : 'people' %> · <strong><%= t.checked_in_at ? 'Checked in' : t.status === 'confirmed' ? 'Tap to show QR code →' : 'Complete payment to get your QR →' %></strong></div>
+    </div>
+  </a>
+<% } %>
+</div>
+<%- include('../partials/foot') %>

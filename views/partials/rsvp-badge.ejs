@@ -1,0 +1,4 @@
+<% if (status === 'confirmed') { %><span class="badge ok">Confirmed</span>
+<% } else if (status === 'pending_payment') { %><span class="badge warn">Payment due</span>
+<% } else if (status === 'cancelled') { %><span class="badge neutral">Cancelled</span>
+<% } %>

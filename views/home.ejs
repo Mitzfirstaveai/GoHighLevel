@@ -1,0 +1,18 @@
+<%- include('partials/head') %>
+<section class="hero">
+  <img src="/logo.png" alt="<%= orgName %> logo">
+  <h1>Welcome to <%= orgName %></h1>
+  <p class="muted">Our community, now online. Keep your family details up to date, RSVP to events,
+    pay your membership dues, and get a QR ticket for quick entry.</p>
+  <div class="actions" style="justify-content:center">
+    <a class="btn" href="/register">Become a member</a>
+    <a class="btn secondary" href="/login">Sign in</a>
+  </div>
+</section>
+<div class="grid grid-2">
+  <div class="card"><h2>📇 Your family profile</h2><p class="muted">Contact details, address, native place and family members in one place.</p></div>
+  <div class="card"><h2>🪔 Events &amp; RSVPs</h2><p class="muted">See upcoming events, tell us how many are coming, and pay event fees online.</p></div>
+  <div class="card"><h2>🎟️ QR check-in</h2><p class="muted">Show your QR code at the door — no paper lists, no waiting.</p></div>
+  <div class="card"><h2>💳 Membership dues</h2><p class="muted">Pay or renew your membership securely by card.</p></div>
+</div>
+<%- include('partials/foot') %>

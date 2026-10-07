@@ -1,0 +1,38 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Membership</h1></div>
+<div class="card">
+  <% if (membership.active) { %>
+    <p><span class="badge ok">Active</span> <%= membership.current.plan_name || 'Member' %> — valid until <strong><%= fmtDate(membership.current.end_date) %></strong></p>
+    <p class="muted small">Paying again extends your membership from your current expiry date.</p>
+  <% } else { %>
+    <p><span class="badge warn"><%= membership.current ? `Expired on ${fmtDate(membership.current.end_date)}` : 'No active membership' %></span></p>
+  <% } %>
+</div>
+
+<div class="grid grid-2">
+<% for (const p of plans) { %>
+  <div class="card">
+    <h2><%= p.name %></h2>
+    <p style="font-size:1.5rem;font-weight:700;margin:0"><%= money(p.amount_cents) %></p>
+    <p class="muted small"><%= p.duration_months === 12 ? 'per year' : `for ${p.duration_months} months` %></p>
+    <% if (p.description) { %><p><%= p.description %></p><% } %>
+    <% if (paymentMode !== 'disabled' || p.amount_cents === 0) { %>
+      <form method="post" action="/membership/pay"><%- include('../partials/csrf') %><input type="hidden" name="plan_id" value="<%= p.id %>">
+        <button class="btn"><%= membership.active ? 'Renew' : 'Pay now' %></button></form>
+    <% } else { %><p class="muted small">Online payment not available — please pay a committee member.</p><% } %>
+  </div>
+<% } %>
+<% if (!plans.length) { %><div class="card"><p class="muted">Membership plans have not been set up yet.</p></div><% } %>
+</div>
+
+<% if (history.length) { %>
+<div class="card">
+  <h2>History</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Plan</th><th>From</th><th>Until</th></tr></thead>
+    <tbody><% for (const m of history) { %><tr><td><%= m.plan_name || '—' %></td><td><%= fmtDate(m.start_date) %></td><td><%= fmtDate(m.end_date) %></td></tr><% } %></tbody>
+  </table></div>
+  <p><a href="/payments">View all my payments →</a></p>
+</div>
+<% } %>
+<%- include('../partials/foot') %>

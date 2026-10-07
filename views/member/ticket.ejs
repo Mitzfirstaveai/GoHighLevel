@@ -1,0 +1,24 @@
+<%- include('../partials/head') %>
+<a class="back no-print" href="/tickets">← My tickets</a>
+<div class="card ticket">
+  <h1><%= rsvp.title %></h1>
+  <p class="muted"><%= fmtDate(rsvp.starts_at) %><%= rsvp.location ? ` · ${rsvp.location}` : '' %></p>
+  <% if (qrDataUrl) { %>
+    <% if (rsvp.checked_in_at) { %>
+      <div class="big-status ok" style="padding:10px;border-radius:10px">Already checked in (<%= rsvp.checked_in_count %>)</div>
+    <% } %>
+    <img src="<%= qrDataUrl %>" alt="QR code ticket">
+    <p class="party-count" style="margin:8px 0 0"><%= rsvp.party_size %></p>
+    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered</p>
+    <p class="small muted">Show this code at the entrance. It can only be scanned once.</p>
+    <div class="actions no-print" style="justify-content:center">
+      <a class="btn secondary small" href="/tickets/<%= rsvp.id %>/qr.png" download>Download QR</a>
+      <button class="btn secondary small" onclick="window.print()">Print</button>
+    </div>
+  <% } else { %>
+    <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %></p>
+    <p>Your QR ticket will appear here once your RSVP is confirmed.</p>
+    <a class="btn" href="/events/<%= rsvp.event_id %>">Go to event</a>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>

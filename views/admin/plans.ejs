@@ -1,0 +1,28 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Membership plans</h1></div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Plan</th><th class="num">Price</th><th class="num">Duration</th><th>Status</th><th></th></tr></thead>
+    <tbody><% for (const p of plans) { %>
+      <tr class="<%= p.active ? '' : 'dim' %>"><td><%= p.name %><div class="muted small"><%= p.description || '' %></div></td>
+        <td class="num"><%= money(p.amount_cents) %></td><td class="num"><%= p.duration_months %> mo</td>
+        <td><%= p.active ? 'Available' : 'Hidden' %></td>
+        <td class="num"><form method="post" action="/admin/plans/<%= p.id %>/toggle" class="inline"><%- include('../partials/csrf') %><button class="btn secondary small"><%= p.active ? 'Hide' : 'Show' %></button></form></td></tr>
+    <% } %>
+    <% if (!plans.length) { %><tr><td colspan="5" class="muted">No plans yet — add one below so members can pay dues.</td></tr><% } %></tbody>
+  </table>
+</div>
+<div class="card">
+  <h2>Add a plan</h2>
+  <form method="post" action="/admin/plans" class="stack">
+    <%- include('../partials/csrf') %>
+    <div class="fields">
+      <label>Name <input name="name" required placeholder="Annual Family Membership"></label>
+      <label>Price <input name="amount" inputmode="decimal" required placeholder="51.00"></label>
+      <label>Duration (months) <input name="duration_months" type="number" min="1" value="12" required></label>
+    </div>
+    <label>Description <input name="description" placeholder="Covers the member and their household"></label>
+    <div><button class="btn">Add plan</button></div>
+  </form>
+</div>
+<%- include('../partials/foot') %>

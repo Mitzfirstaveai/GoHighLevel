@@ -1,0 +1,22 @@
+</main>
+<% if (user) { %>
+<%
+  const tabs = [
+    ['/dashboard', 'Home', 'home', true],
+    ['/events', 'Events', 'calendar'],
+    ['/tickets', 'Tickets', 'ticket'],
+    ['/membership', 'Dues', 'card'],
+    ['/profile', 'Profile', 'user'],
+  ];
+  if (user.role === 'admin') tabs.push(['/admin', 'Admin', 'shield']);
+  const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
+%>
+<nav class="tabbar mobile-only" aria-label="Main">
+  <% for (const [href, label, icon, exact] of tabs) { %>
+    <a href="<%= href %>" class="<%= on(href, exact) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= label %></span></a>
+  <% } %>
+</nav>
+<% } %>
+<footer class="site-footer"><img src="/logo.png" alt="" width="28" height="28"> <%= orgName %></footer>
+</body>
+</html>

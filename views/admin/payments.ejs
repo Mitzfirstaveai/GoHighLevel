@@ -1,0 +1,19 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Payments</h1><a class="btn secondary" href="/admin/payments.csv">Download CSV</a></div>
+<div class="card actions">
+  <% for (const [k, label] of [['', 'All'], ['membership', 'Membership'], ['event', 'Event fees'], ['other', 'Other']]) { %>
+    <a class="btn small <%= kind === k ? '' : 'secondary' %>" href="/admin/payments<%= k ? `?kind=${k}` : '' %>"><%= label %></a>
+  <% } %>
+  <span style="margin-left:auto">Total: <strong><%= money(total) %></strong></span>
+</div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Date</th><th>Member</th><th>Description</th><th>Method</th><th class="num">Amount</th></tr></thead>
+    <tbody><% for (const p of payments) { %>
+      <tr><td><%= fmtDate(p.paid_at.slice(0, 10)) %></td><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a></td>
+        <td><%= p.description %></td><td><%= p.method %></td><td class="num"><%= money(p.amount_cents) %></td></tr>
+    <% } %>
+    <% if (!payments.length) { %><tr><td colspan="5" class="muted">No payments.</td></tr><% } %></tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

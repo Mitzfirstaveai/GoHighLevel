@@ -1,0 +1,57 @@
+<%- include('../partials/head') %>
+<a class="back" href="/events">← All events</a>
+<div class="page-head">
+  <h1><%= event.title %></h1>
+  <% if (event.status === 'cancelled') { %><span class="badge err">Cancelled</span><% } %>
+</div>
+<div class="grid grid-2">
+  <div class="card">
+    <p><strong>When:</strong> <%= fmtDate(event.starts_at) %><%= event.ends_at ? ` – ${fmtDate(event.ends_at)}` : '' %></p>
+    <% if (event.location) { %><p><strong>Where:</strong> <%= event.location %></p><% } %>
+    <p><strong>Fee:</strong> <%= event.fee_cents ? `${money(event.fee_cents)} per person` : 'Free' %></p>
+    <% if (event.rsvp_deadline) { %><p><strong>RSVP by:</strong> <%= fmtDate(event.rsvp_deadline) %></p><% } %>
+    <% if (spotsLeft !== null) { %><p><strong>Spots left:</strong> <%= spotsLeft %></p><% } %>
+    <% if (event.description) { %><p style="white-space:pre-line"><%= event.description %></p><% } %>
+  </div>
+
+  <div class="card">
+    <h2>Your RSVP</h2>
+    <% if (rsvp) { %>
+      <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %> <%= rsvp.party_size %> <%= rsvp.party_size === 1 ? 'person' : 'people' %> (including you)</p>
+      <% if (rsvp.checked_in_at) { %>
+        <p class="badge ok">Checked in — <%= rsvp.checked_in_count %> arrived</p>
+      <% } else if (rsvp.status === 'confirmed') { %>
+        <a class="btn" href="/tickets/<%= rsvp.id %>">Show my QR ticket</a>
+      <% } else if (rsvp.status === 'pending_payment') { %>
+        <p>Amount due: <strong><%= money(due) %></strong>. Your QR ticket will be ready once paid.</p>
+        <% if (paymentMode !== 'disabled') { %>
+          <form method="post" action="/events/<%= event.id %>/pay"><%- include('../partials/csrf') %><button class="btn">Pay <%= money(due) %></button></form>
+        <% } else { %><p class="muted">Please pay an organizer in person.</p><% } %>
+      <% } %>
+    <% } %>
+
+    <% if (open && !rsvp?.checked_in_at) { %>
+      <% if (event.members_only && !membership.active) { %>
+        <p class="muted">This event is for members with an active membership. <a href="/membership">Pay membership</a> to RSVP.</p>
+      <% } else { %>
+      <form method="post" action="/events/<%= event.id %>/rsvp" class="stack" style="margin-top:12px">
+        <%- include('../partials/csrf') %>
+        <label>How many people are coming (including you)?
+          <select name="party_size">
+            <% for (let i = 1; i <= event.max_party_size; i++) { %><option <%= (rsvp?.party_size || 1) === i ? 'selected' : '' %>><%= i %></option><% } %>
+          </select>
+        </label>
+        <button class="btn <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? 'Update RSVP' : (event.fee_cents ? 'RSVP & pay' : 'RSVP') %></button>
+      </form>
+      <% } %>
+      <% if (rsvp) { %>
+        <form method="post" action="/events/<%= event.id %>/cancel" style="margin-top:12px" onsubmit="return confirm('Cancel your RSVP?')">
+          <%- include('../partials/csrf') %><button class="btn secondary small">Cancel RSVP</button>
+        </form>
+      <% } %>
+    <% } else if (!rsvp) { %>
+      <p class="muted">RSVPs are closed for this event.</p>
+    <% } %>
+  </div>
+</div>
+<%- include('../partials/foot') %>

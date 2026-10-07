@@ -1,0 +1,76 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/members">← Member directory</a>
+<div class="page-head"><h1><%= member.first_name %> <%= member.last_name %></h1>
+  <div class="actions"><% if (member.role === 'admin') { %><span class="badge neutral">Administrator</span><% } %>
+  <% if (membership.active) { %><span class="badge ok">Member until <%= fmtDate(membership.current.end_date) %></span><% } else { %><span class="badge warn">No active membership</span><% } %></div>
+</div>
+<div class="card">
+  <h2>Profile</h2>
+  <p class="muted small"><%= member.email %> · Joined <%= fmtDate(member.created_at.slice(0, 10)) %> · Last updated <%= fmtDate(member.updated_at.slice(0, 10)) %></p>
+  <form method="post" action="/admin/members/<%= member.id %>" class="stack">
+    <%- include('../partials/csrf') %>
+    <%- include('../partials/profile-fields', { p: member }) %>
+    <label>Admin notes (not visible to member) <textarea name="notes"><%= member.notes || '' %></textarea></label>
+    <div><button class="btn">Save changes</button></div>
+  </form>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Family members (<%= household.length %>)</h2>
+    <% if (!household.length) { %><p class="muted">None listed.</p><% } %>
+    <ul><% for (const h of household) { %><li><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (b. ${h.birth_year})` : '' %></li><% } %></ul>
+  </div>
+  <div class="card">
+    <h2>Record an in-person payment</h2>
+    <form method="post" action="/admin/members/<%= member.id %>/payments" class="stack">
+      <%- include('../partials/csrf') %>
+      <div class="fields">
+        <label>Type <select name="kind" onchange="this.form.plan_id.disabled = this.value !== 'membership'">
+          <option value="membership">Membership dues</option><option value="other">Other fee / donation</option></select></label>
+        <label>Plan <select name="plan_id"><% for (const p of plans) { %><option value="<%= p.id %>"><%= p.name %> (<%= money(p.amount_cents) %>)</option><% } %></select></label>
+        <label>Amount (blank = plan price) <input name="amount" inputmode="decimal" placeholder="0.00"></label>
+        <label>Description (for other fees) <input name="description"></label>
+        <label>Method <select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select></label>
+        <label>Check # / reference <input name="reference"></label>
+      </div>
+      <div><button class="btn secondary">Record payment</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Event RSVPs</h2>
+  <% if (!rsvps.length) { %><p class="muted">None.</p><% } else { %>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Event</th><th>Status</th><th class="num">People</th><th>Checked in</th></tr></thead>
+    <tbody><% for (const r of rsvps) { %>
+      <tr><td><a href="/admin/events/<%= r.event_id %>"><%= r.title %></a><div class="muted small"><%= fmtDate(r.starts_at) %></div></td>
+        <td><%- include('../partials/rsvp-badge', { status: r.status }) %></td><td class="num"><%= r.party_size %></td>
+        <td><%= r.checked_in_at ? `${r.checked_in_count} people` : '—' %></td></tr>
+    <% } %></tbody>
+  </table></div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Payments</h2>
+  <% if (!payments.length) { %><p class="muted">None.</p><% } else { %>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Description</th><th>Method</th><th class="num">Amount</th></tr></thead>
+    <tbody><% for (const p of payments) { %><tr><td><%= fmtDate(p.paid_at.slice(0, 10)) %></td><td><%= p.description %></td><td><%= p.method %><%= p.provider_ref ? ` (${p.provider_ref})` : '' %></td><td class="num"><%= money(p.amount_cents) %></td></tr><% } %></tbody>
+  </table></div>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Account</h2>
+  <div class="actions">
+    <form method="post" action="/admin/members/<%= member.id %>/role" class="inline"><%- include('../partials/csrf') %>
+      <input type="hidden" name="role" value="<%= member.role === 'admin' ? 'member' : 'admin' %>">
+      <button class="btn secondary small" onclick="return confirm('Are you sure?')"><%= member.role === 'admin' ? 'Remove admin access' : 'Make administrator' %></button></form>
+    <form method="post" action="/admin/members/<%= member.id %>/reset-password" class="inline"><%- include('../partials/csrf') %>
+      <button class="btn secondary small" onclick="return confirm('Generate a temporary password for this member?')">Reset password</button></form>
+  </div>
+</div>
+<%- include('../partials/foot') %>

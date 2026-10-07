@@ -1,0 +1,46 @@
+<%- include('../partials/head') %>
+<div class="card result">
+  <% if (!rsvp) { %>
+    <div class="big-status err">❌ Invalid QR code</div>
+    <p>This code does not match any RSVP.</p>
+  <% } else { %>
+    <% if (rsvp.checked_in_at) { %>
+      <div class="big-status <%= justCheckedIn ? 'ok' : 'err' %>">
+        <%= justCheckedIn ? '✅ Checked in' : '⛔ Already used' %>
+      </div>
+      <p>Checked in <%= fmtDate(rsvp.checked_in_at) %><%= rsvp.checker_first ? ` by ${rsvp.checker_first} ${rsvp.checker_last}` : '' %> — <strong><%= rsvp.checked_in_count %></strong> of <%= rsvp.party_size %> people.</p>
+    <% } else if (rsvp.status === 'cancelled') { %>
+      <div class="big-status err">❌ RSVP cancelled</div>
+    <% } else if (rsvp.status === 'pending_payment') { %>
+      <div class="big-status warn">⚠️ Payment due: <%= money(due) %></div>
+    <% } else { %>
+      <div class="big-status ok">✔ Valid ticket</div>
+    <% } %>
+
+    <h2 style="margin-bottom:0"><%= rsvp.first_name %> <%= rsvp.last_name %></h2>
+    <p class="muted"><%= rsvp.event_title %> · <%= fmtDate(rsvp.starts_at) %></p>
+    <div class="party-count"><%= rsvp.party_size %></div>
+    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered on this QR code</p>
+
+    <% if (rsvp.status === 'pending_payment') { %>
+      <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack">
+        <%- include('../partials/csrf') %>
+        <input type="hidden" name="return_to" value="/admin/checkin/<%= token %>">
+        <label>Collected <%= money(due) %> by <select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select></label>
+        <button class="btn">Record payment</button>
+      </form>
+    <% } else if (rsvp.status === 'confirmed' && !rsvp.checked_in_at) { %>
+      <form method="post" action="/admin/checkin/<%= token %>" class="stack">
+        <%- include('../partials/csrf') %>
+        <label>How many people are arriving?
+          <select name="guests" style="font-size:1.3rem">
+            <% for (let i = rsvp.party_size; i >= 1; i--) { %><option value="<%= i %>"><%= i %></option><% } %>
+          </select>
+        </label>
+        <button class="btn big ok">Check in</button>
+      </form>
+    <% } %>
+  <% } %>
+  <p style="margin-top:20px"><a class="btn secondary" href="/admin/checkin">Scan next</a></p>
+</div>
+<%- include('../partials/foot') %>

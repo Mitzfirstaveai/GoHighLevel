@@ -1,0 +1,26 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Members (<%= members.length %>)</h1>
+  <a class="btn secondary" href="/admin/members.csv">Download CSV</a></div>
+<form method="get" class="card actions">
+  <input name="q" value="<%= q %>" placeholder="Search name, email, phone, city, native place…" style="flex:1;min-width:200px">
+  <button class="btn">Search</button><% if (q) { %><a href="/admin/members">Clear</a><% } %>
+</form>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Name</th><th>Contact</th><th>City</th><th>Family</th><th>Membership</th></tr></thead>
+    <tbody>
+    <% for (const m of members) { %>
+      <tr>
+        <td><a href="/admin/members/<%= m.id %>"><%= m.last_name %>, <%= m.first_name %></a><% if (m.role === 'admin') { %> <span class="badge neutral">Admin</span><% } %>
+          <% if (m.native_place) { %><div class="muted small">Vatan: <%= m.native_place %></div><% } %></td>
+        <td><%= m.email %><div class="muted small"><%= m.phone || '' %></div></td>
+        <td><%= m.city || '' %></td>
+        <td class="num"><%= m.household_count + 1 %></td>
+        <td><% if (m.membership_end && m.membership_end >= today) { %><span class="badge ok">Until <%= fmtDate(m.membership_end) %></span>
+            <% } else if (m.membership_end) { %><span class="badge err">Expired</span><% } else { %><span class="badge neutral">None</span><% } %></td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

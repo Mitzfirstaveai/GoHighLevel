@@ -1,0 +1,44 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/events">← All events</a>
+<div class="page-head">
+  <div><h1><%= event.title %></h1><div class="muted"><%= fmtDate(event.starts_at) %><%= event.location ? ` · ${event.location}` : '' %> · <%= event.fee_cents ? `${money(event.fee_cents)} per person` : 'Free' %>
+    <span class="badge <%= event.status === 'published' ? 'ok' : event.status === 'cancelled' ? 'err' : 'neutral' %>"><%= event.status %></span></div></div>
+  <div class="actions">
+    <a class="btn" href="/admin/checkin">Scan QR codes</a>
+    <a class="btn secondary" href="/admin/events/<%= event.id %>/edit">Edit</a>
+    <a class="btn secondary" href="/admin/events/<%= event.id %>/attendees.csv">Download CSV</a>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="label">People attending (confirmed)</div><div class="value"><%= stats.confirmed_people %><%= event.capacity ? ` / ${event.capacity}` : '' %></div><div class="muted small"><%= stats.confirmed_parties %> RSVP<%= stats.confirmed_parties === 1 ? '' : 's' %></div></div>
+  <div class="stat"><div class="label">Awaiting payment</div><div class="value"><%= stats.pending_people %></div><div class="muted small"><%= stats.pending_parties %> RSVP<%= stats.pending_parties === 1 ? '' : 's' %></div></div>
+  <div class="stat"><div class="label">Checked in</div><div class="value"><%= stats.checked_in_people %></div><div class="muted small"><%= stats.checked_in_parties %> of <%= stats.confirmed_parties %> QR codes scanned</div></div>
+  <div class="stat"><div class="label">Fees collected</div><div class="value"><%= money(revenue) %></div></div>
+</div>
+<div class="card table-wrap">
+  <h2>Guest list</h2>
+  <table>
+    <thead><tr><th>Member</th><th>Status</th><th class="num">Registered</th><th class="num">Paid</th><th>Check-in</th><th></th></tr></thead>
+    <tbody>
+    <% for (const a of attendees) { %>
+      <tr class="<%= a.status === 'cancelled' ? 'dim' : '' %>">
+        <td><a href="/admin/members/<%= a.user_id %>"><%= a.last_name %>, <%= a.first_name %></a><div class="muted small"><%= a.phone || a.email %></div></td>
+        <td><%- include('../partials/rsvp-badge', { status: a.status }) %></td>
+        <td class="num"><strong><%= a.party_size %></strong></td>
+        <td class="num"><%= event.fee_cents ? money(a.paid_cents) : '—' %></td>
+        <td><% if (a.checked_in_at) { %><span class="badge ok"><%= a.checked_in_count %> arrived</span><div class="muted small"><%= fmtDate(a.checked_in_at) %></div><% } else { %>—<% } %></td>
+        <td class="num">
+          <% if (a.status === 'pending_payment') { %>
+            <form method="post" action="/admin/rsvps/<%= a.id %>/record-payment" class="inline" onsubmit="return confirm('Record a cash payment for this RSVP?')">
+              <%- include('../partials/csrf') %><input type="hidden" name="method" value="cash"><button class="btn secondary small">Record cash</button></form>
+          <% } else if (a.status === 'confirmed' && !a.checked_in_at) { %>
+            <a class="btn secondary small" href="/admin/checkin/<%= a.qr_token %>">Check in</a>
+          <% } %>
+        </td>
+      </tr>
+    <% } %>
+    <% if (!attendees.length) { %><tr><td colspan="6" class="muted">No RSVPs yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

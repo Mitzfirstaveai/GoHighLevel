@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Events</h1><a class="btn" href="/admin/events/new">+ New event</a></div>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Event</th><th>Status</th><th>Fee</th><th class="num">Attending</th><th class="num">Payment due</th><th class="num">Checked in</th></tr></thead>
+    <tbody>
+    <% for (const e of events) { %>
+      <tr class="<%= e.starts_at < now ? 'dim' : '' %>">
+        <td><a href="/admin/events/<%= e.id %>"><%= e.title %></a><div class="muted small"><%= fmtDate(e.starts_at) %></div></td>
+        <td><span class="badge <%= e.status === 'published' ? 'ok' : e.status === 'cancelled' ? 'err' : 'neutral' %>"><%= e.status %></span></td>
+        <td><%= e.fee_cents ? money(e.fee_cents) : 'Free' %></td>
+        <td class="num"><strong><%= e.stats.confirmed_people %></strong><%= e.capacity ? ` / ${e.capacity}` : '' %></td>
+        <td class="num"><%= e.stats.pending_people %></td>
+        <td class="num"><%= e.stats.checked_in_people %></td>
+      </tr>
+    <% } %>
+    <% if (!events.length) { %><tr><td colspan="6" class="muted">No events yet.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

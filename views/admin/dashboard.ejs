@@ -1,0 +1,39 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Admin overview</h1></div>
+<div class="tiles">
+  <a class="tile primary" href="/admin/checkin"><%- include('../partials/icon', { name: 'scan' }) %>Scan QR tickets<small>Check guests in at the door</small></a>
+  <a class="tile" href="/admin/events/new"><%- include('../partials/icon', { name: 'plus' }) %>Create event<small>With optional fee</small></a>
+  <a class="tile" href="/admin/members"><%- include('../partials/icon', { name: 'users' }) %>Member directory<small>Search &amp; export</small></a>
+  <a class="tile" href="/admin/payments"><%- include('../partials/icon', { name: 'dollar' }) %>Payments<small>Dues, event fees, donations</small></a>
+</div>
+<div class="stats">
+  <div class="stat"><div class="label">Registered members</div><div class="value"><%= stats.members %></div></div>
+  <div class="stat"><div class="label">Paid memberships</div><div class="value"><%= stats.activeMembers %></div></div>
+  <div class="stat"><div class="label">Upcoming events</div><div class="value"><%= stats.upcomingEvents %></div></div>
+  <div class="stat"><div class="label">Total collected</div><div class="value"><%= money(stats.collected) %></div></div>
+</div>
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Upcoming events</h2>
+    <% if (!events.length) { %><p class="muted">No upcoming events. <a href="/admin/events/new">Create one</a>.</p><% } %>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Event</th><th class="num">Attending</th><th class="num">Checked in</th></tr></thead>
+      <tbody><% for (const e of events) { %>
+        <tr><td><a href="/admin/events/<%= e.id %>"><%= e.title %></a><div class="muted small"><%= fmtDate(e.starts_at) %></div></td>
+          <td class="num"><strong><%= e.stats.confirmed_people %></strong> <span class="muted small">(<%= e.stats.confirmed_parties %> RSVP<%= e.stats.confirmed_parties === 1 ? '' : 's' %>)</span></td>
+          <td class="num"><%= e.stats.checked_in_people %></td></tr>
+      <% } %></tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <h2>Recent payments</h2>
+    <% if (!recentPayments.length) { %><p class="muted">No payments yet.</p><% } %>
+    <div class="table-wrap"><table><tbody>
+      <% for (const p of recentPayments) { %>
+        <tr><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a><div class="muted small"><%= p.description %></div></td><td class="num"><%= money(p.amount_cents) %></td></tr>
+      <% } %>
+    </tbody></table></div>
+    <p><a href="/admin/payments">All payments →</a> · <a href="/admin/plans">Membership plans →</a></p>
+  </div>
+</div>
+<%- include('../partials/foot') %>

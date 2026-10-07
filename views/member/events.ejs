@@ -1,0 +1,19 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Upcoming events</h1></div>
+<% if (!events.length) { %><div class="card"><p class="muted">No upcoming events yet. Check back soon!</p></div><% } %>
+<div class="event-list">
+<% for (const e of events) { %>
+  <a class="card event-item" href="/events/<%= e.id %>" style="margin:0">
+    <%- include('../partials/date-chip', { when: e.starts_at }) %>
+    <div style="flex:1">
+      <strong><%= e.title %></strong>
+      <% if (e.status === 'cancelled') { %><span class="badge err">Cancelled</span><% } %>
+      <% if (e.my_status) { %><%- include('../partials/rsvp-badge', { status: e.my_status }) %><% } %>
+      <% if (e.members_only) { %><span class="badge neutral">Members only</span><% } %>
+      <div class="muted small"><%= fmtDate(e.starts_at) %><%= e.location ? ` · ${e.location}` : '' %></div>
+      <div class="small"><%= e.fee_cents ? `${money(e.fee_cents)} per person` : 'Free' %></div>
+    </div>
+  </a>
+<% } %>
+</div>
+<%- include('../partials/foot') %>

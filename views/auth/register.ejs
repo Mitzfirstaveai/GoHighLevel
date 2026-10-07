@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<div class="card" style="max-width:560px;margin:20px auto">
+  <img src="/logo.png" alt="" width="80" height="80" style="display:block;margin:0 auto 8px;border-radius:50%">
+  <h1 style="text-align:center">Join <%= orgName %></h1>
+  <form method="post" action="/register" class="stack">
+    <%- include('../partials/csrf') %>
+    <div class="fields">
+      <label>First name <input name="first_name" value="<%= form.first_name || '' %>" required autocomplete="given-name"></label>
+      <label>Last name <input name="last_name" value="<%= form.last_name || '' %>" required autocomplete="family-name"></label>
+      <label>Email <input type="email" name="email" value="<%= form.email || '' %>" required autocomplete="email"></label>
+      <label>Phone <input type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></label>
+      <label>City <input name="city" value="<%= form.city || '' %>" autocomplete="address-level2"></label>
+      <label>Native place (Vatan) <input name="native_place" value="<%= form.native_place || '' %>" placeholder="e.g. Nadiad"></label>
+      <label>Password <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+      <label>Confirm password <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
+    </div>
+    <button class="btn">Create account</button>
+  </form>
+  <p class="muted small">Already a member? <a href="/login">Sign in</a></p>
+</div>
+<%- include('../partials/foot') %>
