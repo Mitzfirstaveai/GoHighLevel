@@ -1,0 +1,55 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/photos">← All albums</a>
+<div class="page-head"><div><h1><%= album.title %></h1>
+  <div class="muted"><%= labels[album.category] %> · <%= fmtDate(album.album_date) %> · <%= album.photo_count %> photo<%= album.photo_count === 1 ? '' : 's' %></div></div>
+  <div class="actions"><a class="btn secondary" href="/photos/albums/<%= album.id %>">View as a member</a></div>
+</div>
+
+<div class="card">
+  <h2>Add photos</h2>
+  <form method="post" action="/admin/photos/<%= album.id %>/upload?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack" data-upload>
+    <label>Choose photos (up to <%= maxFiles %> at a time)
+      <input type="file" name="photos" accept="image/*" multiple required></label>
+    <p class="muted small" style="margin:0">Photos are resized for quick viewing, and location data from phones is removed. Only signed-in members can see them.</p>
+    <div><button class="btn">Upload photos</button> <span class="muted small" data-upload-status hidden>Uploading — please keep this page open…</span></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Photos</h2>
+  <% if (!photos.length) { %><p class="muted">No photos yet.</p><% } %>
+  <div class="admin-photo-grid">
+    <% for (const p of photos) { %>
+      <div class="admin-photo" id="photo-<%= p.id %>">
+        <a href="/photos/view/<%= p.id %>"><img src="/photos/file/<%= p.id %>/thumb" alt="" loading="lazy" width="480" height="480"></a>
+        <% if (album.cover_id === p.id) { %><span class="badge ok">Cover</span><% } %>
+        <form method="post" action="/admin/photos/photo/<%= p.id %>/caption" class="actions"><%- include('../partials/csrf') %>
+          <input name="caption" value="<%= p.caption || '' %>" placeholder="Caption (optional)" maxlength="300" style="flex:1;min-width:0">
+          <button class="btn secondary small">Save</button></form>
+        <div class="actions">
+          <% if (album.cover_id !== p.id) { %><form method="post" action="/admin/photos/photo/<%= p.id %>/cover" class="inline"><%- include('../partials/csrf') %><button class="btn secondary small">Make cover</button></form><% } %>
+          <form method="post" action="/admin/photos/photo/<%= p.id %>/delete" class="inline" onsubmit="return confirm('Delete this photo?')"><%- include('../partials/csrf') %><button class="btn secondary small">Delete</button></form>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<details class="card">
+  <summary><strong>Album details</strong></summary>
+  <form method="post" action="/admin/photos/<%= album.id %>" class="stack" style="margin-top:12px">
+    <%- include('../partials/csrf') %>
+    <%- include('../partials/album-fields', { a: album }) %>
+    <div><button class="btn">Save album</button></div>
+  </form>
+  <form method="post" action="/admin/photos/<%= album.id %>/delete" style="margin-top:16px" onsubmit="return confirm('Delete this album and all its photos?')">
+    <%- include('../partials/csrf') %><button class="btn secondary small">Delete album</button></form>
+</details>
+<script>
+  // Large uploads take a while on a phone: show that something is happening.
+  document.querySelector('[data-upload]').addEventListener('submit', (e) => {
+    e.target.querySelector('[data-upload-status]').hidden = false;
+    e.target.querySelector('button').disabled = true;
+  });
+</script>
+<%- include('../partials/foot') %>

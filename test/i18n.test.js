@@ -93,6 +93,9 @@ test('every member and public page is fully translated', async () => {
   const pages = ['/dashboard', '/events', '/events?view=calendar', `/events/${event('Diwali Dinner & Cultural Program')}`,
     `/events/${event('Garba Dance Workshop for Kids')}`, `/events/${event('Navratri Garba #1')}`, `/events/${event('Annual General Meeting')}`,
     '/tickets', `/tickets/${ticket}`, '/membership', '/profile', '/payments', '/donate', '/directory', '/news', '/more',
+    '/photos', '/photos?category=festivals',
+    `/photos/albums/${db.prepare('SELECT id FROM photo_albums LIMIT 1').get().id}`,
+    `/photos/view/${db.prepare('SELECT id FROM photos WHERE caption IS NOT NULL LIMIT 1').get().id}`,
     '/about', '/committee', '/sponsors', '/contact'];
   for (const p of pages) {
     const res = await c.get(p);

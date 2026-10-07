@@ -16,6 +16,7 @@
     <% if (spotsLeft !== null) { %><p><strong><%= t('Spots left:') %></strong> <%= spotsLeft %><%= spotsLeft === 0 ? ` — ${t('join the waitlist below')}` : '' %></p><% } %>
     <% if (loc(event, 'description')) { %><p style="white-space:pre-line"><%= loc(event, 'description') %></p><% } %>
     <a class="btn secondary small" href="/events/<%= event.id %>/calendar.ics">📅 <%= t('Add to my calendar') %></a>
+    <% for (const a of albums) { %><a class="btn secondary small" href="/photos/albums/<%= a.id %>">📷 <%= t('Photos from this event') %></a><% } %>
   </div>
 
   <div class="card">

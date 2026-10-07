@@ -1,0 +1,17 @@
+<%- include('../partials/head') %>
+<a class="back" href="/photos?category=<%= album.category %>">← <%= t(labels[album.category]) %></a>
+<div class="page-head"><div>
+  <h1><%= loc(album, 'title') %></h1>
+  <p class="muted" style="margin:0"><%= fmtDate(album.album_date) %> · <%= plural(album.photo_count, '1 photo', '{n} photos') %>
+    <% if (album.event_id) { %> · <a href="/events/<%= album.event_id %>"><%= t('Event details') %></a><% } %></p>
+</div></div>
+<% if (album.description) { %><p style="white-space:pre-line"><%= album.description %></p><% } %>
+<% if (!photos.length) { %><div class="card"><p class="muted"><%= t('No photos in this album yet.') %></p></div><% } %>
+<div class="photo-grid">
+  <% photos.forEach((p, i) => { %>
+    <a href="/photos/view/<%= p.id %>" aria-label="<%= t('Photo {n} of {total}', { n: i + 1, total: photos.length }) %>">
+      <img src="/photos/file/<%= p.id %>/thumb" alt="<%= p.caption || '' %>" loading="lazy" width="480" height="480">
+    </a>
+  <% }) %>
+</div>
+<%- include('../partials/foot') %>

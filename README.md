@@ -80,7 +80,10 @@ Other sample members use the password `demo1234`.
    own login* (enter their email; they then tap **Join** with that email).
 8. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
 9. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
-10. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
+10. *Photos* (in the top menu, or *More → Photos* on a phone): albums grouped by type of event — Navratri & Garba,
+   Diwali, Festivals, Sports… Tap an album, then a photo; use the big **Next / Previous** buttons (or swipe).
+   The demo albums use illustrated stand-ins; upload real event photos to replace them.
+11. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
 
 **As an admin**
 1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.
@@ -89,8 +92,11 @@ Other sample members use the password `demo1234`.
    No phone? Search by name, a family member's name or phone number. The list at the bottom shows the door volunteers.
 4. *Contacts*: filter by Sponsor / Donor / "No login yet"; add a contact without email; **Import from spreadsheet**.
 5. *Donations*: Facility Fund thermometer, donor list, start a new fund. *Reports*: income by month, **Export for QuickBooks**.
-6. *Website*: change the motto or committee list and open the public pages. *News*: post an announcement with a photo.
-7. *Overview → Reset demo data* before the next presentation.
+6. *Photos*: **New album** → pick the event and type → **Upload photos** (up to 20 at a time, straight from a phone).
+   Photos are resized, location data from phones is removed, and only signed-in members can see them. Set the cover
+   photo, add captions, delete photos.
+7. *Website*: change the motto or committee list and open the public pages. *News*: post an announcement with a photo.
+8. *Overview → Reset demo data* before the next presentation.
 
 **As a door volunteer** (Dhruv Amin in the demo)
 1. Open **Committee & volunteer sign-in** and tap **Door volunteer**. The app opens straight into door check-in: scan

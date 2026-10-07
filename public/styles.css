@@ -346,3 +346,23 @@ body.door-mode .topbar .brand-short { display: inline; }
 .ticket-for li.muted { background: none; font-weight: 400; }
 .ticket-names { margin-top: 4px; }
 .family-list { padding-left: 18px; }
+
+/* Photos */
+.pill-count { opacity: .7; font-size: .85em; margin-left: 2px; }
+.album-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.album-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; color: var(--text); text-decoration: none; box-shadow: var(--shadow); }
+.album-card img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; background: var(--border); }
+.album-card .album-info { display: grid; gap: 2px; padding: 10px 12px 12px; }
+.album-card:hover { border-color: var(--saffron); }
+.photo-grid { display: grid; gap: 4px; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+.photo-grid a { display: block; }
+.photo-grid img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 6px; background: var(--border); }
+.photo-view { max-width: 960px; margin: 0 auto; }
+.photo-view img { display: block; width: auto; height: auto; max-width: 100%; max-height: 72vh; margin: 0 auto; border-radius: 10px; background: var(--border); }
+.photo-caption { text-align: center; font-size: 1.1rem; margin: 10px 0 0; }
+.photo-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 14px; }
+.admin-photo-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.admin-photo { display: grid; gap: 6px; align-content: start; }
+.admin-photo .badge { justify-self: start; }
+.admin-photo img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 8px; }

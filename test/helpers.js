@@ -64,7 +64,7 @@ async function startTestApp(overrides = {}) {
       if (!this.csrf) await this.get('/login');
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.append(k, v);
-      if (file) fd.append(file.field, new Blob([file.content], { type: file.type }), file.name);
+      for (const f of [].concat(file ?? [])) fd.append(f.field, new Blob([f.content], { type: f.type }), f.name);
       return this.request('POST', `${path}${path.includes('?') ? '&' : '?'}_csrf=${encodeURIComponent(this.csrf)}`, fd);
     }
 
@@ -124,7 +124,7 @@ async function startTestApp(overrides = {}) {
   }
 
   return {
-    db, base, Client, login, register, planId, futureDate, createEvent, rsvpFor, close: () => server.close(),
+    db, base, Client, login, register, planId, futureDate, createEvent, rsvpFor, config: () => app.locals.config, close: () => server.close(),
   };
 }
 

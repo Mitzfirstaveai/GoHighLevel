@@ -1,0 +1,20 @@
+<%# Album details form fields (admin). `a` = album or {} for a new one. %>
+<div class="fields">
+  <label>Event (optional)
+    <select name="event_id">
+      <option value="">— Not linked to an event —</option>
+      <% for (const e of events) { %><option value="<%= e.id %>" <%= a.event_id === e.id ? 'selected' : '' %>><%= e.title %> · <%= fmtDate(e.starts_at.slice(0, 10)) %></option><% } %>
+    </select>
+  </label>
+  <label>Type of event
+    <select name="category" required>
+      <% for (const [key, label] of categories) { %><option value="<%= key %>" <%= (a.category || 'other') === key ? 'selected' : '' %>><%= label %></option><% } %>
+    </select>
+  </label>
+</div>
+<label>Album name <input name="title" value="<%= a.title || '' %>" maxlength="150" placeholder="Leave blank to use the event's name"></label>
+<div class="fields">
+  <label>Date of the photos <input type="date" name="taken_on" value="<%= a.taken_on || '' %>"></label>
+  <label>Album name in Gujarati (optional) <input name="title_gu" value="<%= a.title_gu || '' %>" maxlength="150" lang="gu"></label>
+</div>
+<label>Description (optional) <textarea name="description" rows="2" maxlength="1000"><%= a.description || '' %></textarea></label>

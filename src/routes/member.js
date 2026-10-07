@@ -202,6 +202,8 @@ router.get('/events/:id', requireAuth, (req, res) => {
     maxParty: svc.maxPartySize(db, event, req.user.id),
     familyListed: svc.getHousehold(db, svc.householdOwnerId(db, req.user.id)).length,
     people: svc.eventPeople(db, event, req.user.id),
+    albums: db.prepare(`SELECT a.id FROM photo_albums a WHERE a.event_id = ?
+      AND EXISTS (SELECT 1 FROM photos p WHERE p.album_id = a.id AND p.status = 'approved') ORDER BY a.id`).all(event.id),
     isFamilyLogin: Boolean(req.user.owner_id),
     spotsLeft: event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null,
     questions: svc.eventQuestions(event),

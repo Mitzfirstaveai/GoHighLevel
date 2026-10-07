@@ -8,13 +8,13 @@
     ['/membership', 'Dues', 'card'],
     ['/more', 'More', 'more'],
   ];
-  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/about', '/committee', '/sponsors', '/contact', '/donate'];
+  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/photos', '/about', '/committee', '/sponsors', '/contact', '/donate'];
   if (user.role === 'admin') tabs.push(['/admin', 'Admin', 'shield']);
   const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
 %>
 <nav class="tabbar mobile-only" aria-label="<%= t('Main menu') %>">
   <% for (const [href, label, icon, exact] of tabs) { %>
-    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.includes(path)) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label) %></span></a>
+    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.some((m) => path === m || path.startsWith(m + '/'))) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label) %></span></a>
   <% } %>
 </nav>
 <% } %>

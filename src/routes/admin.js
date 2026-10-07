@@ -33,7 +33,7 @@ router.get('/', (req, res) => {
 
 router.post('/demo/reset', (req, res) => {
   if (!req.app.locals.config.demoMode) return res.sendStatus(404);
-  require('../demo').resetDemo(req.app.locals.db);
+  require('../demo').resetDemo(req.app.locals.db, { photosDir: req.app.locals.config.photosDir });
   req.flash('success', 'Demo data has been reset. Event dates are relative to today.');
   res.redirect('/admin');
 });

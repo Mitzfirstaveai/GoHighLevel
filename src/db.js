@@ -147,6 +147,34 @@ CREATE TABLE IF NOT EXISTS rsvp_attendees (
   relationship TEXT
 );
 
+-- Photo albums for members, grouped by type of event (category keys are in src/photos.js).
+CREATE TABLE IF NOT EXISTS photo_albums (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  title_gu TEXT,
+  category TEXT NOT NULL DEFAULT 'other',
+  event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+  description TEXT,
+  taken_on TEXT,                     -- date the photos are from (YYYY-MM-DD)
+  cover_photo_id INTEGER,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Files live in the private photos folder (not the public uploads), served only to signed-in members.
+CREATE TABLE IF NOT EXISTS photos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  album_id INTEGER NOT NULL REFERENCES photo_albums(id) ON DELETE CASCADE,
+  file TEXT NOT NULL,                -- <name>.jpg full size, <name>_t.jpg thumbnail
+  width INTEGER,
+  height INTEGER,
+  caption TEXT,
+  uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- Ready for member uploads later: theirs would wait as 'pending' until an admin approves.
+  status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- QR codes that were replaced (guest count changed, RSVP re-opened). Kept so a scan of an
 -- old code can say "replaced" instead of just "invalid".
 CREATE TABLE IF NOT EXISTS retired_qr_tokens (
@@ -203,6 +231,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_rsvps_event ON rsvps(event_id);
 CREATE INDEX IF NOT EXISTS idx_attendees_rsvp ON rsvp_attendees(rsvp_id);
+CREATE INDEX IF NOT EXISTS idx_photos_album ON photos(album_id, status);
 CREATE INDEX IF NOT EXISTS idx_attendees_event ON rsvp_attendees(event_id, person);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_household_email ON household_members(email) WHERE email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
@@ -210,7 +239,7 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6; // 6: photo albums (new tables only, created by SCHEMA)
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {

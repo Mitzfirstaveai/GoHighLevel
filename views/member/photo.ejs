@@ -1,0 +1,28 @@
+<%- include('../partials/head') %>
+<a class="back" href="/photos/albums/<%= album.id %>">← <%= loc(album, 'title') %></a>
+<div class="photo-view">
+  <img src="/photos/file/<%= photo.id %>/full" alt="<%= photo.caption || loc(album, 'title') %>" width="<%= photo.width || '' %>" height="<%= photo.height || '' %>">
+  <% if (photo.caption) { %><p class="photo-caption"><%= photo.caption %></p><% } %>
+  <p class="muted" style="text-align:center;margin:6px 0"><%= t('Photo {n} of {total}', { n: position, total }) %></p>
+  <div class="photo-nav">
+    <% if (prev) { %><a class="btn big secondary" href="/photos/view/<%= prev %>" data-prev>← <%= t('Previous') %></a><% } else { %><span></span><% } %>
+    <% if (next) { %><a class="btn big" href="/photos/view/<%= next %>" data-next><%= t('Next') %> →</a><% } else { %><a class="btn big secondary" href="/photos/albums/<%= album.id %>"><%= t('Back to album') %></a><% } %>
+  </div>
+  <p style="text-align:center"><a class="btn secondary small" href="/photos/file/<%= photo.id %>/full?download=1"><%= t('Download') %></a></p>
+</div>
+<script>
+  // Arrow keys and swiping also move between photos.
+  (function () {
+    const go = (sel) => { const a = document.querySelector(sel); if (a) location.href = a.href; };
+    document.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') go('[data-prev]'); if (e.key === 'ArrowRight') go('[data-next]'); });
+    let x = null;
+    const img = document.querySelector('.photo-view img');
+    img.addEventListener('touchstart', (e) => { x = e.touches[0].clientX; }, { passive: true });
+    img.addEventListener('touchend', (e) => {
+      if (x === null) return;
+      const dx = e.changedTouches[0].clientX - x; x = null;
+      if (Math.abs(dx) > 60) go(dx < 0 ? '[data-next]' : '[data-prev]');
+    });
+  })();
+</script>
+<%- include('../partials/foot') %>

@@ -17,7 +17,7 @@ const { i18nMiddleware, prefsRoute } = require('./i18n');
 function createApp(config) {
   const db = openDb(config.databaseFile);
   const gateway = createGateway(config);
-  if (config.demoMode && isEmpty(db)) seedDemo(db);
+  if (config.demoMode && isEmpty(db)) seedDemo(db, { photosDir: config.photosDir });
   ensureAdmin(db, config);
 
   const app = express();
@@ -92,6 +92,7 @@ function createApp(config) {
   app.use(require('./routes/member'));
   app.use(require('./routes/donations').router);
   app.use('/pay', require('./routes/pay'));
+  app.use(require('./routes/photos'));
   app.use('/admin/checkin', require('./routes/checkin'));
   app.use('/admin', require('./routes/reports'));
   app.use('/admin', require('./routes/site-admin'));

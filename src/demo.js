@@ -1,5 +1,8 @@
 // Realistic sample data for demonstrating the app. Used by `npm run seed`, by DEMO_MODE
 // auto-seeding on an empty database, and by the admin "Reset demo data" button.
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { transaction } = require('./db');
 const { newToken } = require('./util');
@@ -53,7 +56,39 @@ function localDateTime(daysFromNow, time) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${time}`;
 }
 
-function seedDemo(db) {
+// Demo albums use illustrated stand-ins (demo/photos, made by scripts/make-demo-photos.js) — real
+// event photos replace them once the committee uploads some.
+const DEMO_PHOTOS = path.join(__dirname, '..', 'demo', 'photos');
+
+function seedDemoPhotos(db, { photosDir, year, pastIds, admin }) {
+  if (!photosDir || !fs.existsSync(DEMO_PHOTOS)) return;
+  fs.mkdirSync(photosDir, { recursive: true });
+  // [image set, photos, title, Gujarati title, category, linked event, date, first caption]
+  const albums = [
+    ['garba', 6, `Navratri Garba ${year - 1}`, `નવરાત્રી ગરબા ${year - 1}`, 'navratri', null, `${year - 1}-10-04`, 'Garba circle on the first night'],
+    ['diwali', 5, `Diwali Dinner ${year - 1}`, `દિવાળી ભોજન ${year - 1}`, 'diwali', null, `${year - 1}-10-25`, 'Diyas lit for Diwali'],
+    ['festival', 4, 'Ganesh Chaturthi Utsav', 'ગણેશ ચતુર્થી ઉત્સવ', 'festivals', 'Ganesh Chaturthi Utsav', null, 'Modak offering'],
+    ['picnic', 4, 'Summer Picnic', 'સમર પિકનિક', 'picnics', 'Summer Picnic', null, 'Lunch under the trees'],
+    ['volleyball', 3, 'GSA Premier League Volleyball Tournament', 'GSA પ્રીમિયર લીગ વોલીબોલ ટુર્નામેન્ટ', 'sports', 'GSA Premier League Volleyball Tournament', null, 'Final match'],
+    ['kites', 3, `Kite Flying Festival ${year}`, `પતંગ મહોત્સવ ${year}`, 'festivals', null, `${year}-01-14`, 'Uttarayan at Two Rivers Park'],
+    ['bhajan', 2, 'Shravan Somwar Bhajan #1', 'શ્રાવણ સોમવાર ભજન #1', 'religious', 'Shravan Somwar Bhajan #1', null, null],
+  ];
+  for (const [set, count, title, titleGu, category, eventTitle, date, caption] of albums) {
+    const eventId = eventTitle ? pastIds[eventTitle] : null;
+    const takenOn = date || db.prepare('SELECT substr(starts_at, 1, 10) AS d FROM events WHERE id = ?').get(eventId).d;
+    const albumId = Number(db.prepare(`INSERT INTO photo_albums (title, title_gu, category, event_id, taken_on, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(title, titleGu, category, eventId, takenOn, admin).lastInsertRowid);
+    for (let i = 1; i <= count; i++) {
+      const name = crypto.randomBytes(12).toString('hex');
+      fs.copyFileSync(path.join(DEMO_PHOTOS, `${set}-${i}.jpg`), path.join(photosDir, `${name}.jpg`));
+      fs.copyFileSync(path.join(DEMO_PHOTOS, `${set}-${i}_t.jpg`), path.join(photosDir, `${name}_t.jpg`));
+      db.prepare('INSERT INTO photos (album_id, file, width, height, caption, uploaded_by) VALUES (?, ?, 1200, 900, ?, ?)')
+        .run(albumId, name, i === 1 ? caption : null, admin);
+    }
+  }
+}
+
+function seedDemo(db, { photosDir } = {}) {
   return transaction(db, () => {
     const year = new Date().getFullYear();
     const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
@@ -241,19 +276,26 @@ function seedDemo(db) {
     donate('dinesh.patel@example.com', 250100, facility, 'check', 40);
     donate('member@example.com', 10100, null, 'demo', 5);
     donate('meena.mehta@example.com', 5100, null, 'cash', 12);
+
+    seedDemoPhotos(db, { photosDir, year, pastIds, admin });
   });
 }
 
-const TABLES = ['news_posts', 'rsvp_attendees', 'retired_qr_tokens', 'coupons', 'rsvps', 'memberships', 'payments', 'household_members', 'events',
+const TABLES = ['photos', 'photo_albums', 'news_posts', 'rsvp_attendees', 'retired_qr_tokens', 'coupons', 'rsvps', 'memberships', 'payments', 'household_members', 'events',
   'campaigns', 'membership_plans', 'users', 'pages'];
 
 // Wipes all data and loads the demo set again. Sessions are kept: the admin keeps the same id.
-function resetDemo(db) {
+function resetDemo(db, { photosDir } = {}) {
+  if (photosDir) {
+    for (const { file } of db.prepare('SELECT file FROM photos').all()) {
+      for (const suffix of ['.jpg', '_t.jpg']) fs.rmSync(path.join(photosDir, `${file}${suffix}`), { force: true });
+    }
+  }
   transaction(db, () => {
     for (const t of TABLES) db.exec(`DELETE FROM ${t}`);
     db.exec(`DELETE FROM sqlite_sequence WHERE name IN (${TABLES.map((t) => `'${t}'`).join(', ')})`);
   });
-  seedDemo(db);
+  seedDemo(db, { photosDir });
 }
 
 function isEmpty(db) {

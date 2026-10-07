@@ -1,0 +1,26 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1><%= t('Photos') %></h1></div>
+<% if (categories.length) { %>
+  <nav class="pills wrap" aria-label="<%= t('Type of event') %>">
+    <a href="/photos" class="<%= !category ? 'active' : '' %>"><%= t('All') %></a>
+    <% for (const [key, label] of categories) { %>
+      <a href="/photos?category=<%= key %>" class="<%= category === key ? 'active' : '' %>"><%= t(label) %> <span class="pill-count"><%= counts[key] %></span></a>
+    <% } %>
+  </nav>
+<% } %>
+<% if (!albums.length) { %>
+  <div class="card"><p class="muted"><%= t('No photos yet. Photos from our events will appear here.') %></p></div>
+<% } %>
+<div class="album-grid">
+  <% for (const a of albums) { %>
+    <a class="album-card" href="/photos/albums/<%= a.id %>">
+      <img src="/photos/file/<%= a.cover_id %>/thumb" alt="" loading="lazy" width="480" height="480">
+      <span class="album-info">
+        <strong><%= loc(a, 'title') %></strong>
+        <span class="muted small"><%= t(labels[a.category]) %> · <%= fmtDate(a.album_date) %></span>
+        <span class="small"><%= plural(a.photo_count, '1 photo', '{n} photos') %></span>
+      </span>
+    </a>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>

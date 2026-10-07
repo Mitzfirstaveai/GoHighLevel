@@ -39,6 +39,12 @@ function loadConfig(overrides = {}) {
       ? path.join(require('node:os').tmpdir(), 'samaj-uploads')
       : path.join(path.dirname(config.databaseFile), 'uploads');
   }
+  // Members' photo albums are kept apart from the public uploads folder and served only to signed-in members.
+  if (!config.photosDir) {
+    config.photosDir = env.PHOTOS_DIR || (config.databaseFile === ':memory:'
+      ? path.join(require('node:os').tmpdir(), 'samaj-photos')
+      : path.join(path.dirname(config.databaseFile), 'photos'));
+  }
   if (config.isProduction && config.sessionSecret === 'dev-only-secret-change-me') {
     throw new Error('SESSION_SECRET must be set in production');
   }

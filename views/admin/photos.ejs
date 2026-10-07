@@ -1,0 +1,31 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Photos</h1><a class="btn secondary" href="/photos">View as a member</a></div>
+<div class="card">
+  <h2>New album</h2>
+  <p class="muted small">Choose the event and type, create the album, then add photos from your phone or computer.</p>
+  <form method="post" action="/admin/photos" class="stack">
+    <%- include('../partials/csrf') %>
+    <%- include('../partials/album-fields', { a: {} }) %>
+    <div><button class="btn">Create album</button></div>
+  </form>
+</div>
+<div class="card table-wrap">
+  <h2>Albums (<%= albums.length %>)</h2>
+  <% if (!albums.length) { %><p class="muted">No albums yet.</p><% } else { %>
+  <table>
+    <thead><tr><th></th><th>Album</th><th>Type</th><th>Date</th><th class="num">Photos</th></tr></thead>
+    <tbody>
+    <% for (const a of albums) { %>
+      <tr>
+        <td style="width:64px"><% if (a.cover_id) { %><img src="/photos/file/<%= a.cover_id %>/thumb" alt="" width="56" height="56" style="border-radius:8px;object-fit:cover;display:block"><% } %></td>
+        <td><a href="/admin/photos/<%= a.id %>"><strong><%= a.title %></strong></a><% if (a.event_title) { %><div class="muted small">Event: <%= a.event_title %></div><% } %></td>
+        <td><%= labels[a.category] %></td>
+        <td><%= fmtDate(a.album_date) %></td>
+        <td class="num"><%= a.photo_count %></td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>
