@@ -4,6 +4,8 @@
   <% if (membership.active) { %>
     <p style="margin-top:0"><span class="badge ok"><%= t('Active') %></span> <strong><%= membership.plan ? loc(membership.plan, 'name') : t('Member') %></strong> — <%= t('valid through') %> <strong><%= fmtDate(membership.current.end_date) %></strong>
       <% if (membership.validUntil > membership.current.end_date) { %><br><span class="muted small"><%= t('Renewed through {date}', { date: fmtDate(membership.validUntil) }) %></span><% } %></p>
+    <% const opensOn = plans.find((p) => p.quote.opensOn)?.quote.opensOn; %>
+    <% if (opensOn) { %><p class="flash info small" style="margin:8px 0 0"><%= t("You're paid up through {date}. Dues can be paid at most one year ahead (fees may change), so renewal for the following year opens on {opens}.", { date: fmtDate(membership.validUntil), opens: fmtDate(opensOn) }) %></p><% } %>
     <% if (coverageParts) { %><p class="muted" style="margin-bottom:0"><%= t('Covers {coverage}.', { coverage: { list: coverageParts } }) %> <a href="/profile#family"><%= t('Manage family members') %></a></p><% } %>
   <% } else { %>
     <p style="margin-top:0"><span class="badge warn"><%= membership.current ? t('Expired on {date}', { date: fmtDate(membership.current.end_date) }) : t('No active membership') %></span></p>
@@ -23,6 +25,8 @@
     <% if (p.description) { %><p class="muted small"><%= t.data(p.description) %></p><% } %>
     <% if (p.blocked) { %>
       <p class="small" style="color:var(--err)"><%= t(p.blocked.template, p.blocked.vars) %></p>
+    <% } else if (p.quote.opensOn) { %>
+      <p class="muted small"><%= t('Renewal opens on {date}.', { date: fmtDate(p.quote.opensOn) }) %></p>
     <% } else if (paymentMode !== 'disabled' || p.quote.amountCents === 0) { %>
       <% if (!membership.active && p.calendar_year) { %><p class="small muted"><%= t('Memberships run Jan 1 – Dec 31.') %> <%= t('Joining now covers you through') %> <strong><%= t('Dec 31, {year}', { year: new Date().getFullYear() }) %></strong>.</p><% } %>
       <form method="post" action="/membership/pay"><%- include('../partials/csrf') %><input type="hidden" name="plan_id" value="<%= p.id %>">

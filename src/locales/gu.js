@@ -643,4 +643,9 @@ module.exports = {
   'Youth & Kids': 'યુવાનો અને બાળકો',
   'Cultural Programs': 'સાંસ્કૃતિક કાર્યક્રમો',
   'Meetings & Community': 'સભાઓ અને સમુદાય',
+
+  // Dues at most one year ahead
+  "You're paid up through {date}. Dues can be paid at most one year ahead (fees may change), so renewal for the following year opens on {opens}.": 'તમારું સભ્યપદ {date} સુધી ભરાયેલું છે. ફી વધુમાં વધુ એક વર્ષ અગાઉથી ભરી શકાય છે (ફી બદલાઈ શકે છે), એટલે પછીના વર્ષનું રિન્યૂઅલ {opens}થી શરૂ થશે.',
+  'Renewal opens on {date}.': 'રિન્યૂઅલ {date}થી શરૂ થશે.',
+  'Membership is already paid through {date}. Dues can be paid at most one year ahead, so renewal opens on {opens}.': 'સભ્યપદ {date} સુધી પહેલેથી ભરાયેલું છે. ફી વધુમાં વધુ એક વર્ષ અગાઉથી ભરી શકાય છે, એટલે રિન્યૂઅલ {opens}થી શરૂ થશે.',
 };

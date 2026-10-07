@@ -1,5 +1,5 @@
 const { transaction } = require('./db');
-const { newToken, nowLocal, today, addMonths } = require('./util');
+const { newToken, nowLocal, today, addMonths, formatDateTime } = require('./util');
 const { interpolate } = require('./i18n');
 
 // A message for the person using the app. `message` is English text that may contain {placeholders};
@@ -708,12 +708,35 @@ function createEventPayment(db, { rsvpId, userId }) {
 
 // What a member would pay for a plan: the price difference when upgrading mid-period,
 // otherwise the full price (a new membership, or a renewal for the next period).
+/**
+ * Dues can be paid at most one year ahead (fees may change for later years): a member can pay for
+ * next year, but once they're paid up more than 12 months out, renewing waits. Returns the date
+ * renewal opens again, or null if they can renew now. With calendar-year levels, someone paid
+ * through Dec 31 next year can renew again from Jan 1.
+ */
+function renewalOpensOn(db, userId) {
+  const { validUntil } = membershipStatus(db, userId);
+  if (!validUntil || validUntil <= addMonths(today(), 12)) return null;
+  return nextDay(addMonths(validUntil, -12));
+}
+
 function membershipQuote(db, plan, userId) {
-  const { active, plan: currentPlan } = membershipStatus(db, userId);
+  const { active, plan: currentPlan, validUntil } = membershipStatus(db, userId);
   if (active && currentPlan && plan.id !== currentPlan.id && plan.amount_cents > currentPlan.amount_cents) {
     return { kind: 'membership_upgrade', amountCents: plan.amount_cents - currentPlan.amount_cents };
   }
-  return { kind: 'membership', amountCents: plan.amount_cents };
+  const opensOn = renewalOpensOn(db, userId);
+  return { kind: 'membership', amountCents: plan.amount_cents, opensOn, paidThrough: opensOn ? validUntil : null };
+}
+
+// Recording or paying dues that would go more than a year ahead.
+function assertCanRenew(db, userId) {
+  const opensOn = renewalOpensOn(db, userId);
+  if (opensOn) {
+    throw new UserError('Membership is already paid through {date}. Dues can be paid at most one year ahead, so renewal opens on {opens}.', {
+      date: formatDateTime(membershipStatus(db, userId).validUntil, 'en-US'), opens: formatDateTime(opensOn, 'en-US'),
+    });
+  }
 }
 
 function createMembershipPayment(db, { planId, user }) {
@@ -722,6 +745,7 @@ function createMembershipPayment(db, { planId, user }) {
   const reason = planIneligibility(db, plan, user);
   if (reason) throw new UserError(reason.template, reason.vars);
   const { kind, amountCents } = membershipQuote(db, plan, user.id);
+  if (kind === 'membership') assertCanRenew(db, user.id);
   if (amountCents === 0) {
     (kind === 'membership_upgrade' ? upgradeMembership : grantMembership)(db, { userId: user.id, planId });
     return null;
@@ -782,7 +806,7 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
 module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
-  coveredFamily, membershipQuote, periodEnd, householdOwnerId, familyPeople, familyUserIds,
+  coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,
   setFamilyEmail, pendingFamilyLogin, linkFamilyLogin, removeHouseholdMember,
   eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,

@@ -223,6 +223,7 @@ router.post('/members/:id/payments', (req, res) => {
   if (req.body.kind === 'membership') {
     const plan = db.prepare('SELECT * FROM membership_plans WHERE id = ?').get(req.body.plan_id);
     if (!plan) throw new svc.UserError('Choose a membership plan.');
+    svc.assertCanRenew(db, member.id); // same one-year-ahead limit as online renewals
     const amount = req.body.amount ? parseMoney(req.body.amount) : plan.amount_cents;
     if (!(amount > 0)) throw new svc.UserError('Enter the amount received.');
     payment = svc.createPayment(db, { userId: member.id, kind: 'membership', referenceId: plan.id, amountCents: amount,
