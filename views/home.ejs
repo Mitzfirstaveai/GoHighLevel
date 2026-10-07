@@ -1,25 +1,326 @@
 <%- include('partials/head') %>
-<section class="hero">
-  <img src="/logo.png" alt="">
-  <h1><%= t('Welcome to {org}', { org: t.data(orgName) }) %></h1>
-  <p class="motto">“<%= loc(org, 'motto') %>”</p>
-  <p class="muted" style="max-width:640px;margin:12px auto"><%= t('Founded in {year} by 35 Gujarati families, GSA now represents more than 300 families across Arkansas — preserving and celebrating Gujarati culture, language and the Gujarati Hindu religious tradition for present and future generations.', { year: org.founded }) %></p>
-  <div class="actions" style="justify-content:center">
-    <a class="btn big-touch" href="/register"><%= t('Become a member') %></a>
-    <a class="btn secondary big-touch" href="/login"><%= t('Member sign in') %></a>
+<%
+  const icon = (name) => include('partials/icon', { name });
+  const locale = lang === 'gu' ? 'gu-IN' : 'en-US';
+  const tel = org.phone.replace(/\D/g, '');
+  const mapUrl = 'https://maps.google.com/?q=' + encodeURIComponent(org.address.join(', '));
+  const memberDemo = demoAccounts.filter((a) => !a.door);
+%>
+
+<%# ---------- Welcome ---------- %>
+<section class="site-hero">
+  <div class="toran" aria-hidden="true"></div>
+  <div class="site-inner hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="tri-dot" aria-hidden="true"></span><%= t('Serving Arkansas families since {year}', { year: org.founded }) %></p>
+      <h1 class="hero-title"><%= t('Welcome to {org}', { org: t.data(orgName) }) %></h1>
+      <span class="tri-bar" aria-hidden="true"></span>
+      <p class="hero-motto">“<%= loc(org, 'motto') %>”</p>
+      <p class="hero-lead"><%= t('Founded in {year} by 35 Gujarati families, GSA now represents more than 300 families across Arkansas — preserving and celebrating Gujarati culture, language and the Gujarati Hindu religious tradition for present and future generations.', { year: org.founded }) %></p>
+      <div class="hero-actions">
+        <a class="btn big-touch" href="#signin"><%- icon('user') %><%= t('Member sign in') %></a>
+        <a class="btn btn-green big-touch" href="/dashboard"><%- icon('mobile') %><%= t('Open the GSA app') %></a>
+        <a class="btn secondary big-touch" href="/register"><%= t('Become a member') %></a>
+      </div>
+      <% if (demoMode) { %><p class="small muted"><%= t('This is a demo site with sample data. Tap "Member sign in" to try it as an admin or a member.') %></p><% } %>
+    </div>
+    <div class="hero-art">
+      <div class="logo-stage">
+        <svg class="mandala" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="80" fill="none" stroke="#E67817" stroke-width="2" stroke-dasharray="0.1 7" stroke-linecap="round"/>
+          <circle cx="100" cy="100" r="96" fill="none" stroke="#43A23C" stroke-width="1.2" stroke-dasharray="6 5" opacity=".7"/>
+          <% for (let i = 0; i < 24; i++) { %><ellipse cx="100" cy="12" rx="2.6" ry="5.5" fill="<%= i % 2 ? '#43A23C' : '#E67817' %>" transform="rotate(<%= i * 15 %> 100 100)"/><% } %>
+        </svg>
+        <div class="logo-ring" aria-hidden="true"></div>
+        <img class="hero-logo" src="/logo.png" alt="<%= t('{org} logo', { org: t.data(orgName) }) %>" width="203" height="200">
+        <span class="bubble b-saffron" aria-hidden="true"><%- icon('diya') %></span>
+        <span class="bubble b-green" aria-hidden="true"><%- icon('dandiya') %></span>
+        <span class="bubble b-white" aria-hidden="true"><%- icon('kite') %></span>
+      </div>
+    </div>
   </div>
-  <% if (demoMode) { %><p class="small muted" style="margin-top:12px"><%= t('This is a demo site with sample data. Tap "Member sign in" to try it as an admin or a member.') %></p><% } %>
 </section>
-<div class="grid grid-2">
-  <div class="card"><h2>📇 <%= t('Your family profile') %></h2><p class="muted"><%= t('Contact details, address, native place and family members in one place.') %></p></div>
-  <div class="card"><h2>🪔 <%= t('Events & RSVPs') %></h2><p class="muted"><%= t('Garba, Diwali, bhajans, picnics and more — RSVP for your family in seconds.') %></p></div>
-  <div class="card"><h2>🎟️ <%= t('QR check-in') %></h2><p class="muted"><%= t('Show your QR code at the door — no paper lists, no waiting.') %></p></div>
-  <div class="card"><h2>💳 <%= t('Membership dues') %></h2><p class="muted"><%= t('Pay or renew your membership securely online.') %></p></div>
-</div>
-<div class="actions" style="justify-content:center;margin-top:8px">
-  <a class="btn secondary small" href="/about"><%= t('About us') %></a>
-  <a class="btn secondary small" href="/committee"><%= t('Committee members') %></a>
-  <a class="btn secondary small" href="/sponsors"><%= t('Sponsors') %></a>
-  <a class="btn secondary small" href="/contact"><%= t('Contact') %></a>
-</div>
+
+<%# ---------- At a glance ---------- %>
+<section class="band-saffron" aria-label="<%= t('GSA at a glance') %>">
+  <div class="site-inner stat-row">
+    <div class="stat-pill"><span class="stat-num"><%= org.founded %></span><span class="stat-lbl"><%= t('Founded') %></span></div>
+    <div class="stat-pill"><span class="stat-num">35</span><span class="stat-lbl"><%= t('Founding families') %></span></div>
+    <div class="stat-pill"><span class="stat-num">300+</span><span class="stat-lbl"><%= t('Families today') %></span></div>
+    <div class="stat-pill"><span class="stat-num"><%= new Date().getFullYear() - org.founded %></span><span class="stat-lbl"><%= t('Years of service') %></span></div>
+  </div>
+</section>
+
+<%# ---------- Sign in on the web, or open the app ---------- %>
+<section class="site-section" id="signin">
+  <div class="site-inner">
+    <header class="section-head">
+      <p class="kicker"><%= t('For members') %></p>
+      <h2><%= t('Sign in your way') %></h2>
+      <p><%= t('Sign in on this website or open the GSA app on your phone — same account, same tickets, same family.') %></p>
+    </header>
+    <div class="access-grid">
+      <div class="access-card signin-card">
+        <span class="access-icon"><%- icon('user') %></span>
+        <h3><%= t('Sign in on the web') %></h3>
+        <p class="muted"><%= t('Use your member email and password on any computer, tablet or phone.') %></p>
+        <form method="post" action="/login" class="stack">
+          <%- include('partials/csrf') %>
+          <label><%= t('Email') %> <input type="email" name="email" required autocomplete="email"></label>
+          <label><%= t('Password') %> <input type="password" name="password" required autocomplete="current-password"></label>
+          <button class="btn big"><%= t('Sign in') %></button>
+        </form>
+        <% if (memberDemo.length) { %>
+          <div class="demo-login">
+            <p class="small" style="margin:0 0 8px"><strong><%= t('Demo site') %></strong> — <%= t('tap to sign in as:') %></p>
+            <div class="actions">
+            <% for (const a of memberDemo) { %>
+              <form method="post" action="/login"><%- include('partials/csrf') %>
+                <input type="hidden" name="email" value="<%= a.email %>"><input type="hidden" name="password" value="<%= demoPassword %>">
+                <button class="btn secondary small" lang="en"><%= a.label %></button></form>
+            <% } %>
+            </div>
+          </div>
+        <% } %>
+        <p class="muted small"><%= t('New here?') %> <a href="/register"><%= t('Create your member account') %></a>. <%= t('Forgot your password? Ask a committee member to reset it.') %></p>
+        <p class="small" style="margin-bottom:0"><a href="/admin/login"><%= t('Committee & volunteer sign-in') %></a></p>
+      </div>
+      <div class="access-card app-card">
+        <span class="access-icon"><%- icon('mobile') %></span>
+        <h3><%= t('Open the GSA app') %></h3>
+        <p><%= t('Your QR tickets, events, dues and family — all in one app on your phone.') %></p>
+        <ul class="check-list">
+          <li><%- icon('check') %><%= t('Tickets work even without signal') %></li>
+          <li><%- icon('check') %><%= t('Read in Gujarati or English') %></li>
+          <li><%- icon('check') %><%= t('Large, easy-to-read text') %></li>
+        </ul>
+        <a class="btn btn-light big" href="/dashboard"><%- icon('mobile') %><%= t('Open the GSA app') %></a>
+        <p class="small"><%= t('Already installed? Tap the GSA icon on your home screen.') %></p>
+        <p class="small" style="margin-bottom:0"><a href="#app"><%= t('New to the app? See how to put it on your phone') %> →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%# ---------- Upcoming events (live from the app) ---------- %>
+<section class="site-section tint-saffron" id="events">
+  <div class="site-inner">
+    <header class="section-head">
+      <p class="kicker"><%= t('Calendar') %></p>
+      <h2><%= t('Upcoming events') %></h2>
+      <p><%= t('Garba, Diwali, bhajans, picnics and more — members RSVP for the whole family and get a QR ticket in the app.') %></p>
+    </header>
+    <% if (!upcoming.length) { %>
+      <p class="empty-note"><%= t('New events are announced here soon — please check back.') %></p>
+    <% } else { %>
+      <div class="event-cards">
+      <% upcoming.forEach((e, i) => { const d = new Date(e.starts_at); %>
+        <a class="event-card tone-<%= i % 2 %>" href="/events/<%= e.id %>">
+          <% if (e.image_path) { %><img class="event-photo" src="<%= e.image_path %>" alt="" loading="lazy"><% } %>
+          <div class="event-top">
+            <span class="ev-day"><%= d.getDate() %></span>
+            <span class="ev-when"><strong><%= d.toLocaleString(locale, { month: 'long' }) %></strong><%= d.toLocaleString(locale, { weekday: 'long' }) %></span>
+            <% if (e.members_only) { %><span class="ev-badge"><%= t('Members only') %></span><% } %>
+          </div>
+          <div class="event-body">
+            <h3><%= loc(e, 'title') %></h3>
+            <p class="ev-meta"><%- icon('clock') %><span><%= fmtDate(e.starts_at) %></span></p>
+            <% if (e.location) { %><p class="ev-meta"><%- icon('pin') %><span><%= e.location %></span></p><% } %>
+            <p class="ev-meta"><%- icon('ticket') %><span><%- include('partials/event-prices', { event: e }) %></span></p>
+            <span class="ev-cta"><%= t('Sign in to RSVP') %> <%- icon('arrow') %></span>
+          </div>
+        </a>
+      <% }) %>
+      </div>
+    <% } %>
+    <div class="center-actions"><a class="btn secondary" href="/events"><%- icon('calendar') %><%= t('See all events') %></a></div>
+  </div>
+</section>
+
+<%# ---------- Community life ---------- %>
+<section class="site-section" id="community">
+  <div class="site-inner">
+    <header class="section-head">
+      <p class="kicker"><%= t('Our community') %></p>
+      <h2><%= t('Celebrating together, all year round') %></h2>
+      <p><%= t('Festivals, faith, food and friendship — GSA keeps Gujarati traditions alive for every generation in Arkansas.') %></p>
+    </header>
+    <div class="celebrate-grid">
+      <% for (const [name, title, text, tone] of [
+        ['dandiya', 'Navratri & Garba', 'Nights of garba and dandiya raas with live music — our biggest celebration of the year.', 'saffron'],
+        ['diya', 'Diwali & New Year', 'A Diwali dinner and cultural program to welcome the Gujarati New Year together.', 'green'],
+        ['kite', 'Festivals & utsav', 'Ganesh Chaturthi, Janmashtami, Uttarayan kite flying and more, with the whole family.', 'saffron'],
+        ['music', 'Bhajans & prayer', 'Shravan Somwar bhajans and prayers that keep our faith and traditions strong.', 'green'],
+        ['ball', 'Sports & picnics', 'The GSA Premier League volleyball tournament, summer picnics and a cook-off.', 'saffron'],
+        ['users', 'Youth & family', 'Youth outings, yoga and programs that bring children, parents and grandparents together.', 'green'],
+      ]) { %>
+        <div class="celebrate-card tone-<%= tone %>">
+          <span class="c-icon"><%- icon(name) %></span>
+          <h3><%= t(title) %></h3>
+          <p><%= t(text) %></p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<%# ---------- The GSA app ---------- %>
+<section class="site-section tint-green" id="app">
+  <div class="site-inner app-grid">
+    <div class="phone" aria-hidden="true">
+      <div class="phone-screen">
+        <div class="ps-bar"><img src="/logo.png" alt="" width="28" height="28"><strong><%= org.shortName %></strong></div>
+        <div class="ps-stripe"></div>
+        <div class="ps-tiles">
+          <span class="ps-tile primary"><%- icon('ticket') %><%= t('My QR tickets') %></span>
+          <span class="ps-tile"><%- icon('calendar') %><%= t('Events & RSVP') %></span>
+          <span class="ps-tile"><%- icon('card') %><%= t('Membership') %></span>
+          <span class="ps-tile"><%- icon('users') %><%= t('My family') %></span>
+        </div>
+        <div class="ps-ticket">
+          <svg class="ps-qr" viewBox="0 0 21 21" shape-rendering="crispEdges"><path fill="#24211e" d="M0 0h7v7H0zM14 0h7v7h-7zM0 14h7v7H0z"/><path fill="#fff" d="M1 1h5v5H1zM15 1h5v5h-5zM1 15h5v5H1z"/><path fill="#24211e" d="M2 2h3v3H2zM16 2h3v3h-3zM2 16h3v3H2zM9 1h2v2H9zM8 4h1v2H8zM11 5h2v1h-2zM9 8h3v1H9zM14 9h2v2h-2zM18 8h2v3h-2zM8 11h1v3H8zM10 12h3v2h-3zM15 13h1v4h-1zM17 14h3v1h-3zM9 16h2v3H9zM12 17h2v3h-2zM18 17h2v3h-2zM1 9h3v1H1zM4 11h2v2H4zM16 19h1v1h-1z"/></svg>
+          <span><strong><%= upcoming.length ? loc(upcoming[0], 'title') : t('Show QR ticket') %></strong><small><%= t('Show QR ticket') %></small></span>
+        </div>
+      </div>
+    </div>
+    <div class="app-copy">
+      <header class="section-head left">
+        <p class="kicker"><%= t('GSA app') %></p>
+        <h2><%= t('Everything for your family, in one app') %></h2>
+        <p><%= t('Free for members. Works on iPhone, Android and computers — no app store needed.') %></p>
+      </header>
+      <ul class="feature-list">
+        <% for (const [name, title, text] of [
+          ['ticket', 'QR tickets', 'Show your ticket at the door — it works even without signal.'],
+          ['users', 'RSVP for the family', "Choose who's coming by name, add guests, or join the waitlist."],
+          ['card', 'Dues & donations', 'Pay or renew your membership, give to a fund and get a tax receipt.'],
+          ['book', 'Member directory', 'Find community members by name, city or native place.'],
+          ['photo', 'Photos & news', 'Event photo albums and announcements from the committee.'],
+          ['globe', 'Gujarati & large text', 'Read everything in Gujarati or English, in the text size you like.'],
+        ]) { %>
+          <li><span class="f-icon"><%- icon(name) %></span><span><strong><%= t(title) %></strong><%= t(text) %></span></li>
+        <% } %>
+      </ul>
+      <div class="install-box" data-site-install>
+        <h3><%= t('Put the GSA app on your phone') %></h3>
+        <div class="actions">
+          <a class="btn btn-green" href="/dashboard"><%- icon('mobile') %><%= t('Open the GSA app') %></a>
+          <button class="btn" type="button" data-install hidden><%- icon('download') %><%= t('Install the GSA app') %></button>
+        </div>
+        <p class="flash success small" data-installed hidden><%= t('The GSA app is installed on this device.') %></p>
+        <div class="install-grid">
+          <div class="install-step" data-platform="ios">
+            <h4><%- icon('mobile') %><%= t('iPhone or iPad') %> <span class="badge ok" data-yours hidden><%= t('Your phone') %></span></h4>
+            <ol>
+              <li><%= t('Open this website in Safari.') %></li>
+              <li><%= t('Tap the Share button.') %></li>
+              <li><%= t('Tap "Add to Home Screen".') %></li>
+            </ol>
+          </div>
+          <div class="install-step" data-platform="android">
+            <h4><%- icon('mobile') %><%= t('Android phone') %> <span class="badge ok" data-yours hidden><%= t('Your phone') %></span></h4>
+            <ol>
+              <li><%= t('Open this website in Chrome.') %></li>
+              <li><%= t('Tap the menu (⋮) at the top.') %></li>
+              <li><%= t('Tap "Install app" or "Add to Home screen".') %></li>
+            </ol>
+          </div>
+          <div class="install-step qr-step">
+            <div class="qr-box"><%- appQr %></div>
+            <div>
+              <h4><%= t('On a computer?') %></h4>
+              <p class="small muted" style="margin:0"><%= t("Scan this code with your phone's camera to open GSA on your phone.") %></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%# ---------- Membership (levels and prices live from the app) ---------- %>
+<section class="site-section" id="membership">
+  <div class="site-inner">
+    <header class="section-head">
+      <p class="kicker"><%= t('Membership') %></p>
+      <h2><%= t('Become a member') %></h2>
+      <p><%= about.membership %></p>
+    </header>
+    <% if (plans.length) { %>
+      <div class="plan-grid">
+      <% plans.forEach((p, i) => { %>
+        <div class="plan-card tone-<%= i % 2 ? 'green' : 'saffron' %>">
+          <h3><%= loc(p, 'name') %></h3>
+          <p class="plan-price"><%= money(p.amount_cents) %></p>
+          <p class="muted small"><%= p.calendar_year ? t('per year · Jan 1 – Dec 31') : p.duration_months === 12 ? t('per year') : t('for {n} months', { n: p.duration_months }) %><%= p.min_age ? ` · ${t('age {age}+', { age: p.min_age })}` : '' %></p>
+          <p class="plan-covers"><%= t('Covers') %> <strong><%= t.list(p.coverageParts) %></strong></p>
+          <a class="btn <%= i % 2 ? 'btn-green' : '' %>" href="/register"><%= t('Join') %></a>
+        </div>
+      <% }) %>
+      </div>
+    <% } %>
+    <p class="center-note"><%= t('Already a member?') %> <a href="#signin"><%= t('Sign in to renew or upgrade.') %></a></p>
+  </div>
+</section>
+
+<%# ---------- About ---------- %>
+<section class="site-section tint-saffron" id="about">
+  <div class="site-inner about-grid">
+    <div>
+      <header class="section-head left">
+        <p class="kicker"><%= t('Our story') %></p>
+        <h2><%= t('Rooted in Gujarat, at home in Arkansas') %></h2>
+      </header>
+      <p class="about-text"><%= about.history[0] %></p>
+      <div class="actions">
+        <a class="btn" href="/about"><%= t('Read our story') %></a>
+        <a class="btn secondary" href="/committee"><%= t('Meet the committee') %></a>
+      </div>
+    </div>
+    <div class="values-card">
+      <img src="/logo.png" alt="" width="72" height="71">
+      <p class="values-motto">“<%= loc(org, 'motto') %>”</p>
+      <h3><%= t('Values we pass on') %></h3>
+      <div class="values">
+        <% for (const v of ['Love', 'Honesty', 'Respect', 'Hard work', 'Faith']) { %><span class="value-chip"><%= t(v) %></span><% } %>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%# ---------- Sponsors ---------- %>
+<% if (sponsors.length) { %>
+<section class="site-section" id="sponsors">
+  <div class="site-inner">
+    <header class="section-head">
+      <p class="kicker"><%= t('Thank you') %></p>
+      <h2><%= t('Our Sponsors') %></h2>
+      <p><%= t('Thank you to the businesses who support the {org}.', { org: t.data(orgName) }) %></p>
+    </header>
+    <% for (const s of sponsors) { %>
+      <div class="sponsor-strip">
+        <span class="tier tier-<%= s.tier.toLowerCase() %>"><%= t.data(s.tier) %></span>
+        <% for (const name of s.names) { %><span class="sponsor-chip"><%= name %></span><% } %>
+      </div>
+    <% } %>
+    <div class="center-actions"><a class="btn secondary" href="/sponsors"><%- icon('star') %><%= t('Become a sponsor') %></a></div>
+  </div>
+</section>
+<% } %>
+
+<%# ---------- Visit us ---------- %>
+<section class="band-green" id="visit">
+  <div class="site-inner visit-grid">
+    <div>
+      <h2><%= t('Visit us') %></h2>
+      <p class="visit-address"><%- icon('pin') %><span><strong><%= t.data(orgName) %></strong><br><%= org.address[0] %><br><%= org.address[1] %></span></p>
+      <p><%= t('Questions about membership, events or sponsorship? We would love to hear from you.') %></p>
+    </div>
+    <div class="visit-actions">
+      <a class="btn btn-light big-touch" href="tel:<%= tel %>"><%- icon('phone') %><%= t('Call {phone}', { phone: org.phone }) %></a>
+      <a class="btn btn-outline-light big-touch" href="mailto:<%= org.email %>"><%- icon('mail') %><%= t('Email us') %></a>
+      <a class="btn btn-outline-light big-touch" href="<%= mapUrl %>" target="_blank" rel="noopener"><%- icon('pin') %><%= t('Directions') %></a>
+    </div>
+  </div>
+</section>
 <%- include('partials/foot') %>

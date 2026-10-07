@@ -24,7 +24,7 @@
     <strong><%= t.data(orgName) %></strong> · “<%= loc(org, 'motto') %>”<br>
     <%= org.address.join(', ') %> · <a href="tel:<%= org.phone.replace(/\D/g, '') %>"><%= org.phone %></a> · <a href="mailto:<%= org.email %>"><%= org.email %></a><br>
     <a href="/about"><%= t('About') %></a> · <a href="/committee"><%= t('Committee') %></a> · <a href="/sponsors"><%= t('Sponsors') %></a> · <a href="/contact"><%= t('Contact') %></a><br>
-    <% if (!user) { %><a href="/admin/login"><%= t('Committee & volunteer sign-in') %></a><br><% } %>
+    <% if (!user) { %><a href="/#app"><%= t('Get the GSA app') %></a> · <a href="/admin/login"><%= t('Committee & volunteer sign-in') %></a><br><% } %>
     <span class="small"><%= t('A 501(c)(3) nonprofit organization · Est. {year}', { year: org.founded }) %></span>
   </div>
 </footer>
