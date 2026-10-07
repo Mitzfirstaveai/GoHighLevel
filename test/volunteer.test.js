@@ -39,6 +39,7 @@ test('a door volunteer sees only check-in: no member menus and no other admin pa
   let res = await volunteer.get('/admin/checkin');
   assert.equal(res.status, 200);
   assert.match(res.text, /Door check-in/);
+  assert.match(res.text, /id="quick-mode"/); // the quick-mode switch sits under the camera
   assert.match(res.text, /Today · Garba Tonight/);
   assert.match(res.text, /class="[^"]*door-mode/);
   assert.match(res.text, />Sign out</);
@@ -110,11 +111,15 @@ test('a door volunteer checks a family in, and is recorded as the person who did
   assert.doesNotMatch(res.text, /not today/);
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${token}`, { guests: '3' }));
   assert.match(res.text, /Checked in Asha Member — 3 people\./);
+  // Quick mode (if switched on on this device) returns to the running camera after a check-in…
+  assert.match(res.text, new RegExp(`id="auto-return" data-url="/admin/checkin\\?event=${todayEvent}#scanner"`));
+  assert.match(res.text, /Stay on this page/);
   assert.match(res.text, /by Dhruv Member — 3 of 4 people/);
   assert.equal(t.rsvpFor(todayEvent, 'family1@test.org').checked_in_by, userId('door@test.org'));
   // The same code can't be used twice.
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${token}`, { guests: '1' }));
   assert.match(res.text, /already been used/);
+  assert.doesNotMatch(res.text, /id="auto-return"/); // …but never when something needs attention
   // The running count updates.
   res = await volunteer.get(`/admin/checkin?event=${todayEvent}`);
   assert.match(res.text, /1 of 2 tickets scanned/); // Asha's family, plus Zara from the earlier test

@@ -1,7 +1,7 @@
 // Service worker: makes the app installable and keeps QR tickets available offline
 // (venues often have poor signal). Pages are always fetched fresh when online.
-const VERSION = 'gsa-v2';
-const STATIC = ['/styles.css', '/logo.png', '/icon-192.png', '/offline.html', '/forms.js', '/app.js'];
+const VERSION = 'gsa-v4';
+const STATIC = ['/styles.css', '/logo.png', '/icon-192.png', '/offline.html', '/forms.js', '/app.js', '/checkin.js', '/checkin-result.js', '/vendor/html5-qrcode-2.3.8.min.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting()));
