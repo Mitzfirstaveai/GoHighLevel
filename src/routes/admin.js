@@ -28,7 +28,8 @@ router.get('/', (req, res) => {
     .map((e) => ({ ...e, stats: svc.eventStats(db, e.id) }));
   const recentPayments = db.prepare(`SELECT p.*, u.first_name, u.last_name FROM payments p JOIN users u ON u.id = p.user_id
                                      WHERE p.status = 'paid' ORDER BY p.paid_at DESC LIMIT 8`).all();
-  const refundsNeeded = db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE note LIKE 'REFUND NEEDED%'`).get().n;
+  // Only payments the app itself refused count (members can write their own notes on donations).
+  const refundsNeeded = db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE refunded_at IS NOT NULL AND note LIKE 'REFUND NEEDED%'`).get().n;
   res.render('admin/dashboard', { title: 'Admin', stats, events, recentPayments, refundsNeeded });
 });
 

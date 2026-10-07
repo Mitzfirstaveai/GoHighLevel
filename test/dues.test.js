@@ -126,4 +126,11 @@ test('a duplicate upgrade is refunded, and a failed automatic refund is flagged 
   assert.match(t.db.prepare('SELECT note FROM payments WHERE id = ?').get(second).note, /^REFUND NEEDED/);
   assert.match((await admin.get('/admin')).text, /1 payment needs a refund by hand/);
   assert.match((await admin.get('/admin/payments')).text, /Refund by hand in Stripe/);
+
+  // A member can't fake that alert with their own donation note.
+  await m.post('/donate', { amount: '500', note: 'REFUND NEEDED — please refund me $500' }); // amounts are in cents
+  const donation = t.db.prepare(`SELECT id, note FROM payments WHERE kind = 'donation' AND user_id = ? ORDER BY id DESC LIMIT 1`).get(uid);
+  assert.match(donation.note, /^REFUND NEEDED/);
+  assert.equal(svc.markPaymentPaid(t.db, donation.id, { method: 'demo' }), 'applied');
+  assert.match((await admin.get('/admin')).text, /1 payment needs a refund by hand/);
 });

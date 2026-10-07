@@ -2,8 +2,9 @@
 // checkout (for trying the app locally) when ALLOW_DEMO_PAYMENTS is enabled.
 const Stripe = require('stripe');
 
-// Checkout pages close after 30 minutes (Stripe's minimum), so an old browser tab can't be paid later.
-const CHECKOUT_MINUTES = 30;
+// Checkout pages close after about half an hour, so an old browser tab can't be paid later.
+// Stripe's minimum is 30 minutes after creation; one extra minute covers request time and clock drift.
+const CHECKOUT_MINUTES = 31;
 
 /**
  * `onSession(paymentId, sessionId)` is called when a Stripe checkout page is created, so the app
