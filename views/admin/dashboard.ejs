@@ -33,7 +33,7 @@
         <tr><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a><div class="muted small"><%= p.description %></div></td><td class="num"><%= money(p.amount_cents) %></td></tr>
       <% } %>
     </tbody></table></div>
-    <p><a href="/admin/payments">All payments →</a> · <a href="/admin/plans">Membership plans →</a></p>
+    <p><a href="/admin/payments">All payments →</a> · <a href="/admin/plans">Membership levels →</a></p>
   </div>
 </div>
 <%- include('../partials/foot') %>

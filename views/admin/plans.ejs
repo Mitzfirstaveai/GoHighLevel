@@ -1,28 +1,34 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Membership plans</h1></div>
+<div class="page-head"><h1>Membership levels</h1></div>
 <div class="card table-wrap">
   <table>
-    <thead><tr><th>Plan</th><th class="num">Price</th><th class="num">Duration</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Level</th><th>Covers</th><th class="num">Price</th><th>Period</th><th>Status</th><th></th></tr></thead>
     <tbody><% for (const p of plans) { %>
       <tr class="<%= p.active ? '' : 'dim' %>"><td><%= p.name %><div class="muted small"><%= p.description || '' %></div></td>
-        <td class="num"><%= money(p.amount_cents) %></td><td class="num"><%= p.duration_months %> mo</td>
+        <td><%= p.coverage %><%= p.min_age ? ` · age ${p.min_age}+` : '' %></td>
+        <td class="num"><%= money(p.amount_cents) %></td><td><%= p.calendar_year ? 'Jan 1 – Dec 31' : `${p.duration_months} months` %></td>
         <td><%= p.active ? 'Available' : 'Hidden' %></td>
         <td class="num"><form method="post" action="/admin/plans/<%= p.id %>/toggle" class="inline"><%- include('../partials/csrf') %><button class="btn secondary small"><%= p.active ? 'Hide' : 'Show' %></button></form></td></tr>
     <% } %>
-    <% if (!plans.length) { %><tr><td colspan="5" class="muted">No plans yet — add one below so members can pay dues.</td></tr><% } %></tbody>
+    <% if (!plans.length) { %><tr><td colspan="6" class="muted">No levels yet — add one below so members can pay dues.</td></tr><% } %></tbody>
   </table>
 </div>
 <div class="card">
-  <h2>Add a plan</h2>
+  <h2>Add a membership level</h2>
   <form method="post" action="/admin/plans" class="stack">
     <%- include('../partials/csrf') %>
     <div class="fields">
-      <label>Name <input name="name" required placeholder="Annual Family Membership"></label>
-      <label>Price <input name="amount" inputmode="decimal" required placeholder="51.00"></label>
-      <label>Duration (months) <input name="duration_months" type="number" min="1" value="12" required></label>
+      <label>Name <input name="name" required placeholder="Family"></label>
+      <label>Price <input name="amount" inputmode="decimal" required placeholder="330.00"></label>
+      <label>Period <select name="period"><option value="calendar">Calendar year (Jan 1 – Dec 31)</option><option value="months">Fixed number of months</option></select></label>
+      <label>Months (if fixed) <input name="duration_months" type="number" min="1" value="12"></label>
+      <label>Parents covered <select name="max_parents"><option value="0">None</option><option value="2">One set of parents (2)</option><option value="1">One parent</option></select></label>
+      <label>Minimum age of member <input name="min_age" type="number" min="0" max="120" value="0"></label>
     </div>
-    <label>Description <input name="description" placeholder="Covers the member and their household"></label>
-    <div><button class="btn">Add plan</button></div>
+    <label class="check"><input type="checkbox" name="spouse_allowed" value="1"> Covers a spouse</label>
+    <label class="check"><input type="checkbox" name="children_allowed" value="1"> Covers unmarried children</label>
+    <label>Description <input name="description" placeholder="Married couple (or single parent) with their unmarried children"></label>
+    <div><button class="btn">Add level</button></div>
   </form>
 </div>
 <%- include('../partials/foot') %>

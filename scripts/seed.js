@@ -25,10 +25,19 @@ for (const [email, first, last, phone, city, state, vatan] of members) {
 }
 db.prepare(`INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (2, 'Amit Shah', 'Spouse', 1984), (2, 'Diya Shah', 'Daughter', 2014)`).run();
 
-db.prepare(`INSERT INTO membership_plans (name, description, amount_cents, duration_months) VALUES
-  ('Annual Family Membership', 'Covers the member and their household', 5100, 12),
-  ('Annual Individual Membership', 'Single adult', 2500, 12),
-  ('Life Membership', 'One-time payment', 50100, 1200)`).run();
+// Gujarati Samaj of Arkansas membership levels (calendar year, renew manually).
+db.prepare(`INSERT INTO membership_plans
+  (name, description, amount_cents, duration_months, calendar_year, spouse_allowed, children_allowed, max_parents, min_age, sort_order)
+  VALUES
+  ('Senior Citizen', 'Per person, age 65 or older', 11000, 12, 1, 0, 0, 0, 65, 1),
+  ('Individual Membership', 'One person aged 18 and over', 16500, 12, 1, 0, 0, 0, 18, 2),
+  ('Married Couple', 'Married couple excluding children and parents', 27500, 12, 1, 1, 0, 0, 0, 3),
+  ('Family', 'Married couple (or single parent) with their unmarried children', 33000, 12, 1, 1, 1, 0, 0, 4),
+  ('Family with Parents', 'Married couple (or single parent) with their unmarried children, and one set of parents to be noted at renewal', 38500, 12, 1, 1, 1, 2, 0, 5)
+`).run();
+// Priya already has a Family membership for this year.
+const year = new Date().getFullYear();
+db.prepare(`INSERT INTO memberships (user_id, plan_id, start_date, end_date) VALUES (2, 4, ?, ?)`).run(`${year}-01-01`, `${year}-12-31`);
 
 const inDays = (n, time) => {
   const d = new Date(Date.now() + n * 86400000);

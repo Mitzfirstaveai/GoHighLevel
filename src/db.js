@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS membership_plans (
   description TEXT,
   amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
   duration_months INTEGER NOT NULL CHECK (duration_months > 0),
+  -- Who besides the member the plan covers (these limit the family on the profile,
+  -- which in turn limits how many people the member can RSVP for).
+  spouse_allowed INTEGER NOT NULL DEFAULT 0,
+  children_allowed INTEGER NOT NULL DEFAULT 0,
+  max_parents INTEGER NOT NULL DEFAULT 0,
+  min_age INTEGER NOT NULL DEFAULT 0,
+  -- 1 = membership runs Jan 1 – Dec 31 (renewing extends to the end of next year).
+  calendar_year INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1
 );
 
@@ -87,7 +96,7 @@ CREATE TABLE IF NOT EXISTS rsvps (
 CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('membership', 'event', 'other')),
+  kind TEXT NOT NULL CHECK (kind IN ('membership', 'membership_upgrade', 'event', 'other')),
   reference_id INTEGER,
   description TEXT NOT NULL,
   amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
@@ -125,7 +134,24 @@ function openDb(file) {
   db.exec('PRAGMA foreign_keys = ON;');
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+// Adds columns introduced after a database was first created.
+function migrate(db) {
+  const planColumns = db.prepare('PRAGMA table_info(membership_plans)').all().map((c) => c.name);
+  const added = {
+    spouse_allowed: 'INTEGER NOT NULL DEFAULT 0',
+    children_allowed: 'INTEGER NOT NULL DEFAULT 0',
+    max_parents: 'INTEGER NOT NULL DEFAULT 0',
+    min_age: 'INTEGER NOT NULL DEFAULT 0',
+    calendar_year: 'INTEGER NOT NULL DEFAULT 0',
+    sort_order: 'INTEGER NOT NULL DEFAULT 0',
+  };
+  for (const [column, type] of Object.entries(added)) {
+    if (!planColumns.includes(column)) db.exec(`ALTER TABLE membership_plans ADD COLUMN ${column} ${type}`);
+  }
 }
 
 // Runs fn inside a transaction; rolls back if it throws.

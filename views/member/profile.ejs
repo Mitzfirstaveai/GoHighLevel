@@ -14,7 +14,12 @@
 
 <div class="card" id="family">
   <h2>Family members</h2>
-  <% if (!household.length) { %><p class="muted">Add your spouse, children, parents or anyone in your household.</p><% } else { %>
+  <% if (coverage) { %>
+    <p>Your <strong><%= membership.plan.name %></strong> membership covers <strong><%= coverage %></strong>. Family listed here can come with you to events. <a href="/membership">Change level</a></p>
+  <% } else { %>
+    <p class="muted">List the family members your membership will cover (spouse, unmarried children, parents), then <a href="/membership">choose your membership level</a>.</p>
+  <% } %>
+  <% if (household.length) { %>
   <div class="table-wrap"><table>
     <thead><tr><th>Name</th><th>Relationship</th><th>Birth year</th><th></th></tr></thead>
     <tbody>
@@ -31,8 +36,7 @@
       <label>Name <input name="name" required></label>
       <label>Relationship
         <select name="relationship">
-          <option>Spouse</option><option>Son</option><option>Daughter</option><option>Father</option>
-          <option>Mother</option><option>Grandparent</option><option>Other</option>
+          <% for (const r of relationships) { %><option><%= r %></option><% } %>
         </select>
       </label>
       <label>Birth year (optional) <input name="birth_year" inputmode="numeric" pattern="\d{4}"></label>

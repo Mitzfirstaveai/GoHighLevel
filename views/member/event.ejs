@@ -41,8 +41,12 @@
             <% for (let i = 1; i <= Math.max(maxParty, rsvp?.party_size || 1); i++) { %><option <%= (rsvp?.party_size || 1) === i ? 'selected' : '' %>><%= i %></option><% } %>
           </select>
         </label>
-        <p class="muted small" style="margin:0">You can bring up to <%= maxParty %> (you<%= maxParty > 1 ? ' plus the family members on your profile' : '' %>).
-          <% if (maxParty < event.max_party_size) { %><a href="/profile#family">Add family members</a> to bring more.<% } %>
+        <p class="muted small" style="margin:0">You can bring up to <%= maxParty %> (you<%= maxParty > 1 ? ' plus the family members covered by your membership' : '' %>).
+          <% if (maxParty < event.max_party_size) { %>
+            <% if (!membership.active && familyListed) { %><a href="/membership">Pay your membership</a> to bring your family.
+            <% } else if (!membership.active) { %><a href="/membership">Become a member</a> and list your family to bring them.
+            <% } else { %><a href="/profile#family">Add family members</a> your level covers, or <a href="/membership">upgrade</a>.<% } %>
+          <% } %>
           <% if (rsvp) { %>Changing the number of people gives you a new QR code; the old one stops working.<% } %>
           <% if (event.fee_cents) { %>Event fees are non-refundable, including if you reduce your number of guests.<% } %></p>
         <button class="btn <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? 'Update RSVP' : (event.fee_cents ? 'RSVP & pay' : 'RSVP') %></button>

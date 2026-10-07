@@ -6,7 +6,7 @@ const router = express.Router();
 
 function redirectAfterPayment(db, payment) {
   if (payment.kind === 'event') return `/tickets/${payment.reference_id}`;
-  if (payment.kind === 'membership') return '/membership';
+  if (payment.kind === 'membership' || payment.kind === 'membership_upgrade') return '/membership';
   return '/payments';
 }
 
@@ -56,7 +56,7 @@ router.get('/:id/cancelled', requireAuth, (req, res) => {
     const rsvp = req.app.locals.db.prepare('SELECT event_id FROM rsvps WHERE id = ?').get(payment.reference_id);
     if (rsvp) return res.redirect(`/events/${rsvp.event_id}`);
   }
-  res.redirect(payment?.kind === 'membership' ? '/membership' : '/dashboard');
+  res.redirect(payment?.kind?.startsWith('membership') ? '/membership' : '/dashboard');
 });
 
 module.exports = router;

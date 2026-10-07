@@ -16,10 +16,24 @@
 </div>
 
 <div class="grid grid-2">
-  <div class="card">
+  <div class="card" id="family">
     <h2>Family members (<%= household.length %>)</h2>
+    <% if (coverage) { %><p class="small"><strong><%= membership.current.plan_name %></strong> covers <%= coverage %>.</p><% } %>
+    <% if (coverageProblems.length) { %><p class="flash error small">More family listed than this level covers: <%= membership.current.plan_name %> <%= coverageProblems.join(', ') %>.</p><% } %>
     <% if (!household.length) { %><p class="muted">None listed.</p><% } %>
-    <ul><% for (const h of household) { %><li><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (b. ${h.birth_year})` : '' %></li><% } %></ul>
+    <% for (const h of household) { %>
+      <div class="actions" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
+        <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (b. ${h.birth_year})` : '' %></span>
+        <form method="post" action="/admin/members/<%= member.id %>/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm('Remove <%= h.name %>?')"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form>
+      </div>
+    <% } %>
+    <form method="post" action="/admin/members/<%= member.id %>/household" class="actions" style="margin-top:10px">
+      <%- include('../partials/csrf') %>
+      <input name="name" placeholder="Name" required style="flex:2;min-width:140px">
+      <select name="relationship" style="flex:1;min-width:120px"><% for (const r of relationships) { %><option><%= r %></option><% } %></select>
+      <input name="birth_year" placeholder="Birth year" inputmode="numeric" pattern="\d{4}" style="flex:1;min-width:100px">
+      <button class="btn secondary small">Add</button>
+    </form>
   </div>
   <div class="card">
     <h2>Record an in-person payment</h2>

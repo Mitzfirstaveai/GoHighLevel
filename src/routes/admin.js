@@ -67,16 +67,38 @@ router.get('/members/:id', (req, res) => {
   const { db } = req.app.locals;
   const member = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!member) return notFound(res, 'Member');
+  const membership = svc.membershipStatus(db, member.id);
+  const household = svc.getHousehold(db, member.id);
   res.render('admin/member', {
+    coverage: membership.plan ? svc.planCoverage(membership.plan) : null,
+    coverageProblems: membership.active && membership.plan ? svc.planProblems(membership.plan, household) : [],
     title: `${member.first_name} ${member.last_name}`,
     member,
-    household: db.prepare('SELECT * FROM household_members WHERE user_id = ? ORDER BY id').all(member.id),
-    membership: svc.membershipStatus(db, member.id),
+    household,
+    membership,
+    relationships: Object.keys(svc.RELATIONSHIPS),
     payments: db.prepare(`SELECT * FROM payments WHERE user_id = ? AND status = 'paid' ORDER BY paid_at DESC`).all(member.id),
     rsvps: db.prepare(`SELECT r.*, e.title, e.starts_at FROM rsvps r JOIN events e ON e.id = r.event_id
                        WHERE r.user_id = ? ORDER BY e.starts_at DESC`).all(member.id),
-    plans: db.prepare('SELECT * FROM membership_plans ORDER BY active DESC, amount_cents').all(),
+    plans: db.prepare('SELECT * FROM membership_plans ORDER BY active DESC, sort_order, amount_cents').all(),
   });
+});
+
+// Admins can add family members beyond the member's level (e.g. agreed exceptions); they get a warning.
+router.post('/members/:id/household', (req, res) => {
+  const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
+  const { name, exceedsPlan } = svc.addHouseholdMember(req.app.locals.db, {
+    userId: Number(req.params.id), name: req.body.name, relationship: req.body.relationship, birthYear, override: true,
+  });
+  req.flash(exceedsPlan ? 'info' : 'success', exceedsPlan
+    ? `${name} added. Note: this is more than the member's current level covers.`
+    : `${name} added.`);
+  res.redirect(`/admin/members/${req.params.id}#family`);
+});
+
+router.post('/members/:id/household/:hid/delete', (req, res) => {
+  req.app.locals.db.prepare('DELETE FROM household_members WHERE id = ? AND user_id = ?').run(req.params.hid, req.params.id);
+  res.redirect(`/admin/members/${req.params.id}#family`);
 });
 
 router.post('/members/:id', (req, res) => {
@@ -304,8 +326,9 @@ router.get('/payments', (req, res) => {
   const kind = ['membership', 'event', 'other'].includes(req.query.kind) ? req.query.kind : '';
   const payments = db.prepare(`
     SELECT p.*, u.first_name, u.last_name, u.email FROM payments p JOIN users u ON u.id = p.user_id
-    WHERE p.status = 'paid' AND (? = '' OR p.kind = ?) ORDER BY p.paid_at DESC LIMIT 500
-  `).all(kind, kind);
+    WHERE p.status = 'paid' AND (? = '' OR p.kind = ? OR (? = 'membership' AND p.kind = 'membership_upgrade'))
+    ORDER BY p.paid_at DESC LIMIT 500
+  `).all(kind, kind, kind);
   const total = payments.reduce((sum, p) => sum + p.amount_cents, 0);
   res.render('admin/payments', { title: 'Payments', payments, total, kind });
 });
@@ -321,18 +344,26 @@ router.get('/payments.csv', (req, res) => {
 });
 
 router.get('/plans', (req, res) => {
-  const plans = req.app.locals.db.prepare('SELECT * FROM membership_plans ORDER BY active DESC, amount_cents').all();
-  res.render('admin/plans', { title: 'Membership plans', plans });
+  const plans = req.app.locals.db.prepare('SELECT * FROM membership_plans ORDER BY active DESC, sort_order, amount_cents').all()
+    .map((p) => ({ ...p, coverage: svc.planCoverage(p) }));
+  res.render('admin/plans', { title: 'Membership levels', plans });
 });
 
 router.post('/plans', (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 100);
   const amount = parseMoney(req.body.amount);
-  const months = parseIntInRange(req.body.duration_months, 1, 1200);
-  if (!name || Number.isNaN(amount) || !months) throw new svc.UserError('Enter a name, amount and duration for the plan.');
-  req.app.locals.db.prepare('INSERT INTO membership_plans (name, description, amount_cents, duration_months) VALUES (?, ?, ?, ?)')
-    .run(name, String(req.body.description || '').trim().slice(0, 500) || null, amount, months);
-  req.flash('success', 'Plan added.');
+  const calendarYear = req.body.period === 'calendar' ? 1 : 0;
+  const months = calendarYear ? 12 : parseIntInRange(req.body.duration_months, 1, 1200);
+  const maxParents = parseIntInRange(req.body.max_parents || 0, 0, 4);
+  const minAge = parseIntInRange(req.body.min_age || 0, 0, 120);
+  if (!name || Number.isNaN(amount) || !months || maxParents === null || minAge === null) {
+    throw new svc.UserError('Enter a name, price and length for the membership level.');
+  }
+  req.app.locals.db.prepare(`INSERT INTO membership_plans (name, description, amount_cents, duration_months, calendar_year,
+                               spouse_allowed, children_allowed, max_parents, min_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(name, String(req.body.description || '').trim().slice(0, 500) || null, amount, months, calendarYear,
+      req.body.spouse_allowed ? 1 : 0, req.body.children_allowed ? 1 : 0, maxParents, minAge);
+  req.flash('success', 'Membership level added.');
   res.redirect('/admin/plans');
 });
 

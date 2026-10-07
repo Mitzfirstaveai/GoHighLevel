@@ -13,6 +13,10 @@ before(async () => {
     stripeSecretKey: '', allowDemoPayments: true, baseUrl: 'http://test.local', orgName: 'Test Samaj',
   }));
   db = app.locals.db;
+  db.exec(`INSERT INTO membership_plans (name, amount_cents, duration_months, calendar_year, spouse_allowed, children_allowed, max_parents, min_age)
+           VALUES ('Senior Citizen', 11000, 12, 1, 0, 0, 0, 65), ('Individual', 16500, 12, 1, 0, 0, 0, 18),
+                  ('Married Couple', 27500, 12, 1, 1, 0, 0, 0), ('Family', 33000, 12, 1, 1, 1, 0, 0),
+                  ('Family with Parents', 38500, 12, 1, 1, 1, 2, 0)`);
   await new Promise((resolve) => { server = app.listen(0, resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -71,9 +75,19 @@ async function register(email, first = 'Test', familyMembers = 0) {
   assert.equal(res.status, 302);
   await c.get('/profile');
   for (let i = 1; i <= familyMembers; i++) {
-    await c.post('/profile/household', { name: `Family ${i}`, relationship: 'Other' });
+    await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter' });
+  }
+  if (familyMembers) {
+    // Family members only count toward event guests while covered by a paid membership.
+    const { grantMembership } = require('../src/services');
+    const userId = db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
+    grantMembership(db, { userId, planId: planId('Family') });
   }
   return c;
+}
+
+function planId(name) {
+  return db.prepare('SELECT id FROM membership_plans WHERE name = ?').get(name).id;
 }
 
 function futureDate(days, time = '18:00') {
@@ -264,31 +278,31 @@ test('cancelled RSVP frees capacity and invalidates the old QR code', async () =
   assert.notEqual(fresh.qr_token, oldToken);
 });
 
-test('membership dues: plan purchase, renewal extends expiry, members-only events', async () => {
+test('membership levels: join, members-only events, renewal extends to next year', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
-  await admin.post('/admin/plans', { name: 'Annual Family', amount: '51', duration_months: '12' });
-  const planId = db.prepare(`SELECT id FROM membership_plans WHERE name = 'Annual Family'`).get().id;
   const eventId = await createEvent(admin, { title: 'AGM', members_only: '1' });
 
   const m = await register('dues@test.org');
   let res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '1' }));
   assert.match(res.text, /active membership/);
 
-  res = await m.post('/membership/pay', { plan_id: String(planId) });
+  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' }); // Individual is 18+
+  res = await m.post('/membership/pay', { plan_id: String(planId('Individual')) });
   const paymentId = Number(res.location.match(/\/pay\/(\d+)\/demo/)[1]);
+  assert.equal(db.prepare('SELECT amount_cents FROM payments WHERE id = ?').get(paymentId).amount_cents, 16500);
   res = await m.post(`/pay/${paymentId}/demo`);
   assert.equal(res.location, '/membership');
   res = await m.get('/membership');
   assert.match(res.text, /badge ok">Active/);
+  const year = new Date().getFullYear();
+  const rows = () => db.prepare(`SELECT m.* FROM memberships m JOIN users u ON u.id = m.user_id WHERE u.email = 'dues@test.org' ORDER BY m.id`).all();
+  assert.equal(rows()[0].end_date, `${year}-12-31`);
 
-  const first = db.prepare(`SELECT m.end_date FROM memberships m JOIN users u ON u.id = m.user_id WHERE u.email = 'dues@test.org'`).get();
-  res = await m.post('/membership/pay', { plan_id: String(planId) });
+  // Renewing the same level pays full price and covers next calendar year.
+  res = await m.post('/membership/pay', { plan_id: String(planId('Individual')) });
   await m.post(`/pay/${Number(res.location.match(/\/pay\/(\d+)\/demo/)[1])}/demo`);
-  const ends = db.prepare(`SELECT m.end_date FROM memberships m JOIN users u ON u.id = m.user_id
-                           WHERE u.email = 'dues@test.org' ORDER BY m.end_date`).all().map((r) => r.end_date);
-  assert.equal(ends.length, 2);
-  assert.equal(ends[0], first.end_date);
-  assert.ok(ends[1] > ends[0]);
+  assert.equal(rows()[1].start_date, `${year + 1}-01-01`);
+  assert.equal(rows()[1].end_date, `${year + 1}-12-31`);
 
   await m.post(`/events/${eventId}/rsvp`, { party_size: '1' });
   assert.equal(rsvpFor(eventId, 'dues@test.org').status, 'confirmed');
@@ -296,6 +310,82 @@ test('membership dues: plan purchase, renewal extends expiry, members-only event
   // Demo checkout can't be completed twice, or by another member.
   const other = await register('other@test.org');
   assert.equal((await other.post(`/pay/${paymentId}/demo`)).location, '/dashboard');
+});
+
+test('age-restricted level needs a qualifying date of birth', async () => {
+  const m = await register('senior@test.org');
+  let res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) }));
+  assert.match(res.text, /Add your date of birth/);
+  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1990-05-01' });
+  res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) }));
+  assert.match(res.text, /aged 65 or older/);
+  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1950-05-01' });
+  res = await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) });
+  assert.match(res.location, /\/pay\/\d+\/demo/);
+});
+
+test('membership level limits who can be on the profile; upgrade pays the difference', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const m = await register('couple@test.org');
+  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
+  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' });
+
+  // A level that doesn't fit the listed family can't be chosen.
+  let res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Individual')) }));
+  assert.match(res.text, /does not include a spouse/);
+
+  res = await m.post('/membership/pay', { plan_id: String(planId('Married Couple')) });
+  await m.post(`/pay/${Number(res.location.match(/\/pay\/(\d+)\/demo/)[1])}/demo`);
+
+  // Married Couple excludes children and parents.
+  res = await m.follow(await m.post('/profile/household', { name: 'Dev', relationship: 'Son' }));
+  assert.match(res.text, /Married Couple membership covers you and your spouse, so Dev can&#39;t be added\. Upgrade to Family/);
+  res = await m.follow(await m.post('/profile/household', { name: 'Second Wife', relationship: 'Spouse' }));
+  assert.match(res.text, /can&#39;t be added/);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM household_members h JOIN users u ON u.id = h.user_id WHERE u.email = 'couple@test.org'`).get().n, 1);
+
+  // Event guest limit = member + covered family.
+  const eventId = await createEvent(admin, { title: 'Couple Event' });
+  res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /You can bring up to 2/);
+
+  // Upgrade to Family: pays only the $55 difference, keeps the same end date.
+  res = await m.get('/membership');
+  assert.match(res.text, /Upgrade — pay \$55\.00 difference/);
+  res = await m.post('/membership/pay', { plan_id: String(planId('Family')) });
+  const upgradeId = Number(res.location.match(/\/pay\/(\d+)\/demo/)[1]);
+  const upgrade = db.prepare('SELECT * FROM payments WHERE id = ?').get(upgradeId);
+  assert.equal(upgrade.amount_cents, 5500);
+  assert.equal(upgrade.kind, 'membership_upgrade');
+  await m.post(`/pay/${upgradeId}/demo`);
+  res = await m.get('/membership');
+  assert.match(res.text, /<strong>Family<\/strong> — valid through/);
+
+  await m.post('/profile/household', { name: 'Dev', relationship: 'Son' });
+  await m.post('/profile/household', { name: 'Riya', relationship: 'Daughter' });
+  res = await m.follow(await m.post('/profile/household', { name: 'Papa', relationship: 'Father' }));
+  assert.match(res.text, /Upgrade to Family with Parents/);
+  res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /You can bring up to 4/);
+
+  // Admins can add beyond the level as an exception, with a warning.
+  const id = db.prepare(`SELECT id FROM users WHERE email = 'couple@test.org'`).get().id;
+  res = await admin.follow(await admin.post(`/admin/members/${id}/household`, { name: 'Papa', relationship: 'Father' }));
+  assert.match(res.text, /more than the member&#39;s current level covers/);
+  assert.match(res.text, /More family listed than this level covers/);
+  // ...but the uncovered parent still doesn't count toward event guests.
+  res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /You can bring up to 4/);
+});
+
+test('without an active membership a member can only RSVP for themselves', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const eventId = await createEvent(admin, { title: 'Open Event' });
+  const m = await register('nomember@test.org');
+  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
+  const res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /You can bring up to 1/);
+  assert.match(res.text, /Pay your membership<\/a> to bring your family/);
 });
 
 test('admin records an offline payment and payments ledger shows it', async () => {
@@ -317,7 +407,7 @@ test('CSV export neutralises spreadsheet formulas', async () => {
 test('guest limit is the member plus family members on their profile', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Family Limit', max_party_size: '10' });
-  const m = await register('family@test.org', 'Test', 2); // member + 2 family = 3
+  const m = await register('family@test.org', 'Test', 2); // member + 2 children = 3
   let res = await m.get(`/events/${eventId}`);
   assert.match(res.text, /You can bring up to 3/);
   res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '4' }));
@@ -328,7 +418,7 @@ test('guest limit is the member plus family members on their profile', async () 
 
   const single = await register('single@test.org');
   res = await single.follow(await single.post(`/events/${eventId}/rsvp`, { party_size: '2' }));
-  assert.match(res.text, /Add your family members to your profile/);
+  assert.match(res.text, /covered by your membership level can come with you/);
 });
 
 test('changing 4 → 2 guests on a free event: old QR stops working, new QR issued everywhere', async () => {

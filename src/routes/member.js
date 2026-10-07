@@ -33,8 +33,12 @@ router.get('/dashboard', requireAuth, (req, res) => {
 
 router.get('/profile', requireAuth, (req, res) => {
   const { db } = req.app.locals;
-  const household = db.prepare('SELECT * FROM household_members WHERE user_id = ? ORDER BY id').all(req.user.id);
-  res.render('member/profile', { title: 'My profile', profile: req.user, household });
+  const membership = svc.membershipStatus(db, req.user.id);
+  res.render('member/profile', {
+    title: 'My profile', profile: req.user, household: svc.getHousehold(db, req.user.id), membership,
+    coverage: membership.active && membership.plan ? svc.planCoverage(membership.plan) : null,
+    relationships: Object.keys(svc.RELATIONSHIPS),
+  });
 });
 
 router.post('/profile', requireAuth, (req, res) => {
@@ -44,12 +48,11 @@ router.post('/profile', requireAuth, (req, res) => {
 });
 
 router.post('/profile/household', requireAuth, (req, res) => {
-  const name = String(req.body.name || '').trim().slice(0, 120);
-  if (!name) throw new svc.UserError('Please enter a name for the family member.');
   const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
   if (req.body.birth_year && !birthYear) throw new svc.UserError('Birth year looks incorrect.');
-  req.app.locals.db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (?, ?, ?, ?)')
-    .run(req.user.id, name, String(req.body.relationship || '').trim().slice(0, 60) || null, birthYear);
+  const { name } = svc.addHouseholdMember(req.app.locals.db, {
+    userId: req.user.id, name: req.body.name, relationship: req.body.relationship, birthYear,
+  });
   req.flash('success', `${name} added to your family.`);
   res.redirect('/profile#family');
 });
@@ -89,10 +92,11 @@ router.get('/events/:id', requireAuth, (req, res) => {
     .get(event.id, req.user.id);
   const due = rsvp ? svc.amountDue(db, rsvp, event) : 0;
   const maxParty = svc.maxPartySize(db, event, req.user.id);
+  const familyListed = svc.getHousehold(db, req.user.id).length;
   const spotsLeft = event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null;
   const membership = svc.membershipStatus(db, req.user.id);
   res.render('member/event', {
-    title: event.title, event, rsvp, due, maxParty, spotsLeft, membership, open: svc.rsvpWindowOpen(event),
+    title: event.title, event, rsvp, due, maxParty, familyListed, spotsLeft, membership, open: svc.rsvpWindowOpen(event),
   });
 });
 
@@ -173,18 +177,25 @@ router.get('/tickets/:id/qr.png', requireAuth, async (req, res) => {
 
 router.get('/membership', requireAuth, (req, res) => {
   const { db } = req.app.locals;
+  const membership = svc.membershipStatus(db, req.user.id);
   res.render('member/membership', {
     title: 'Membership',
-    membership: svc.membershipStatus(db, req.user.id),
+    membership,
+    coverage: membership.plan ? svc.planCoverage(membership.plan) : null,
     history: db.prepare(`SELECT m.*, p.name AS plan_name FROM memberships m LEFT JOIN membership_plans p ON p.id = m.plan_id
-                         WHERE m.user_id = ? ORDER BY m.end_date DESC`).all(req.user.id),
-    plans: db.prepare('SELECT * FROM membership_plans WHERE active = 1 ORDER BY amount_cents').all(),
+                         WHERE m.user_id = ? ORDER BY m.end_date DESC, m.id DESC`).all(req.user.id),
+    plans: db.prepare('SELECT * FROM membership_plans WHERE active = 1 ORDER BY sort_order, amount_cents').all().map((plan) => ({
+      ...plan,
+      coverage: svc.planCoverage(plan),
+      quote: svc.membershipQuote(db, plan, req.user.id),
+      blocked: svc.planIneligibility(db, plan, req.user),
+    })),
   });
 });
 
 router.post('/membership/pay', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
-  const payment = svc.createMembershipPayment(db, { planId: Number(req.body.plan_id), userId: req.user.id });
+  const payment = svc.createMembershipPayment(db, { planId: Number(req.body.plan_id), user: req.user });
   if (!payment) {
     req.flash('success', 'Your membership is active.');
     return res.redirect('/membership');
