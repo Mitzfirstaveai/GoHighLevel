@@ -71,6 +71,6 @@
       </form>
     <% } %>
   <% } %>
-  <p style="margin-top:20px"><a class="btn big secondary" href="/admin/checkin<%= rsvp ? `?event=${rsvp.event_id}` : '' %>"><%= t('Scan next') %></a></p>
+  <p style="margin-top:20px"><a class="btn big secondary" href="/admin/checkin<%= rsvp ? `?event=${rsvp.event_id}` : '' %>#scanner"><%= t('Scan next') %></a></p>
 </div>
 <%- include('../partials/foot') %>

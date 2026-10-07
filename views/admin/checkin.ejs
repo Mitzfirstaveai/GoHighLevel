@@ -1,6 +1,13 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1><%= t('Door check-in') %></h1></div>
 
+<%# The camera comes first and fits the screen: at a busy door the volunteer shouldn't scroll. %>
+<div class="card scanner-card" id="scanner">
+  <div id="reader"></div>
+  <p id="scan-status" class="muted"><%= t("Point the camera at a member's QR code.") %></p>
+  <button id="start-btn" class="btn big"><%= t('Start camera') %></button>
+</div>
+
 <% if (events.length) { %>
   <nav class="pills wrap" aria-label="<%= t('Choose the event') %>">
     <% for (const e of events) { %>
@@ -18,12 +25,6 @@
   <div class="flash info" role="status"><%= t('There are no events today or in the next 7 days.') %></div>
 <% } %>
 
-<div class="card" style="text-align:center">
-  <h2><%= t('Scan a QR ticket') %></h2>
-  <div id="reader"></div>
-  <p id="scan-status" class="muted"><%= t("Point the camera at a member's QR code.") %></p>
-  <button id="start-btn" class="btn big"><%= t('Start camera') %></button>
-</div>
 
 <% if (selected) { %>
 <div class="card" id="find">
@@ -82,7 +83,7 @@
   <% } %>
 </div>
 <% } %>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="/vendor/html5-qrcode-2.3.8.min.js"></script>
 <script src="/checkin.js" data-msgs="<%= JSON.stringify({
   unavailable: t('Camera scanner could not load. Find the family by name or type the code instead.'),
   notTicket: t('That QR code is not a ticket.'),

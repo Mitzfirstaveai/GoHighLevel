@@ -25,11 +25,20 @@
     scanner.stop().finally(() => { window.location.href = '/admin/checkin/' + encodeURIComponent(token); });
   }
 
+  // Keep the whole camera view on screen, centred, so the volunteer never has to scroll.
+  const card = document.getElementById('scanner');
+  function centre() {
+    const r = card.getBoundingClientRect();
+    if (r.top < 70 || r.bottom > window.innerHeight) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
   function start() {
     button.hidden = true;
     status.textContent = msgs.starting;
-    scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan, () => {})
-      .then(() => { status.textContent = msgs.ready; })
+    // Square video; the scan box is 70% of it, whatever the screen size.
+    const qrbox = (w, h) => { const s = Math.floor(Math.min(w, h) * 0.7); return { width: s, height: s }; };
+    scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox, aspectRatio: 1 }, onScan, () => {})
+      .then(() => { status.textContent = msgs.ready; centre(); })
       .catch((err) => {
         status.textContent = msgs.noCamera;
         console.warn('Camera error', err);

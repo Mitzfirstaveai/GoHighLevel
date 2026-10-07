@@ -175,6 +175,11 @@ tr.dim td { opacity: .55; }
 .big-status.warn { background: var(--warn-bg); color: var(--warn); }
 .party-count { font-size: 3rem; font-weight: 800; }
 #reader { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; }
+/* Door scanner: a square camera view that always fits on the screen below the header. */
+.scanner-card { text-align: center; scroll-margin-top: 90px; }
+.scanner-card #reader { max-width: min(440px, calc(100svh - 260px)); min-width: 220px; }
+.scanner-card #reader video { width: 100% !important; height: auto !important; display: block; }
+.scanner-card #scan-status { margin: 10px 0 6px; }
 .demo-banner { background: var(--warn-bg); color: var(--warn); text-align: center; padding: 6px; font-size: .85rem; }
 @media print { .topbar, .tabbar, .subnav, .site-footer, .demo-banner, .no-print { display: none !important; } }
 @media (prefers-color-scheme: dark) { .tile.primary, .tile.primary .icon, .tile.primary small { color: #1a1310; } }
@@ -376,3 +381,6 @@ body.door-mode .topbar .brand-short { display: inline; }
 .family-head { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
 .invite-panel { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--brand-soft); }
 .invite-link { width: 100%; font-size: .95rem; }
+
+/* Hidden things stay hidden even when they also have a display style (e.g. a .btn). */
+[hidden] { display: none !important; }
