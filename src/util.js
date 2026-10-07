@@ -67,10 +67,28 @@ function formatDateTime(value, locale = 'en-US') {
   const isSqliteUtc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value);
   const d = new Date(value.length === 10 ? `${value}T00:00` : isSqliteUtc ? `${value.replace(' ', 'T')}Z` : value);
   if (Number.isNaN(d.getTime())) return value;
+  // Gujarati: full month names and Gujarati times of day ("8 ઑક્ટોબર, 2026, સાંજે 7:30"),
+  // never shortened English-style words like "ઑક્ટો" or "PM". English keeps "Oct 8, 2026, 7:30 PM".
+  if (locale.startsWith('gu')) {
+    const date = new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(d);
+    if (value.length === 10) return date;
+    const parts = Object.fromEntries(new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', dayPeriod: 'long' })
+      .formatToParts(d).map((p) => [p.type, p.value]));
+    return `${date}, ${parts.dayPeriod} ${parts.hour}:${parts.minute}`;
+  }
   const opts = value.length === 10
     ? { dateStyle: 'medium' }
     : { dateStyle: 'medium', timeStyle: 'short' };
   return new Intl.DateTimeFormat(locale, opts).format(d);
+}
+
+// Month and weekday names for headings and date badges: shortened in English ("Oct", "Thu"),
+// always the full word in Gujarati.
+function monthName(date, locale) {
+  return date.toLocaleString(locale, { month: locale.startsWith('gu') ? 'long' : 'short', timeZone: 'UTC' });
+}
+function weekdayName(date, locale) {
+  return date.toLocaleString(locale, { weekday: locale.startsWith('gu') ? 'long' : 'short', timeZone: 'UTC' });
 }
 
 function toCsv(rows) {
@@ -85,5 +103,5 @@ function toCsv(rows) {
 
 module.exports = {
   formatMoney, parseMoney, localDate, localTimestamp, parseIntInRange, newToken, nowLocal, today, addMonths,
-  formatDateTime, toCsv,
+  formatDateTime, monthName, weekdayName, toCsv,
 };

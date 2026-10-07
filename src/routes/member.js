@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
 const { requireAuth } = require('../middleware');
 const svc = require('../services');
-const { parseIntInRange, nowLocal } = require('../util');
+const { parseIntInRange, nowLocal, weekdayName } = require('../util');
 const { receiptNumber } = require('./donations');
 
 const router = express.Router();
@@ -170,7 +170,7 @@ function renderCalendar(req, res) {
     title: 'Events calendar', month, byDay, daysInMonth, leadingBlanks: first.getUTCDay(),
     monthLabel: first.toLocaleString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
     // Week starting Sunday: Jan 4 2026 was a Sunday.
-    weekdays: [...Array(7)].map((_, i) => new Date(Date.UTC(2026, 0, 4 + i)).toLocaleString(locale, { weekday: 'short', timeZone: 'UTC' })),
+    weekdays: [...Array(7)].map((_, i) => weekdayName(new Date(Date.UTC(2026, 0, 4 + i)), locale)),
     prev: shift(-1), next: shift(1), todayKey: nowLocal().slice(0, 10),
   });
 }

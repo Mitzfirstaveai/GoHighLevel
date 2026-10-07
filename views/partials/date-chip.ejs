@@ -1,2 +1,2 @@
 <% const d = new Date(when); %>
-<div class="date-chip"><small><%= d.toLocaleString(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'short' }) %></small><big><%= d.getDate() %></big></div>
+<div class="date-chip<%= lang === 'gu' ? ' long-month' : '' %>"><small><%= monthName(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), lang === 'gu' ? 'gu-IN' : 'en-US') %></small><big><%= d.getDate() %></big></div>

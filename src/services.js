@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const { transaction } = require('./db');
-const { newToken, nowLocal, today, addMonths, formatDateTime } = require('./util');
+const { newToken, nowLocal, today, addMonths } = require('./util');
 const { interpolate } = require('./i18n');
 
 // A message for the person using the app. `message` is English text that may contain {placeholders};
@@ -774,7 +774,7 @@ function assertCanRenew(db, userId) {
   const opensOn = renewalOpensOn(db, userId);
   if (opensOn) {
     throw new UserError('Membership is already paid through {date}. Dues can be paid at most one year ahead, so renewal opens on {opens}.', {
-      date: formatDateTime(membershipStatus(db, userId).validUntil, 'en-US'), opens: formatDateTime(opensOn, 'en-US'),
+      date: { date: membershipStatus(db, userId).validUntil }, opens: { date: opensOn },
     });
   }
 }

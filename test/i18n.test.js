@@ -80,6 +80,29 @@ test('messages and errors appear in Gujarati', async () => {
   await c.get('/prefs?lang=en&back=/');
 });
 
+// Gujarati pages use full month and weekday names and Gujarati times of day — never the
+// shortened forms ("ઑક્ટો", "ગુરુ") or English AM/PM. (Names are checked against the browser's own list.)
+const SHORT_GU = [
+  ...[...Array(12)].map((_, m) => new Date(Date.UTC(2026, m, 15))).flatMap((d) => [
+    d.toLocaleString('gu-IN', { month: 'short', timeZone: 'UTC' }), d.toLocaleString('gu-IN', { month: 'long', timeZone: 'UTC' })]),
+].reduce((out, name, i, all) => (i % 2 === 0 && name !== all[i + 1] ? [...out, name] : out), []);
+const SHORT_DAYS = [...Array(7)].map((_, i) => new Date(Date.UTC(2026, 0, 4 + i)).toLocaleString('gu-IN', { weekday: 'short', timeZone: 'UTC' }));
+function assertNoShortDates(html, page) {
+  const text = html.replace(/<[^>]+>/g, ' ');
+  for (const short of SHORT_GU) assert.doesNotMatch(text, new RegExp(`${short}(?![\\u0A80-\\u0AFF])`), `${page}: shortened month "${short}"`);
+  for (const day of SHORT_DAYS) assert.doesNotMatch(text, new RegExp(`(^|[^\\u0A80-\\u0AFF])${day}(?![\\u0A80-\\u0AFF])`), `${page}: shortened weekday "${day}"`);
+  assert.doesNotMatch(text, /\d (AM|PM)\b/, `${page}: English AM/PM`);
+}
+
+test('dates read naturally in each language', () => {
+  const { formatDateTime } = require('../src/util');
+  assert.equal(formatDateTime('2026-10-08T19:30', 'en-US'), 'Oct 8, 2026, 7:30 PM');
+  assert.equal(formatDateTime('2026-10-08', 'en-US'), 'Oct 8, 2026');
+  assert.equal(formatDateTime('2026-10-08T19:30', 'gu-IN'), '8 ઑક્ટોબર, 2026, સાંજે 7:30');
+  assert.equal(formatDateTime('2026-10-08T09:00', 'gu-IN'), '8 ઑક્ટોબર, 2026, સવારે 9:00');
+  assert.equal(formatDateTime('2026-09-01', 'gu-IN'), '1 સપ્ટેમ્બર, 2026');
+});
+
 test('every member and public page is fully translated', async () => {
   const c = await signIn('member@example.com');
   await c.get('/prefs?lang=gu&back=/');
@@ -100,6 +123,7 @@ test('every member and public page is fully translated', async () => {
   for (const p of pages) {
     const res = await c.get(p);
     assert.equal(res.status, 200, p);
+    assertNoShortDates(res.text, p);
   }
   const pay = db.prepare(`SELECT id FROM payments WHERE status = 'paid' AND user_id = (SELECT id FROM users WHERE email = 'member@example.com') LIMIT 1`).get().id;
   assert.equal((await c.get(`/receipts/${pay}`)).status, 200);

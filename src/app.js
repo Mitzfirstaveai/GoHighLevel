@@ -39,6 +39,7 @@ function createApp(config) {
     demoAccounts: config.demoMode ? DEMO_ACCOUNTS : [],
     demoPassword: DEMO_PASSWORD,
     money: (cents) => util.formatMoney(cents, config.currency),
+    monthName: util.monthName,
     fmtDate: util.formatDateTime,
   });
 

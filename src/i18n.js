@@ -13,7 +13,8 @@ function formatList(parts, and = 'and') {
   return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} ${and} ${parts.at(-1)}`;
 }
 
-function interpolate(text, vars, mapValue = (v) => (v?.list ? formatList(v.list) : v)) {
+// Placeholder values can also be { date: 'YYYY-MM-DD' }, formatted in the reader's language.
+function interpolate(text, vars, mapValue = (v) => (v?.list ? formatList(v.list) : v?.date ? formatDateTime(v.date, 'en-US') : v)) {
   return vars ? String(text).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? mapValue(vars[k]) : m)) : String(text);
 }
 
@@ -22,7 +23,8 @@ function translator(lang) {
   // Data from the database (level names, roles…): translate if we know it, otherwise leave as is.
   const data = (text) => (lang === 'gu' && typeof text === 'string' && gu[text]) || text;
   // Placeholder values are data too (a level name, a relationship…); lists are translated part by part.
-  const mapValue = (v) => (v?.list ? formatList(v.list.map((p) => t(p)), lang === 'gu' ? 'અને' : 'and') : data(v));
+  const mapValue = (v) => (v?.list ? formatList(v.list.map((p) => t(p)), lang === 'gu' ? 'અને' : 'and')
+    : v?.date ? formatDateTime(v.date, lang === 'gu' ? 'gu-IN' : 'en-US') : data(v));
   const t = (text, vars) => {
     if (lang !== 'gu') return interpolate(text, vars);
     if (gu[text] === undefined) missing.add(text);

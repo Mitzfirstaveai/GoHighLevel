@@ -159,6 +159,9 @@ tr.dim td { opacity: .55; }
 .date-chip { min-width: 58px; text-align: center; border-radius: 10px; background: var(--brand-soft); color: var(--brand); padding: 6px; font-weight: 700; line-height: 1.1; }
 .date-chip small { display: block; font-size: .7rem; text-transform: uppercase; }
 .date-chip big { font-size: 1.4rem; }
+/* Gujarati shows the full month name ("સપ્ટેમ્બર"), so the badge grows a little instead of abbreviating. */
+.date-chip.long-month { min-width: 72px; padding: 6px 4px; }
+.date-chip.long-month small { font-size: .72rem; white-space: nowrap; }
 
 .hero { text-align: center; padding: 32px 16px; }
 .hero img { width: 140px; height: 140px; border-radius: 50%; }
