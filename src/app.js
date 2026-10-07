@@ -48,7 +48,14 @@ function createApp(config) {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'same-origin',
+      // No embedding in other sites, no plugins, no <base> tricks. (Scripts and styles aren't
+      // restricted here: the pages use small inline scripts, and checkout redirects to Stripe.)
+      'Content-Security-Policy': "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+      // Only this site may use the camera (door check-in); no microphone, location or payment APIs.
+      'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()',
     });
+    // Browsers must always use HTTPS for this site once they've seen it (production only).
+    if (config.isProduction) res.set('Strict-Transport-Security', 'max-age=31536000');
     next();
   });
   app.use(express.static(path.join(__dirname, '..', 'public'), {

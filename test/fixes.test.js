@@ -83,3 +83,11 @@ test('active members stay signed in (session is extended on each visit)', async 
   const res = await fetch(`${t.base}/dashboard`, { headers: { cookie: m.cookie } });
   assert.match(res.headers.getSetCookie().join(';'), /connect\.sid=.*Expires=/);
 });
+
+test('security headers: no embedding, camera only for this site', async () => {
+  const res = await new t.Client().get('/login');
+  assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  assert.match(res.headers.get('permissions-policy'), /camera=\(self\)/);
+  assert.match(res.headers.get('permissions-policy'), /microphone=\(\)/);
+});
