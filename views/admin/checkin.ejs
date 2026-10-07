@@ -6,6 +6,8 @@
   <div id="reader"></div>
   <p id="scan-status" class="muted"><%= t("Point the camera at a member's QR code.") %></p>
   <button id="start-btn" class="btn big"><%= t('Start camera') %></button>
+  <label class="check quick-switch"><input type="checkbox" id="quick-mode">
+    <span><strong><%= t('Quick mode') %></strong> — <%= t('go back to the camera 3 seconds after each check-in') %></span></label>
 </div>
 
 <% if (events.length) { %>

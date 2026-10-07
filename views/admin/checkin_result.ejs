@@ -71,6 +71,15 @@
       </form>
     <% } %>
   <% } %>
-  <p style="margin-top:20px"><a class="btn big secondary" href="/admin/checkin<%= rsvp ? `?event=${rsvp.event_id}` : '' %>#scanner"><%= t('Scan next') %></a></p>
+  <% const scanNext = `/admin/checkin${rsvp ? `?event=${rsvp.event_id}` : ''}#scanner`; %>
+  <%# Quick mode: only after a successful check-in, never when something needs the volunteer's attention. %>
+  <% if (rsvp && rsvp.checked_in_at && justCheckedIn) { %>
+    <div class="auto-return" id="auto-return" data-url="<%= scanNext %>" data-template="<%= t('Back to the camera in {n} seconds…') %>" hidden>
+      <p id="auto-return-text" style="margin:0 0 8px"></p>
+      <button type="button" class="btn big secondary" id="auto-return-stay"><%= t('Stay on this page') %></button>
+    </div>
+  <% } %>
+  <p style="margin-top:20px"><a class="btn big secondary" href="<%= scanNext %>"><%= t('Scan next') %></a></p>
 </div>
+<script src="/checkin-result.js"></script>
 <%- include('../partials/foot') %>

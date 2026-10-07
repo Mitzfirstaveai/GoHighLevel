@@ -1,4 +1,13 @@
 (function () {
+  // Quick mode (remembered on this device): after a check-in, the result page returns to the camera.
+  const quick = document.getElementById('quick-mode');
+  if (quick) {
+    try { quick.checked = localStorage.getItem('gsa-quick-checkin') === '1'; } catch { /* private window */ }
+    quick.addEventListener('change', () => {
+      try { localStorage.setItem('gsa-quick-checkin', quick.checked ? '1' : '0'); } catch { /* not saved */ }
+    });
+  }
+
   const msgs = JSON.parse(document.currentScript.dataset.msgs || '{}');
   const status = document.getElementById('scan-status');
   const button = document.getElementById('start-btn');

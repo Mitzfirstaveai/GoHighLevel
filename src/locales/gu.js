@@ -681,4 +681,9 @@ module.exports = {
   "Sign out and create {name}'s login": 'સાઇન આઉટ કરીને {name}નું લોગ ઇન બનાવો',
   'Changes your level from today, including {years}, which you already paid for. Renewals after that are at this level.': 'આજથી તમારું સ્તર બદલાશે, જેમાં તમે અગાઉથી ભરેલું {years} પણ સામેલ છે. ત્યાર પછીનું રિન્યૂઅલ આ સ્તરે થશે.',
   'Changes your level from today. Renewals after that are at this level.': 'આજથી તમારું સ્તર બદલાશે. ત્યાર પછીનું રિન્યૂઅલ આ સ્તરે થશે.',
+  // Door check-in quick mode
+  'Quick mode': 'ઝડપી મોડ',
+  'go back to the camera 3 seconds after each check-in': 'દરેક પ્રવેશ પછી 3 સેકન્ડમાં કેમેરા પર પાછા જાઓ',
+  'Back to the camera in {n} seconds…': '{n} સેકન્ડમાં કેમેરા પર પાછા…',
+  'Stay on this page': 'આ પેજ પર જ રહો',
 };
