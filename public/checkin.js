@@ -1,8 +1,10 @@
 (function () {
-  // Quick mode (remembered on this device): after a check-in, the result page returns to the camera.
+  // Quick mode (on by default; switching it off is remembered on this device): after a check-in,
+  // the result page returns to the camera.
   const quick = document.getElementById('quick-mode');
   if (quick) {
-    try { quick.checked = localStorage.getItem('gsa-quick-checkin') === '1'; } catch { /* private window */ }
+    // On unless this device has switched it off.
+    try { quick.checked = localStorage.getItem('gsa-quick-checkin') !== '0'; } catch { /* private window: stays on */ }
     quick.addEventListener('change', () => {
       try { localStorage.setItem('gsa-quick-checkin', quick.checked ? '1' : '0'); } catch { /* not saved */ }
     });

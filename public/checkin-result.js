@@ -1,10 +1,10 @@
-// Quick mode (switched on under the door camera, remembered per device): after a successful
+// Quick mode (on by default; can be switched off under the door camera, remembered per device): after a successful
 // check-in, count down and go back to the camera. Any tap, or "Stay on this page", stops it.
 (function () {
   const box = document.getElementById('auto-return');
   if (!box) return;
-  let on = false;
-  try { on = localStorage.getItem('gsa-quick-checkin') === '1'; } catch { /* private window: off */ }
+  let on = true; // on by default; a device that switched it off stays off
+  try { on = localStorage.getItem('gsa-quick-checkin') !== '0'; } catch { /* private window: stays on */ }
   if (!on) return;
   const text = document.getElementById('auto-return-text');
   let left = 3;
