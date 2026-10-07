@@ -186,6 +186,20 @@ router.post('/members/:id/role', (req, res) => {
   res.redirect(`/admin/members/${req.params.id}`);
 });
 
+// Door volunteers can use the check-in scanner (and nothing else in the admin area).
+router.post('/members/:id/checkin-access', (req, res) => {
+  const { db } = req.app.locals;
+  const contact = db.prepare('SELECT email, password_hash FROM users WHERE id = ?').get(req.params.id);
+  if (!contact) return notFound(res, 'Member');
+  const grant = req.body.access === '1';
+  if (grant && !contact.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
+  db.prepare('UPDATE users SET checkin_access = ? WHERE id = ?').run(grant ? 1 : 0, req.params.id);
+  req.flash('success', grant
+    ? `Door check-in turned on. They'll see a Check-in button after signing in.${contact.password_hash ? '' : ' They have no app login yet — use "Create app login" below.'}`
+    : 'Door check-in turned off.');
+  res.redirect(req.body.return_to === '/admin/checkin' ? '/admin/checkin' : `/admin/members/${req.params.id}`);
+});
+
 router.post('/members/:id/reset-password', (req, res) => {
   const contact = req.app.locals.db.prepare('SELECT email FROM users WHERE id = ?').get(req.params.id);
   if (!contact?.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
@@ -405,49 +419,7 @@ router.post('/rsvps/:id/record-payment', (req, res) => {
   res.redirect(back.startsWith('/admin/') ? back : `/admin/events/${rsvp.event_id}`);
 });
 
-// ---------- Check-in ----------
-
-router.get('/checkin', (req, res) => {
-  res.render('admin/checkin', { title: 'Check-in scanner' });
-});
-
-// Manual entry: accept either a bare token or a pasted ticket URL.
-router.post('/checkin/lookup', (req, res) => {
-  const raw = String(req.body.code || '').trim();
-  const token = raw.split('/').filter(Boolean).pop() || '';
-  if (!/^[A-Za-z0-9_-]{10,64}$/.test(token)) throw new svc.UserError('That does not look like a valid ticket code.');
-  res.redirect(`/admin/checkin/${token}`);
-});
-
-router.get('/checkin/:token', (req, res) => {
-  const { db } = req.app.locals;
-  const rsvp = svc.findRsvpByToken(db, req.params.token);
-  const due = rsvp ? svc.amountDue(db, rsvp) : 0;
-  // Distinguishes "you just checked them in" from "this code was already used earlier".
-  const justCheckedIn = req.session.justCheckedIn === req.params.token;
-  delete req.session.justCheckedIn;
-  const retired = rsvp ? null : svc.findRetiredToken(db, req.params.token);
-  // Catch a ticket for another day's event (e.g. a Diwali ticket shown at Garba).
-  const notToday = rsvp && rsvp.starts_at.slice(0, 10) !== nowLocal().slice(0, 10);
-  res.status(rsvp ? 200 : 404).render('admin/checkin_result', { title: 'Check-in', rsvp, retired, due, justCheckedIn, notToday, token: req.params.token });
-});
-
-router.post('/checkin/:token', (req, res) => {
-  const { db } = req.app.locals;
-  const guests = parseIntInRange(req.body.guests, 1, 1000);
-  let rsvp;
-  try {
-    rsvp = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id });
-  } catch (err) {
-    if (!(err instanceof svc.UserError)) throw err;
-    delete req.session.justCheckedIn;
-    req.flash('error', err.message);
-    return res.redirect(`/admin/checkin/${encodeURIComponent(req.params.token)}`);
-  }
-  req.session.justCheckedIn = req.params.token;
-  req.flash('success', `Checked in ${rsvp.first_name} ${rsvp.last_name} — ${guests} ${guests === 1 ? 'person' : 'people'}.`);
-  res.redirect(`/admin/checkin/${encodeURIComponent(req.params.token)}`);
-});
+// Check-in lives in routes/checkin.js (shared with door volunteers).
 
 // ---------- News ----------
 

@@ -1,19 +1,93 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Check-in scanner</h1></div>
+<div class="page-head"><h1><%= t('Door check-in') %></h1></div>
+
+<% if (events.length) { %>
+  <nav class="pills wrap" aria-label="<%= t('Choose the event') %>">
+    <% for (const e of events) { %>
+      <a href="/admin/checkin?event=<%= e.id %>" class="<%= selected && e.id === selected.id ? 'active' : '' %>"><%= e.today ? t('Today') : fmtDate(e.starts_at.slice(0, 10)) %> · <%= loc(e, 'title') %></a>
+    <% } %>
+  </nav>
+  <div class="stats">
+    <div class="stat"><div class="label"><%= t('People checked in') %></div><div class="value"><%= selected.stats.checked_in_people %> <span class="muted small">/ <%= selected.stats.confirmed_people %></span></div>
+      <div class="muted small"><%= t('{n} of {total} tickets scanned', { n: selected.stats.checked_in_parties, total: selected.stats.confirmed_parties }) %></div></div>
+    <div class="stat"><div class="label"><%= t('Still to arrive') %></div><div class="value"><%= Math.max(0, selected.stats.confirmed_parties - selected.stats.checked_in_parties) %></div>
+      <div class="muted small"><%= t('families') %></div></div>
+  </div>
+  <% if (!selected.today) { %><div class="flash info" role="status"><%= t('{event} is on {date}, not today. You can look people up, but tickets will show a warning until the day of the event.', { event: loc(selected, 'title'), date: fmtDate(selected.starts_at) }) %></div><% } %>
+<% } else { %>
+  <div class="flash info" role="status"><%= t('There are no events today or in the next 7 days.') %></div>
+<% } %>
+
 <div class="card" style="text-align:center">
+  <h2><%= t('Scan a QR ticket') %></h2>
   <div id="reader"></div>
-  <p id="scan-status" class="muted">Point the camera at a member's QR code.</p>
-  <button id="start-btn" class="btn">Start camera</button>
+  <p id="scan-status" class="muted"><%= t("Point the camera at a member's QR code.") %></p>
+  <button id="start-btn" class="btn big"><%= t('Start camera') %></button>
 </div>
-<div class="card">
-  <h2>Enter code manually</h2>
-  <form method="post" action="/admin/checkin/lookup" class="actions">
-    <%- include('../partials/csrf') %>
-    <input name="code" placeholder="Ticket code or link" style="flex:1;min-width:200px" required>
-    <button class="btn secondary">Look up</button>
+
+<% if (selected) { %>
+<div class="card" id="find">
+  <h2><%= t('No phone? Find the family by name') %></h2>
+  <form method="get" action="/admin/checkin#find" class="actions">
+    <input type="hidden" name="event" value="<%= selected.id %>">
+    <input name="q" value="<%= q %>" placeholder="<%= t('Name or phone number') %>" aria-label="<%= t('Name or phone number') %>" style="flex:1;min-width:200px;font-size:1.15rem" minlength="2" required autocomplete="off">
+    <button class="btn"><%= t('Search') %></button>
   </form>
-  <p class="muted small">Tip: members' QR codes are links — you can also scan them with your phone's regular camera app while signed in here.</p>
+  <% if (results) { %>
+    <% if (!results.length) { %>
+      <p class="muted"><%= t('No RSVP for {event} matches "{q}". Check the spelling, or try a family member\'s name or phone number.', { event: loc(selected, 'title'), q }) %></p>
+    <% } %>
+    <div class="menu-list">
+    <% for (const r of results) { %>
+      <a href="/admin/checkin/<%= r.qr_token %>">
+        <span style="flex:1"><strong><%= r.first_name %> <%= r.last_name %></strong><% if (r.city) { %> <span class="muted small">· <%= r.city %></span><% } %><br>
+          <span class="small"><%= plural(r.party_size, '1 person', '{n} people') %></span>
+          <%- include('../partials/rsvp-badge', { status: r.status }) %>
+          <% if (r.checked_in_at) { %><span class="badge neutral"><%= t('Arrived ({n})', { n: r.checked_in_count }) %></span><% } %></span>
+        <span class="btn small <%= r.checked_in_at || r.status !== 'confirmed' ? 'secondary' : '' %>"><%= r.checked_in_at || r.status !== 'confirmed' ? t('View') : t('Check in') %></span>
+      </a>
+    <% } %>
+    </div>
+  <% } %>
 </div>
+<% } %>
+
+<details class="card">
+  <summary><strong><%= t('Type a ticket code instead') %></strong></summary>
+  <form method="post" action="/admin/checkin/lookup" class="actions" style="margin-top:12px">
+    <%- include('../partials/csrf') %>
+    <input name="code" placeholder="<%= t('Ticket code or link') %>" aria-label="<%= t('Ticket code or link') %>" style="flex:1;min-width:200px" required>
+    <button class="btn secondary"><%= t('Look up') %></button>
+  </form>
+  <p class="muted small"><%= t("Tip: members' QR codes are links — you can also scan them with your phone's regular camera app while signed in here.") %></p>
+</details>
+
+<% if (user.role === 'admin') { %>
+<div class="card" lang="en">
+  <h2>Door volunteers</h2>
+  <p class="muted small">Volunteers can use this page to check families in. They can't see contact details, payments or other admin pages.
+    To add one, open their <a href="/admin/members">contact</a> and choose <strong>Make door volunteer</strong>.</p>
+  <% if (volunteers.length) { %>
+    <div class="actions">
+    <% for (const v of volunteers) { %>
+      <span class="badge neutral" style="font-size:.9rem;padding:6px 10px"><a href="/admin/members/<%= v.id %>"><%= v.first_name %> <%= v.last_name %></a>
+        <form method="post" action="/admin/members/<%= v.id %>/checkin-access" class="inline"><%- include('../partials/csrf') %>
+          <input type="hidden" name="access" value="0"><input type="hidden" name="return_to" value="/admin/checkin">
+          <button class="linkish" title="Remove door access" aria-label="Remove door access for <%= v.first_name %> <%= v.last_name %>">✕</button></form></span>
+    <% } %>
+    </div>
+  <% } else { %>
+    <p class="muted">No door volunteers yet.</p>
+  <% } %>
+</div>
+<% } %>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="/checkin.js"></script>
+<script src="/checkin.js" data-msgs="<%= JSON.stringify({
+  unavailable: t('Camera scanner could not load. Find the family by name or type the code instead.'),
+  notTicket: t('That QR code is not a ticket.'),
+  opening: t('Found ticket — opening…'),
+  starting: t('Starting camera…'),
+  ready: t("Point the camera at a member's QR code."),
+  noCamera: t('Could not use the camera. Allow camera access, or find the family by name instead.'),
+}) %>"></script>
 <%- include('../partials/foot') %>

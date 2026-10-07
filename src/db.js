@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   source TEXT NOT NULL DEFAULT 'signup',  -- signup | admin | import
   language TEXT,                          -- 'en' | 'gu' (display preference)
   text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
+  checkin_access INTEGER NOT NULL DEFAULT 0, -- door volunteer: may use the check-in scanner
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -191,10 +192,11 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  4: ['ALTER TABLE users ADD COLUMN checkin_access INTEGER NOT NULL DEFAULT 0'],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',

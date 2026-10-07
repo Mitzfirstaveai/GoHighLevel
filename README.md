@@ -59,7 +59,7 @@ about a minute to wake up), and every restart reloads fresh demo data. Open the 
 
 ## Demo walkthrough
 
-On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed.
+On the sign-in page, tap **Member (Family level)**, **Admin (committee)** or **Door volunteer** — no typing needed.
 Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
@@ -79,10 +79,19 @@ Other sample members use the password `demo1234`.
 1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.
 2. *Events → Diwali*: headcount incl. guests, answers to questions, coupon usage; download CSV.
 3. *Check-in*: scan a member's QR (or click **Check in**) → choose how many arrived. Scan again → **Already used**.
+   No phone? Search by name, a family member's name or phone number. The list at the bottom shows the door volunteers.
 4. *Contacts*: filter by Sponsor / Donor / "No login yet"; add a contact without email; **Import from spreadsheet**.
 5. *Donations*: Facility Fund thermometer, donor list, start a new fund. *Reports*: income by month, **Export for QuickBooks**.
 6. *Website*: change the motto or committee list and open the public pages. *News*: post an announcement with a photo.
 7. *Overview → Reset demo data* before the next presentation.
+
+**As a door volunteer** (Dhruv Amin in the demo)
+1. Volunteers are ordinary members with one extra button: **Check-in**. They can scan tickets, search for a family by
+   name or phone, and check people in — but they can't see contacts, payments or any other admin page.
+   If a ticket still owes money, they're told to send the family to a committee member.
+2. The check-in screens follow the volunteer's language, so a Gujarati-reading volunteer sees them in Gujarati.
+3. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer**. Remove them from the same
+   place or from the list on the Check-in page.
 
 ## Adding Stripe later
 

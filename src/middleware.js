@@ -7,6 +7,7 @@ function loadUser(db) {
       : null;
     if (req.session.userId && !req.user) delete req.session.userId;
     res.locals.user = req.user;
+    res.locals.canCheckIn = canCheckIn(req.user);
     next();
   };
 }
@@ -20,6 +21,17 @@ function requireAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (!req.user) return requireAuth(req, res, next);
   if (req.user.role !== 'admin') return res.status(403).render('error', { title: 'Not allowed', message: 'Only administrators can view this page.' });
+  next();
+}
+
+// Door volunteers can use the check-in scanner without seeing the rest of the admin area.
+function canCheckIn(user) {
+  return Boolean(user && (user.role === 'admin' || user.checkin_access));
+}
+
+function requireCheckin(req, res, next) {
+  if (!req.user) return requireAuth(req, res, next);
+  if (!canCheckIn(req.user)) return res.status(403).render('error', { title: 'Not allowed', message: 'Only committee members and door volunteers can check people in.' });
   next();
 }
 
@@ -54,4 +66,4 @@ function flash(req, res, next) {
   next();
 }
 
-module.exports = { loadUser, requireAuth, requireAdmin, csrf, flash };
+module.exports = { loadUser, requireAuth, requireAdmin, requireCheckin, canCheckIn, csrf, flash };

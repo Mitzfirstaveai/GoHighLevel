@@ -181,6 +181,8 @@ tr.dim td { opacity: .55; }
 .pills a { white-space: nowrap; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); text-decoration: none; font-weight: 500; font-size: .95rem; }
 .pills a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.pills.wrap { flex-wrap: wrap; overflow: visible; }
+.pills.wrap a { white-space: normal; }
 .prose p { max-width: 75ch; }
 .prose h2 { margin-top: 24px; color: var(--brand); }
 .motto { font-size: 1.2rem; font-style: italic; color: var(--brand); margin: 0; }

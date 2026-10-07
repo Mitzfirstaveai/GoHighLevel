@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
 <a class="back" href="/admin/members">← Member directory</a>
 <div class="page-head"><h1><%= member.first_name %> <%= member.last_name %></h1>
-  <div class="actions"><% if (member.role === 'admin') { %><span class="badge neutral">Administrator</span><% } %>
+  <div class="actions"><% if (member.role === 'admin') { %><span class="badge neutral">Administrator</span><% } %><% if (member.checkin_access && member.role !== 'admin') { %><span class="badge neutral">Door volunteer</span><% } %>
   <% if (membership.active) { %><span class="badge ok">Member until <%= fmtDate(membership.current.end_date) %></span><% } else { %><span class="badge warn">No active membership</span><% } %></div>
 </div>
 <div class="card">
@@ -84,7 +84,15 @@
 
 <div class="card">
   <h2>Account</h2>
+  <% if (member.role !== 'admin') { %>
+    <p class="small"><strong>Door check-in:</strong> <%= member.checkin_access ? 'On — can scan tickets and check families in (no access to contacts, payments or other admin pages).' : 'Off' %></p>
+  <% } %>
   <div class="actions">
+    <% if (member.role !== 'admin') { %>
+    <form method="post" action="/admin/members/<%= member.id %>/checkin-access" class="inline"><%- include('../partials/csrf') %>
+      <input type="hidden" name="access" value="<%= member.checkin_access ? '0' : '1' %>">
+      <button class="btn secondary small"><%= member.checkin_access ? 'Turn off door check-in' : 'Make door volunteer' %></button></form>
+    <% } %>
     <form method="post" action="/admin/members/<%= member.id %>/role" class="inline"><%- include('../partials/csrf') %>
       <input type="hidden" name="role" value="<%= member.role === 'admin' ? 'member' : 'admin' %>">
       <button class="btn secondary small" onclick="return confirm('Are you sure?')"><%= member.role === 'admin' ? 'Remove admin access' : 'Make administrator' %></button></form>

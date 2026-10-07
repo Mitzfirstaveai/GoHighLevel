@@ -1,8 +1,9 @@
 (function () {
+  const msgs = JSON.parse(document.currentScript.dataset.msgs || '{}');
   const status = document.getElementById('scan-status');
   const button = document.getElementById('start-btn');
   if (typeof Html5Qrcode === 'undefined') {
-    status.textContent = 'Camera scanner could not load. Use manual entry below.';
+    status.textContent = msgs.unavailable;
     button.hidden = true;
     return;
   }
@@ -18,19 +19,20 @@
   function onScan(text) {
     if (handled) return;
     const token = tokenFrom(text);
-    if (!token) { status.textContent = 'That QR code is not a ticket.'; return; }
+    if (!token) { status.textContent = msgs.notTicket; return; }
     handled = true;
-    status.textContent = 'Found ticket — opening…';
+    status.textContent = msgs.opening;
     scanner.stop().finally(() => { window.location.href = '/admin/checkin/' + encodeURIComponent(token); });
   }
 
   function start() {
     button.hidden = true;
-    status.textContent = 'Starting camera…';
+    status.textContent = msgs.starting;
     scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScan, () => {})
-      .then(() => { status.textContent = 'Point the camera at a member\'s QR code.'; })
+      .then(() => { status.textContent = msgs.ready; })
       .catch((err) => {
-        status.textContent = 'Could not access camera: ' + err + '. Use manual entry below.';
+        status.textContent = msgs.noCamera;
+        console.warn('Camera error', err);
         button.hidden = false;
       });
   }

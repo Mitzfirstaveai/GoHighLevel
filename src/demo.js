@@ -9,6 +9,7 @@ const GSA_CENTER = require('./content').ORG.venue;
 const DEMO_ACCOUNTS = [
   { label: 'Admin (committee)', email: 'admin@example.com' },
   { label: 'Member (Family level)', email: 'member@example.com' },
+  { label: 'Door volunteer', email: 'dhruv.amin@example.com' },
 ];
 
 const LEVELS = [
@@ -96,6 +97,7 @@ function seedDemo(db) {
     contact('dinesh.patel@example.com', 'Dinesh', 'Patel', '479-555-0152', 'Springdale', 'Donor', 'Lives out of town; supports the Facility Fund');
     contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
     db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
+    db.prepare(`UPDATE users SET tags = 'Volunteer', checkin_access = 1 WHERE email = 'dhruv.amin@example.com'`).run();
     const admin = userId['admin@example.com'];
     const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>
       Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,

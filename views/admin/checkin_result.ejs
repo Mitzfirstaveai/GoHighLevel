@@ -1,56 +1,67 @@
 <%- include('../partials/head') %>
 <div class="card result">
   <% if (!rsvp && retired) { %>
-    <div class="big-status err">⛔ Old QR code — replaced</div>
-    <p><strong><%= retired.first_name %> <%= retired.last_name %></strong> changed their RSVP for <%= retired.event_title %> (<%= retired.reason %>), so this code no longer works.</p>
-    <p>Ask them to open <strong>My tickets</strong> in the app and show their latest QR code<%= retired.status === 'cancelled' ? ' — note their RSVP is currently cancelled' : ` (now ${retired.party_size} ${retired.party_size === 1 ? 'person' : 'people'})` %>.</p>
+    <div class="big-status err">⛔ <%= t('Old QR code — replaced') %></div>
+    <p><%= t('{name} changed their RSVP for {event}, so this code no longer works.', { name: `${retired.first_name} ${retired.last_name}`, event: retired.event_title }) %></p>
+    <p><%= retired.status === 'cancelled'
+      ? t('Ask them to open My tickets in the app. Their RSVP is currently cancelled.')
+      : retired.party_size === 1 ? t('Ask them to open My tickets in the app and show their latest QR code (now 1 person).')
+      : t('Ask them to open My tickets in the app and show their latest QR code (now {n} people).', { n: retired.party_size }) %></p>
   <% } else if (!rsvp) { %>
-    <div class="big-status err">❌ Invalid QR code</div>
-    <p>This code does not match any RSVP.</p>
+    <div class="big-status err">❌ <%= t('Invalid QR code') %></div>
+    <p><%= t('This code does not match any RSVP.') %></p>
   <% } else { %>
     <% if (rsvp.checked_in_at) { %>
       <div class="big-status <%= justCheckedIn ? 'ok' : 'err' %>">
-        <%= justCheckedIn ? '✅ Checked in' : '⛔ Already used' %>
+        <%= justCheckedIn ? `✅ ${t('Checked in')}` : `⛔ ${t('Already used')}` %>
       </div>
-      <p>Checked in <%= fmtDate(rsvp.checked_in_at) %><%= rsvp.checker_first ? ` by ${rsvp.checker_first} ${rsvp.checker_last}` : '' %> — <strong><%= rsvp.checked_in_count %></strong> of <%= rsvp.party_size %> people.</p>
+      <p><%= rsvp.checker_first
+        ? t('Checked in {time} by {by} — {n} of {total} people.', { time: fmtDate(rsvp.checked_in_at), by: `${rsvp.checker_first} ${rsvp.checker_last}`, n: rsvp.checked_in_count, total: rsvp.party_size })
+        : t('Checked in {time} — {n} of {total} people.', { time: fmtDate(rsvp.checked_in_at), n: rsvp.checked_in_count, total: rsvp.party_size }) %></p>
     <% } else if (rsvp.status === 'cancelled') { %>
-      <div class="big-status err">❌ RSVP cancelled</div>
+      <div class="big-status err">❌ <%= t('RSVP cancelled') %></div>
     <% } else if (rsvp.status === 'pending_payment') { %>
-      <div class="big-status warn">⚠️ Payment due: <%= money(due) %></div>
+      <div class="big-status warn">⚠️ <%= t('Payment due: {amount}', { amount: money(due) }) %></div>
     <% } else if (rsvp.status === 'waitlisted') { %>
-      <div class="big-status warn">⏳ On the waitlist — no seat yet</div>
-      <p>This family joined the waitlist and hasn't been given a seat. Admit them only if there is room.</p>
+      <div class="big-status warn">⏳ <%= t('On the waitlist — no seat yet') %></div>
+      <p><%= t("This family joined the waitlist and hasn't been given a seat. Admit them only if there is room.") %></p>
     <% } else { %>
-      <div class="big-status ok">✔ Valid ticket</div>
+      <div class="big-status ok">✔ <%= t('Valid ticket') %></div>
     <% } %>
 
     <% if (notToday && !rsvp.checked_in_at) { %>
-      <div class="flash error" role="alert"><strong>Check the event:</strong> this ticket is for <strong><%= rsvp.event_title %></strong> on <strong><%= fmtDate(rsvp.starts_at) %></strong> — not today.</div>
+      <div class="flash error" role="alert"><%= t('Check the event: this ticket is for {event} on {date} — not today.', { event: eventTitle, date: fmtDate(rsvp.starts_at) }) %></div>
     <% } %>
     <h2 style="margin-bottom:0"><%= rsvp.first_name %> <%= rsvp.last_name %></h2>
-    <p class="muted"><%= rsvp.event_title %> · <%= fmtDate(rsvp.starts_at) %></p>
+    <p class="muted"><%= eventTitle %> · <%= fmtDate(rsvp.starts_at) %></p>
     <div class="party-count"><%= rsvp.party_size %></div>
-    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered on this QR code<%= rsvp.guest_count ? ` — ${rsvp.party_size - rsvp.guest_count} family + ${rsvp.guest_count} guest${rsvp.guest_count === 1 ? '' : 's'}` : '' %></p>
+    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered on this QR code') : t('people registered on this QR code') %><% if (rsvp.guest_count) { %> — <%= rsvp.guest_count === 1
+      ? t('{family} family + 1 guest', { family: rsvp.party_size - rsvp.guest_count })
+      : t('{family} family + {n} guests', { family: rsvp.party_size - rsvp.guest_count, n: rsvp.guest_count }) %><% } %></p>
 
     <% if (rsvp.status === 'pending_payment') { %>
-      <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack">
-        <%- include('../partials/csrf') %>
-        <input type="hidden" name="return_to" value="/admin/checkin/<%= token %>">
-        <label>Collected <%= money(due) %> by <select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select></label>
-        <button class="btn">Record payment</button>
-      </form>
+      <% if (user.role === 'admin') { %>
+        <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack" lang="en">
+          <%- include('../partials/csrf') %>
+          <input type="hidden" name="return_to" value="/admin/checkin/<%= token %>">
+          <label>Collected <%= money(due) %> by <select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select></label>
+          <button class="btn">Record payment</button>
+        </form>
+      <% } else { %>
+        <p><strong><%= t('Please send them to a committee member to pay. Scan the ticket again once it is paid.') %></strong></p>
+      <% } %>
     <% } else if (rsvp.status === 'confirmed' && !rsvp.checked_in_at) { %>
       <form method="post" action="/admin/checkin/<%= token %>" class="stack">
         <%- include('../partials/csrf') %>
-        <label>How many people are arriving?
+        <label><%= t('How many people are arriving?') %>
           <select name="guests" style="font-size:1.3rem">
             <% for (let i = rsvp.party_size; i >= 1; i--) { %><option value="<%= i %>"><%= i %></option><% } %>
           </select>
         </label>
-        <button class="btn big ok">Check in</button>
+        <button class="btn big ok"><%= t('Check in') %></button>
       </form>
     <% } %>
   <% } %>
-  <p style="margin-top:20px"><a class="btn secondary" href="/admin/checkin">Scan next</a></p>
+  <p style="margin-top:20px"><a class="btn big secondary" href="/admin/checkin<%= rsvp ? `?event=${rsvp.event_id}` : '' %>"><%= t('Scan next') %></a></p>
 </div>
 <%- include('../partials/foot') %>

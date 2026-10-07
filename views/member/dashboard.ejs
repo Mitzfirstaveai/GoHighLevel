@@ -11,6 +11,9 @@
   <button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button>
 </div>
 <div class="tiles">
+  <% if (canCheckIn && user.role !== 'admin') { %>
+  <a class="tile" href="/admin/checkin"><%- include('../partials/icon', { name: 'scan' }) %><%= t('Door check-in') %><small><%= t('Scan tickets at the door') %></small></a>
+  <% } %>
   <a class="tile primary" href="/tickets"><%- include('../partials/icon', { name: 'ticket' }) %><%= t('My QR tickets') %><small><%= t('{n} upcoming', { n: myRsvps.filter((r) => r.status === 'confirmed').length }) %></small></a>
   <a class="tile" href="/events"><%- include('../partials/icon', { name: 'calendar' }) %><%= t('Events & RSVP') %><small><%= t("See what's coming up") %></small></a>
   <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %><%= membership.active ? t('Membership') : t('Pay dues') %><small><%= membership.active ? t('Active until {date}', { date: fmtDate(membership.current.end_date) }) : t('Not active') %></small></a>

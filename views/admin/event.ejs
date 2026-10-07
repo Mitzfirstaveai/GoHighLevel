@@ -5,7 +5,7 @@
     <span class="badge <%= event.status === 'published' ? 'ok' : event.status === 'cancelled' ? 'err' : 'neutral' %>"><%= event.status %></span></div>
     <div class="small" style="margin-top:4px"><%- include('../partials/event-prices', { event }) %></div></div>
   <div class="actions">
-    <a class="btn" href="/admin/checkin">Scan QR codes</a>
+    <a class="btn" href="/admin/checkin?event=<%= event.id %>">Door check-in</a>
     <a class="btn secondary" href="/admin/events/<%= event.id %>/edit">Edit</a>
     <a class="btn secondary" href="/admin/events/<%= event.id %>/attendees.csv">Download CSV</a>
   </div>

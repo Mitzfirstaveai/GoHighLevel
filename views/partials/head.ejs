@@ -62,7 +62,8 @@
         <% for (const [href, label, icon, exact] of memberTabs) { %>
           <a href="<%= href %>" class="<%= active(href, exact) || (href === '/about' && aboutPaths.includes(path)) ? 'active' : '' %>"><%= t(label) %></a>
         <% } %>
-        <% if (isAdmin) { %><a href="/admin" class="admin-link <%= inAdmin ? 'active' : '' %>"><%- include('icon', { name: 'shield' }) %> <%= t('Admin') %></a><% } %>
+        <% if (isAdmin) { %><a href="/admin" class="admin-link <%= inAdmin ? 'active' : '' %>"><%- include('icon', { name: 'shield' }) %> <%= t('Admin') %></a>
+        <% } else if (canCheckIn) { %><a href="/admin/checkin" class="admin-link <%= inAdmin ? 'active' : '' %>"><%- include('icon', { name: 'scan' }) %> <%= t('Check-in') %></a><% } %>
       </nav>
     <% } else { %>
       <nav class="nav">

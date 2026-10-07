@@ -10,6 +10,7 @@
   ];
   const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/about', '/committee', '/sponsors', '/contact', '/donate'];
   if (user.role === 'admin') tabs.push(['/admin', 'Admin', 'shield']);
+  else if (canCheckIn) tabs.push(['/admin/checkin', 'Check-in', 'scan']);
   const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
 %>
 <nav class="tabbar mobile-only" aria-label="<%= t('Main menu') %>">

@@ -76,6 +76,7 @@ function createApp(config) {
     res.locals.path = req.path;
     res.locals.url = req.originalUrl;
     res.locals.user = null;
+    res.locals.canCheckIn = false;
     res.locals.org = getContent(db, 'org');
     next();
   });
@@ -90,6 +91,7 @@ function createApp(config) {
   app.use(require('./routes/member'));
   app.use(require('./routes/donations').router);
   app.use('/pay', require('./routes/pay'));
+  app.use('/admin/checkin', require('./routes/checkin'));
   app.use('/admin', require('./routes/reports'));
   app.use('/admin', require('./routes/site-admin'));
   app.use('/admin', require('./routes/admin'));
