@@ -1,28 +1,30 @@
 <%- include('../partials/head') %>
 <div class="card" style="max-width:460px;margin:20px auto">
   <img src="/logo.png" alt="" width="80" height="80" style="display:block;margin:0 auto 8px;border-radius:50%">
-  <h1 style="text-align:center"><%= t('Sign in') %></h1>
-  <form method="post" action="/login" class="stack">
+  <h1 style="text-align:center"><%= t('Committee & volunteer sign-in') %></h1>
+  <p class="muted" style="text-align:center"><%= t('For committee members and door volunteers. Volunteers go straight to door check-in.') %></p>
+  <% if (user && !doorMode) { %>
+    <p class="flash info"><%= t("You're signed in to the member app as {name}. Signing in here switches to your committee or volunteer account.", { name: `${user.first_name} ${user.last_name}` }) %></p>
+  <% } %>
+  <form method="post" action="/admin/login" class="stack">
     <%- include('../partials/csrf') %>
     <label><%= t('Email') %> <input type="email" name="email" value="<%= email %>" required autocomplete="email"></label>
     <label><%= t('Password') %> <input type="password" name="password" required autocomplete="current-password"></label>
     <button class="btn big"><%= t('Sign in') %></button>
   </form>
-  <% const memberDemo = demoAccounts.filter((a) => !a.door); %>
-  <% if (memberDemo.length) { %>
+  <% const staffDemo = demoAccounts.filter((a) => a.staff); %>
+  <% if (staffDemo.length) { %>
     <div class="demo-login">
       <p class="small" style="margin:0 0 8px"><strong><%= t('Demo site') %></strong> — <%= t('tap to sign in as:') %></p>
       <div class="actions">
-      <% for (const a of memberDemo) { %>
-        <form method="post" action="/login"><%- include('../partials/csrf') %>
+      <% for (const a of staffDemo) { %>
+        <form method="post" action="/admin/login"><%- include('../partials/csrf') %>
           <input type="hidden" name="email" value="<%= a.email %>"><input type="hidden" name="password" value="<%= demoPassword %>">
           <button class="btn secondary small" lang="en"><%= a.label %></button></form>
       <% } %>
       </div>
-      <p class="muted small" style="margin:8px 0 0"><%= t('Other sample members use password {password}.', { password: demoPassword }) %></p>
     </div>
   <% } %>
-  <p class="muted small"><%= t('New here?') %> <a href="/register"><%= t('Create your member account') %></a>. <%= t('Forgot your password? Ask a committee member to reset it.') %></p>
-  <p class="small" style="text-align:center"><a href="/admin/login"><%= t('Committee & volunteer sign-in') %></a></p>
+  <p class="muted small"><%= t('Not on the committee?') %> <a href="/login"><%= t('Member sign-in') %></a>. <%= t('Forgot your password? Ask a committee member to reset it.') %></p>
 </div>
 <%- include('../partials/foot') %>

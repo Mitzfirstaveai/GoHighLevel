@@ -34,28 +34,59 @@ function recordFailure(keys) {
   if (failures.size > 10000) failures.clear(); // keep memory bounded
 }
 
-router.post('/login', (req, res, next) => {
+// Checks the email and password; renders the sign-in page again (with the error) on failure.
+function authenticate(req, res, view) {
   const { db } = req.app.locals;
   const email = String(req.body.email || '').trim();
   const keys = [[`email:${email.toLowerCase()}`, FAILED_LIMIT.perEmail], [`ip:${req.ip}`, FAILED_LIMIT.perIp]];
   if (tooManyFailures(keys)) {
     res.locals.flash = [{ type: 'error', message: 'Too many attempts. Please wait 15 minutes and try again, or ask a committee member to reset your password.' }];
-    return res.status(429).render('auth/login', { title: 'Sign in', email });
+    res.status(429).render(view, { title: 'Sign in', email });
+    return null;
   }
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   // Contacts added by an admin or imported have no password until they're given a login.
   if (!user?.password_hash || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
     recordFailure(keys);
     res.locals.flash = [{ type: 'error', message: 'Incorrect email or password.' }];
-    return res.status(401).render('auth/login', { title: 'Sign in', email });
+    res.status(401).render(view, { title: 'Sign in', email });
+    return null;
   }
   failures.delete(keys[0][0]);
+  return user;
+}
+
+function signIn(req, res, next, user, { doorMode = false, fallback = '/' } = {}) {
   const returnTo = req.session.returnTo;
   req.session.regenerate((err) => {
     if (err) return next(err);
     req.session.userId = user.id;
-    res.redirect(returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/');
+    if (doorMode) req.session.doorMode = true;
+    const safe = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
+    res.redirect(safe && (!doorMode || safe.startsWith('/admin/checkin')) ? safe : fallback);
   });
+}
+
+router.post('/login', (req, res, next) => {
+  const user = authenticate(req, res, 'auth/login');
+  if (user) signIn(req, res, next, user);
+});
+
+// Committee & door volunteer sign-in. Volunteers land in door check-in mode: a check-in-only
+// screen, kept separate from their member app. Ordinary members are turned away here.
+router.get('/admin/login', (req, res) => {
+  if (req.user?.role === 'admin') return res.redirect('/admin');
+  if (req.session.doorMode) return res.redirect('/admin/checkin');
+  res.render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: '' });
+});
+
+router.post('/admin/login', (req, res, next) => {
+  const user = authenticate(req, res, 'auth/staff_login');
+  if (!user) return;
+  if (user.role === 'admin') return signIn(req, res, next, user, { fallback: '/admin' });
+  if (user.checkin_access) return signIn(req, res, next, user, { doorMode: true, fallback: '/admin/checkin' });
+  res.locals.flash = [{ type: 'error', message: 'This sign-in is only for the committee and door volunteers. Please use the member sign-in.' }];
+  res.status(403).render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: user.email });
 });
 
 router.get('/register', (req, res) => {
@@ -100,7 +131,9 @@ router.post('/register', (req, res, next) => {
 });
 
 router.post('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/'));
+  // A door volunteer signing out leaves the sign-in screen ready for the next volunteer.
+  const next = req.session.doorMode ? '/admin/login' : '/';
+  req.session.destroy(() => res.redirect(next));
 });
 
 module.exports = router;

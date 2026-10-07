@@ -7,9 +7,10 @@ const { newToken } = require('./util');
 const DEMO_PASSWORD = 'demo1234';
 const GSA_CENTER = require('./content').ORG.venue;
 const DEMO_ACCOUNTS = [
-  { label: 'Admin (committee)', email: 'admin@example.com' },
+  // staff: shown on the committee & volunteer sign-in; door: only there (not on the member sign-in).
+  { label: 'Admin (committee)', email: 'admin@example.com', staff: true },
   { label: 'Member (Family level)', email: 'member@example.com' },
-  { label: 'Door volunteer', email: 'dhruv.amin@example.com' },
+  { label: 'Door volunteer', email: 'dhruv.amin@example.com', staff: true, door: true },
 ];
 
 const LEVELS = [

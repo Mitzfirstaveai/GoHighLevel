@@ -1,9 +1,10 @@
 // Door check-in, shared by administrators and door volunteers (members an admin has given
-// check-in access). Volunteers see only these pages: the scanner, a name search for the
-// day's events and the ticket result — no contact details, payments or other admin pages.
+// check-in access, signed in at /admin/login). Volunteers see only these pages: the scanner,
+// a name search for the day's events and the ticket result — no contact details, payments
+// or other admin pages.
 // Mounted at /admin/checkin because members' QR codes link to /admin/checkin/<code>.
 const express = require('express');
-const { requireAuth, requireCheckin, canCheckIn } = require('../middleware');
+const { requireCheckin, canCheckIn } = require('../middleware');
 const svc = require('../services');
 const { parseIntInRange, nowLocal } = require('../util');
 
@@ -13,8 +14,8 @@ const TOKEN = /^[A-Za-z0-9_-]{10,64}$/;
 const SEARCH_DAYS = 7;
 
 // A member who opens their own QR link (e.g. with the phone camera) is shown their ticket instead.
-router.get('/:token', requireAuth, (req, res, next) => {
-  if (canCheckIn(req.user)) return next();
+router.get('/:token', (req, res, next) => {
+  if (!req.user || canCheckIn(req.user, req.session)) return next();
   const rsvp = svc.findRsvpByToken(req.app.locals.db, req.params.token);
   if (rsvp && rsvp.user_id === req.user.id) return res.redirect(`/tickets/${rsvp.id}`);
   next();

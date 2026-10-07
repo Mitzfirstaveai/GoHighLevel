@@ -65,7 +65,8 @@
 <% if (user.role === 'admin') { %>
 <div class="card" lang="en">
   <h2>Door volunteers</h2>
-  <p class="muted small">Volunteers can use this page to check families in. They can't see contact details, payments or other admin pages.
+  <p class="muted small">Volunteers sign in at <a href="/admin/login">Committee &amp; volunteer sign-in</a> (linked from the sign-in page) and see only this page.
+    They can't see contact details, payments or other admin pages, and their member app doesn't show check-in.
     To add one, open their <a href="/admin/members">contact</a> and choose <strong>Make door volunteer</strong>.</p>
   <% if (volunteers.length) { %>
     <div class="actions">

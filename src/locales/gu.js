@@ -519,7 +519,6 @@ module.exports = {
   'Door check-in': 'દરવાજે પ્રવેશ',
   'Check-in': 'પ્રવેશ',
   'Check in': 'પ્રવેશ આપો',
-  'Scan tickets at the door': 'દરવાજે ટિકિટ સ્કેન કરો',
   'That does not look like a valid ticket code.': 'આ માન્ય ટિકિટ કોડ લાગતો નથી.',
   'Checked in {name} — 1 person.': '{name}નો પ્રવેશ થયો — 1 વ્યક્તિ.',
   'Checked in {name} — {n} people.': '{name}નો પ્રવેશ થયો — {n} વ્યક્તિ.',
@@ -571,4 +570,10 @@ module.exports = {
   'Please send them to a committee member to pay. Scan the ticket again once it is paid.': 'ચુકવણી માટે તેમને સમિતિના સભ્ય પાસે મોકલો. ચુકવણી થઈ જાય પછી ટિકિટ ફરી સ્કેન કરો.',
   'How many people are arriving?': 'કેટલી વ્યક્તિ આવી રહી છે?',
   'Scan next': 'આગળની ટિકિટ સ્કેન કરો',
+  'Committee & volunteer sign-in': 'સમિતિ અને સ્વયંસેવક સાઇન ઇન',
+  'For committee members and door volunteers. Volunteers go straight to door check-in.': 'સમિતિના સભ્યો અને દરવાજા પરના સ્વયંસેવકો માટે. સ્વયંસેવકો સીધા દરવાજે પ્રવેશ સ્ક્રીન પર જશે.',
+  "You're signed in to the member app as {name}. Signing in here switches to your committee or volunteer account.": 'તમે સભ્ય એપમાં {name} તરીકે સાઇન ઇન છો. અહીં સાઇન ઇન કરવાથી તમારા સમિતિ કે સ્વયંસેવક ખાતામાં બદલાશે.',
+  'Not on the committee?': 'સમિતિમાં નથી?',
+  'Member sign-in': 'સભ્ય સાઇન ઇન',
+  'This sign-in is only for the committee and door volunteers. Please use the member sign-in.': 'આ સાઇન ઇન ફક્ત સમિતિ અને દરવાજા પરના સ્વયંસેવકો માટે છે. કૃપા કરી સભ્ય સાઇન ઇનનો ઉપયોગ કરો.',
 };

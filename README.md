@@ -59,7 +59,8 @@ about a minute to wake up), and every restart reloads fresh demo data. Open the 
 
 ## Demo walkthrough
 
-On the sign-in page, tap **Member (Family level)**, **Admin (committee)** or **Door volunteer** — no typing needed.
+On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed. The **Door volunteer** button is on
+**Committee & volunteer sign-in** (link under the sign-in form and at the bottom of every page).
 Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
@@ -86,11 +87,12 @@ Other sample members use the password `demo1234`.
 7. *Overview → Reset demo data* before the next presentation.
 
 **As a door volunteer** (Dhruv Amin in the demo)
-1. Volunteers are ordinary members with one extra button: **Check-in**. They can scan tickets, search for a family by
-   name or phone, and check people in — but they can't see contacts, payments or any other admin page.
-   If a ticket still owes money, they're told to send the family to a committee member.
-2. The check-in screens follow the volunteer's language, so a Gujarati-reading volunteer sees them in Gujarati.
-3. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer**. Remove them from the same
+1. Open **Committee & volunteer sign-in** and tap **Door volunteer**. The app opens straight into door check-in: scan
+   tickets, search for a family by name or phone, check people in. There are no member menus and no admin pages, and
+   tickets that still owe money send the family to a committee member.
+2. **Sign out** returns to the committee & volunteer sign-in, ready for the next volunteer.
+3. The same person signing in on the normal member sign-in gets their ordinary member app — no check-in anywhere.
+4. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer**. Remove them from the same
    place or from the list on the Check-in page.
 
 ## Adding Stripe later

@@ -85,7 +85,7 @@
 <div class="card">
   <h2>Account</h2>
   <% if (member.role !== 'admin') { %>
-    <p class="small"><strong>Door check-in:</strong> <%= member.checkin_access ? 'On — can scan tickets and check families in (no access to contacts, payments or other admin pages).' : 'Off' %></p>
+    <p class="small"><strong>Door check-in:</strong> <%- member.checkin_access ? 'On — signs in at Committee &amp; volunteer sign-in to scan tickets and check families in (no access to contacts, payments or other admin pages).' : 'Off' %></p>
   <% } %>
   <div class="actions">
     <% if (member.role !== 'admin') { %>

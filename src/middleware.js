@@ -7,7 +7,9 @@ function loadUser(db) {
       : null;
     if (req.session.userId && !req.user) delete req.session.userId;
     res.locals.user = req.user;
-    res.locals.canCheckIn = canCheckIn(req.user);
+    // Door mode: a volunteer who signed in at the committee & volunteer sign-in.
+    if (req.session.doorMode && (!req.user || req.user.role === 'admin' || !req.user.checkin_access)) delete req.session.doorMode;
+    res.locals.doorMode = Boolean(req.session.doorMode);
     next();
   };
 }
@@ -24,15 +26,31 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Door volunteers can use the check-in scanner without seeing the rest of the admin area.
-function canCheckIn(user) {
-  return Boolean(user && (user.role === 'admin' || user.checkin_access));
+// Admins can always check people in. Door volunteers can once they have signed in at the
+// committee & volunteer sign-in (door mode); in their member app they're ordinary members.
+function canCheckIn(user, session) {
+  return Boolean(user && (user.role === 'admin' || (user.checkin_access && session?.doorMode)));
 }
 
 function requireCheckin(req, res, next) {
-  if (!req.user) return requireAuth(req, res, next);
-  if (!canCheckIn(req.user)) return res.status(403).render('error', { title: 'Not allowed', message: 'Only committee members and door volunteers can check people in.' });
-  next();
+  if (!req.user) {
+    req.session.returnTo = req.originalUrl;
+    return res.redirect('/admin/login');
+  }
+  if (canCheckIn(req.user, req.session)) return next();
+  if (req.user.checkin_access) {
+    req.session.returnTo = req.originalUrl;
+    return res.redirect('/admin/login');
+  }
+  res.status(403).render('error', { title: 'Not allowed', message: 'Only committee members and door volunteers can check people in.' });
+}
+
+// In door mode the device only shows check-in, so a phone handed around at the door never
+// opens the volunteer's own member pages.
+const DOOR_PATHS = ['/admin/checkin', '/logout', '/prefs', '/admin/login'];
+function doorModeOnly(req, res, next) {
+  if (!req.session.doorMode || DOOR_PATHS.some((p) => req.path === p || req.path.startsWith(`${p}/`))) return next();
+  res.redirect('/admin/checkin');
 }
 
 function csrf(req, res, next) {
@@ -66,4 +84,4 @@ function flash(req, res, next) {
   next();
 }
 
-module.exports = { loadUser, requireAuth, requireAdmin, requireCheckin, canCheckIn, csrf, flash };
+module.exports = { loadUser, requireAuth, requireAdmin, requireCheckin, canCheckIn, doorModeOnly, csrf, flash };

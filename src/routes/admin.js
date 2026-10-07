@@ -195,7 +195,7 @@ router.post('/members/:id/checkin-access', (req, res) => {
   if (grant && !contact.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
   db.prepare('UPDATE users SET checkin_access = ? WHERE id = ?').run(grant ? 1 : 0, req.params.id);
   req.flash('success', grant
-    ? `Door check-in turned on. They'll see a Check-in button after signing in.${contact.password_hash ? '' : ' They have no app login yet — use "Create app login" below.'}`
+    ? `Door check-in turned on. They sign in at Committee & volunteer sign-in (link on the sign-in page) to open check-in.${contact.password_hash ? '' : ' They have no app login yet — use "Create app login" below.'}`
     : 'Door check-in turned off.');
   res.redirect(req.body.return_to === '/admin/checkin' ? '/admin/checkin' : `/admin/members/${req.params.id}`);
 });
