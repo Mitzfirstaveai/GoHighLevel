@@ -38,6 +38,15 @@
     <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered on this QR code') : t('people registered on this QR code') %><% if (rsvp.guest_count) { %> — <%= rsvp.guest_count === 1
       ? t('{family} family + 1 guest', { family: rsvp.party_size - rsvp.guest_count })
       : t('{family} family + {n} guests', { family: rsvp.party_size - rsvp.guest_count, n: rsvp.guest_count }) %><% } %></p>
+    <% if (names.length) { %>
+      <div class="ticket-for" style="text-align:left">
+        <h3><%= t('Names on this ticket') %></h3>
+        <ul>
+          <% for (const name of names) { %><li><%= name %></li><% } %>
+          <% if (rsvp.guest_count) { %><li class="muted"><%= plural(rsvp.guest_count, '1 guest', '{n} guests') %></li><% } %>
+        </ul>
+      </div>
+    <% } %>
 
     <% if (rsvp.status === 'pending_payment') { %>
       <% if (user.role === 'admin') { %>

@@ -15,6 +15,13 @@
 
 <div class="card" id="family">
   <h2><%= t('Family members') %></h2>
+  <% if (owner) { %>
+    <p><%= t("You're part of {owner}'s family membership. {first} manages this list.", { owner: `${owner.first_name} ${owner.last_name}`, first: owner.first_name }) %></p>
+    <ul class="family-list">
+      <li><strong><%= owner.first_name %> <%= owner.last_name %></strong> <span class="muted">· <%= t('Member') %></span></li>
+      <% for (const h of household) { %><li><strong><%= h.name %></strong> <span class="muted">· <%= t.data(h.relationship) || '' %></span><%= h.login_user_id === profile.id ? ` (${t('you')})` : '' %></li><% } %>
+    </ul>
+  <% } else { %>
   <% if (coverageParts) { %>
     <p><%= t('Your {plan} membership covers {coverage}.', { plan: loc(membership.plan, 'name'), coverage: { list: coverageParts } }) %>
       <%= t('Family listed here can come with you to events.') %> <a href="/membership"><%= t('Change level') %></a></p>
@@ -23,10 +30,24 @@
   <% } %>
   <% if (household.length) { %>
   <div class="table-wrap"><table>
-    <thead><tr><th><%= t('Name') %></th><th><%= t('Relationship') %></th><th><%= t('Birth year') %></th><th></th></tr></thead>
+    <thead><tr><th><%= t('Name') %></th><th><%= t('Relationship') %></th><th><%= t('Birth year') %></th><th><%= t('Own login') %></th><th></th></tr></thead>
     <tbody>
     <% for (const h of household) { %>
       <tr><td><%= h.name %></td><td><%= t.data(h.relationship) || '' %></td><td><%= h.birth_year || '' %></td>
+        <td>
+          <% if (h.login_user_id) { %><span class="badge ok"><%= t('Has own login') %></span>
+          <% } else if (h.email) { %>
+            <span class="small"><%= t('Can join with {email}', { email: h.email }) %></span>
+            <form method="post" action="/profile/household/<%= h.id %>/email" class="inline"><%- include('../partials/csrf') %><input type="hidden" name="email" value=""><button class="linkish small" title="<%= t('Remove') %>">✕</button></form>
+          <% } else { %>
+            <details class="small"><summary><%= t('Give them their own login') %></summary>
+              <form method="post" action="/profile/household/<%= h.id %>/email" class="actions" style="margin-top:6px"><%- include('../partials/csrf') %>
+                <input type="email" name="email" placeholder="<%= t('Their email') %>" aria-label="<%= t('Their email') %>" required style="min-width:180px">
+                <button class="btn secondary small"><%= t('Save') %></button></form>
+              <span class="muted"><%= t('They then tap Join and sign up with this email. They can register themselves for events and see the family tickets.') %></span>
+            </details>
+          <% } %>
+        </td>
         <td class="num"><form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form></td></tr>
     <% } %>
     </tbody>
@@ -45,6 +66,7 @@
     </div>
     <div><button class="btn secondary"><%= t('Add family member') %></button></div>
   </form>
+  <% } %>
 </div>
 
 <div class="card" id="privacy">

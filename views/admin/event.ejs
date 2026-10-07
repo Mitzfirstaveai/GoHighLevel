@@ -27,7 +27,8 @@
         <td><a href="/admin/members/<%= a.user_id %>"><%= a.last_name %>, <%= a.first_name %></a><div class="muted small"><%= a.phone || a.email %></div>
           <% for (const ans of a.answers.filter((x) => x.answer)) { %><div class="small"><span class="muted"><%= ans.label %>:</span> <%= ans.answer %></div><% } %></td>
         <td><%- include('../partials/rsvp-badge', { status: a.status }) %></td>
-        <td class="num"><strong><%= a.party_size %></strong><% if (a.guest_count) { %><div class="muted small">incl. <%= a.guest_count %> guest<%= a.guest_count === 1 ? '' : 's' %></div><% } %></td>
+        <td class="num"><strong><%= a.party_size %></strong><% if (a.guest_count) { %><div class="muted small">incl. <%= a.guest_count %> guest<%= a.guest_count === 1 ? '' : 's' %></div><% } %>
+          <% if (a.names.length) { %><div class="small" style="text-align:right;max-width:220px;margin-left:auto"><%= a.names.join(', ') %></div><% } %></td>
         <td class="num"><%= a.total_cents || a.paid_cents ? money(a.paid_cents) : '—' %><% if (a.total_cents && a.paid_cents < a.total_cents && a.status !== 'cancelled') { %><div class="muted small">of <%= money(a.total_cents) %></div><% } %>
           <% if (a.coupon_code) { %><div class="small"><span class="badge tag"><%= a.coupon_code %></span></div><% } %></td>
         <td><% if (a.checked_in_at) { %><span class="badge ok"><%= a.checked_in_count %> arrived</span><div class="muted small"><%= fmtDate(a.checked_in_at) %></div><% } else { %>—<% } %></td>

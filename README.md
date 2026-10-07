@@ -67,14 +67,20 @@ Other sample members use the password `demo1234`.
 1. Tap **ગુજરાતી** at the top — the whole member app switches to Gujarati. Tap **A+** to make the text bigger.
    (Also under *More → Language and text size*.)
 2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
-3. *Tickets*: the Navratri Garba #1 QR ticket for 4 people.
-4. *Events → Diwali Dinner & Cultural Program*: choose 3 family + 2 guests, pick a dietary preference, enter coupon
+3. *Tickets*: the Navratri Garba #1 QR ticket for Priya, Diya and Aarav — the names are on the ticket (and shown at the
+   door). Tap **Change who's coming** to add or remove someone; a new QR code replaces the old one.
+4. *Events → Diwali Dinner & Cultural Program*: tick 3 family members + 2 guests, pick a dietary preference, enter coupon
    `DIWALI10` → the estimate updates → pay (simulated) → QR ticket. Early-bird member price applies.
 5. *Events → Garba Dance Workshop for Kids*: it's full — **Join waitlist**. Try the **Calendar** view and **Add to my calendar**.
-6. Change an RSVP from 4 to 2 → a new QR code is issued and the old one stops working.
-7. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
-8. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
-9. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
+6. When registering, tick who's coming by name — only family on the profile and covered by the membership level can be
+   ticked, and nobody can be on two tickets for the same event.
+7. *Family login*: sign out and tap **Spouse (family login)** (Amit, Priya's husband). He's covered by Priya's
+   membership; on Navratri Garba #1 the kids show "Already registered on Priya Shah's ticket", so he can only add himself,
+   and he gets his own QR ticket. Members give family their own login under *Profile → Family members → Give them their
+   own login* (enter their email; they then tap **Join** with that email).
+8. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
+9. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
+10. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
 
 **As an admin**
 1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.

@@ -1,0 +1,13 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1><%= t('Membership') %></h1></div>
+<div class="card">
+  <p style="margin-top:0"><%= t("You're covered by {owner}'s family membership.", { owner: `${owner.first_name} ${owner.last_name}` }) %></p>
+  <% if (membership.active) { %>
+    <p><span class="badge ok"><%= t('Active') %></span> <strong><%= membership.plan ? loc(membership.plan, 'name') : t('Member') %></strong> — <%= t('valid through') %> <strong><%= fmtDate(membership.current.end_date) %></strong></p>
+    <% if (coverageParts) { %><p class="muted"><%= t('Covers {coverage}.', { coverage: { list: coverageParts } }) %></p><% } %>
+  <% } else { %>
+    <p><span class="badge warn"><%= membership.current ? t('Expired on {date}', { date: fmtDate(membership.current.end_date) }) : t('No active membership') %></span></p>
+  <% } %>
+  <p class="muted" style="margin-bottom:0"><%= t('{owner} renews the membership and manages the family list.', { owner: owner.first_name }) %></p>
+</div>
+<%- include('../partials/foot') %>

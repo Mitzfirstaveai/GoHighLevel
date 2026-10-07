@@ -13,15 +13,22 @@ function ticketUrl(config, token) {
   return `${config.baseUrl}/admin/checkin/${token}`;
 }
 
+// Upcoming tickets for the whole family (the member and any family logins), soonest first,
+// each with the names it's for.
+function familyTickets(db, userId) {
+  const ids = svc.familyUserIds(db, userId);
+  return db.prepare(`
+    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.fee_cents, u.first_name AS holder_first, u.last_name AS holder_last
+    FROM rsvps r JOIN events e ON e.id = r.event_id JOIN users u ON u.id = r.user_id
+    WHERE r.user_id IN (${ids.map(() => '?').join(',')}) AND r.status != 'cancelled' AND e.starts_at >= ?
+    ORDER BY e.starts_at, r.user_id != ?
+  `).all(...ids, nowLocal().slice(0, 10), userId).map((r) => ({ ...r, names: svc.attendeeNames(db, r), mine: r.user_id === userId }));
+}
+
 router.get('/dashboard', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const membership = svc.membershipStatus(db, req.user.id);
-  const myRsvps = db.prepare(`
-    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.fee_cents FROM rsvps r
-    JOIN events e ON e.id = r.event_id
-    WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ?
-    ORDER BY e.starts_at
-  `).all(req.user.id, nowLocal().slice(0, 10));
+  const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
   const upcoming = db.prepare(`
     SELECT * FROM events WHERE status = 'published' AND starts_at >= ?
@@ -36,8 +43,10 @@ router.get('/dashboard', requireAuth, (req, res) => {
 router.get('/profile', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const membership = svc.membershipStatus(db, req.user.id);
+  // A family login sees the family it belongs to (managed by the member who listed them).
+  const owner = req.user.owner_id ? db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   res.render('member/profile', {
-    title: 'My profile', profile: req.user, household: svc.getHousehold(db, req.user.id), membership,
+    title: 'My profile', profile: req.user, household: svc.getHousehold(db, owner?.id ?? req.user.id), membership, owner,
     coverageParts: membership.active && membership.plan ? svc.planCoverageParts(membership.plan) : null,
     relationships: Object.keys(svc.RELATIONSHIPS),
   });
@@ -49,7 +58,13 @@ router.post('/profile', requireAuth, (req, res) => {
   res.redirect('/profile');
 });
 
-router.post('/profile/household', requireAuth, (req, res) => {
+// Only the member who holds the membership manages the family list.
+function requireFamilyManager(req, res, next) {
+  if (req.user.owner_id) throw new svc.UserError('Your family list is managed by the member who added you. Please ask them to make changes.');
+  next();
+}
+
+router.post('/profile/household', requireAuth, requireFamilyManager, (req, res) => {
   const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
   if (req.body.birth_year && !birthYear) throw new svc.UserError('Birth year looks incorrect.');
   const { name } = svc.addHouseholdMember(req.app.locals.db, {
@@ -59,8 +74,16 @@ router.post('/profile/household', requireAuth, (req, res) => {
   res.redirect('/profile#family');
 });
 
-router.post('/profile/household/:id/delete', requireAuth, (req, res) => {
-  req.app.locals.db.prepare('DELETE FROM household_members WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+router.post('/profile/household/:id/delete', requireAuth, requireFamilyManager, (req, res) => {
+  svc.removeHouseholdMember(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id) });
+  res.redirect('/profile#family');
+});
+
+// Give a family member their own login: they then tap Join and sign up with this email.
+router.post('/profile/household/:id/email', requireAuth, requireFamilyManager, (req, res) => {
+  const { name, email } = svc.setFamilyEmail(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id), email: req.body.email });
+  if (email) req.flash('success', '{name} can now join the app with {email} (tap Join on the sign-in page). Their login will be linked to your family.', { name, email });
+  else req.flash('success', 'Saved.');
   res.redirect('/profile#family');
 });
 
@@ -173,25 +196,34 @@ router.get('/events/:id', requireAuth, (req, res) => {
   const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`)
     .get(event.id, req.user.id);
   const membership = svc.membershipStatus(db, req.user.id);
-  const memberPrice = svc.memberPrice(event);
-  const guestPrice = event.guest_fee_cents ?? event.fee_cents;
   res.render('member/event', {
     title: event.title, event, rsvp, membership, open: svc.rsvpWindowOpen(event),
     due: rsvp ? svc.amountDue(db, rsvp) : 0,
     maxParty: svc.maxPartySize(db, event, req.user.id),
-    familyListed: svc.getHousehold(db, req.user.id).length,
+    familyListed: svc.getHousehold(db, svc.householdOwnerId(db, req.user.id)).length,
+    people: svc.eventPeople(db, event, req.user.id),
+    isFamilyLogin: Boolean(req.user.owner_id),
     spotsLeft: event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null,
     questions: svc.eventQuestions(event),
     answers: rsvp ? JSON.parse(rsvp.answers || '[]') : [],
     earlyBird: svc.earlyBirdActive(event),
-    prices: { self: membership.active ? memberPrice : guestPrice, member: memberPrice, guest: event.guest_fee_cents ?? 0 },
+    prices: rsvpPrices(event),
   });
 });
 
+// Per-person prices for the RSVP form's running estimate (forms.js).
+function rsvpPrices(event) {
+  return { member: svc.memberPrice(event), nonmember: event.guest_fee_cents ?? event.fee_cents, guest: event.guest_fee_cents ?? 0 };
+}
+
 router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
+  // The form lists the family by name (checkboxes named "people"); `choose` marks that form,
+  // so ticking nobody is an error rather than falling back to a head count.
+  const people = req.body.choose ? [].concat(req.body.people ?? []) : null;
+  const fromTicket = req.body.from === 'ticket';
   const { rsvp, amountDue, qrReplaced, waitlisted } = svc.upsertRsvp(db, {
-    eventId: Number(req.params.id), userId: req.user.id,
+    eventId: Number(req.params.id), userId: req.user.id, people, keepAnswers: fromTicket,
     partySize: parseIntInRange(req.body.party_size, 1, 1000),
     guests: req.body.guests ? parseIntInRange(req.body.guests, 0, 1000) ?? -1 : 0,
     couponCode: String(req.body.coupon || '').trim(),
@@ -203,7 +235,7 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
     req.flash('info', n === 1
       ? "The event is full, so you're on the waitlist for 1 person. If seats open up you'll be moved in automatically."
       : "The event is full, so you're on the waitlist for {n} people. If seats open up you'll be moved in automatically.", { n });
-    return res.redirect(`/events/${req.params.id}`);
+    return res.redirect(fromTicket ? `/tickets/${rsvp.id}` : `/events/${req.params.id}`);
   }
   if (qrReplaced) {
     req.flash('info', n === 1
@@ -243,30 +275,37 @@ router.post('/events/:id/cancel', requireAuth, (req, res) => {
 // ---------- Tickets (QR codes) ----------
 
 function loadTicket(req) {
-  const rsvp = req.app.locals.db.prepare(`
-    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
+  const { db } = req.app.locals;
+  const rsvp = db.prepare(`
+    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, u.first_name AS holder_first, u.last_name AS holder_last
+    FROM rsvps r JOIN events e ON e.id = r.event_id JOIN users u ON u.id = r.user_id
     WHERE r.id = ?
   `).get(req.params.id);
-  // Members see their own tickets; admins can view anyone's (e.g. to resend).
-  if (!rsvp || (rsvp.user_id !== req.user.id && req.user.role !== 'admin')) return null;
+  // Members see their family's tickets; admins can view anyone's (e.g. to resend).
+  if (!rsvp || (!svc.familyUserIds(db, req.user.id).includes(rsvp.user_id) && req.user.role !== 'admin')) return null;
   return rsvp;
 }
 
 router.get('/tickets', requireAuth, (req, res) => {
-  const tickets = req.app.locals.db.prepare(`
-    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
-    WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ? ORDER BY e.starts_at
-  `).all(req.user.id, nowLocal().slice(0, 10));
-  res.render('member/tickets', { title: 'My tickets', tickets });
+  res.render('member/tickets', { title: 'My tickets', tickets: familyTickets(req.app.locals.db, req.user.id) });
 });
 
 router.get('/tickets/:id', requireAuth, async (req, res) => {
+  const { db } = req.app.locals;
   const rsvp = loadTicket(req);
   if (!rsvp) return res.status(404).render('error', { title: 'Not found', message: 'Ticket not found.' });
   const qrDataUrl = rsvp.status === 'confirmed'
     ? await QRCode.toDataURL(ticketUrl(req.app.locals.config, rsvp.qr_token), { width: 320, margin: 2 })
     : null;
-  res.render('member/ticket', { title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl });
+  const event = svc.getEvent(db, rsvp.event_id);
+  const mine = rsvp.user_id === req.user.id;
+  // The holder can change who's coming here, until check-in or RSVPs close.
+  const canChange = mine && rsvp.status !== 'cancelled' && !rsvp.checked_in_at && svc.rsvpWindowOpen(event);
+  res.render('member/ticket', {
+    title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl, event, mine, canChange, prices: rsvpPrices(event),
+    names: svc.attendeeNames(db, rsvp),
+    people: canChange ? svc.eventPeople(db, event, req.user.id) : [],
+  });
 });
 
 router.get('/tickets/:id/qr.png', requireAuth, async (req, res) => {
@@ -282,6 +321,14 @@ router.get('/tickets/:id/qr.png', requireAuth, async (req, res) => {
 router.get('/membership', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const membership = svc.membershipStatus(db, req.user.id);
+  // Family logins are covered by the family's membership; the member who holds it renews it.
+  const owner = req.user.owner_id ? db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
+  if (owner) {
+    return res.render('member/membership_family', {
+      title: 'Membership', membership, owner,
+      coverageParts: membership.plan ? svc.planCoverageParts(membership.plan) : null,
+    });
+  }
   res.render('member/membership', {
     title: 'Membership',
     membership,
@@ -299,6 +346,7 @@ router.get('/membership', requireAuth, (req, res) => {
 
 router.post('/membership/pay', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
+  if (req.user.owner_id) throw new svc.UserError('Your membership is part of your family membership. The member who holds it renews it.');
   const payment = svc.createMembershipPayment(db, { planId: Number(req.body.plan_id), user: req.user });
   if (!payment) {
     req.flash('success', 'Your membership is active.');

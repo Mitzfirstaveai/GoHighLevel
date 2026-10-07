@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { cleanProfile, UserError } = require('../services');
+const { cleanProfile, UserError, pendingFamilyLogin, linkFamilyLogin } = require('../services');
 
 const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -117,11 +117,16 @@ router.post('/register', (req, res, next) => {
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', profile.first_name,
         profile.last_name, profile.phone, profile.city, profile.native_place).lastInsertRowid;
+    // A member listed this email for someone in their family: link the new login to that family.
+    const family = pendingFamilyLogin(db, email);
+    if (family) linkFamilyLogin(db, { householdId: family.id, userId: Number(id) });
     req.session.regenerate((err) => {
       if (err) return next(err);
       req.session.userId = Number(id);
-      req.session.flash = [{ type: 'success', message: 'Welcome! Please complete your profile.' }];
-      res.redirect('/profile');
+      req.session.flash = [family
+        ? { type: 'success', message: "Welcome! You're part of {owner}'s family membership. You can register yourself for events and see your family's tickets.", vars: { owner: `${family.owner_first} ${family.owner_last}` } }
+        : { type: 'success', message: 'Welcome! Please complete your profile.' }];
+      res.redirect(family ? '/dashboard' : '/profile');
     });
   } catch (err) {
     if (!(err instanceof UserError)) throw err;

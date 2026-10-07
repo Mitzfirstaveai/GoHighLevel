@@ -10,6 +10,7 @@ const DEMO_ACCOUNTS = [
   // staff: shown on the committee & volunteer sign-in; door: only there (not on the member sign-in).
   { label: 'Admin (committee)', email: 'admin@example.com', staff: true },
   { label: 'Member (Family level)', email: 'member@example.com' },
+  { label: 'Spouse (family login)', email: 'amit.shah@example.com' },
   { label: 'Door volunteer', email: 'dhruv.amin@example.com', staff: true, door: true },
 ];
 
@@ -99,6 +100,11 @@ function seedDemo(db) {
     contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
     db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
     db.prepare(`UPDATE users SET tags = 'Volunteer', checkin_access = 1 WHERE email = 'dhruv.amin@example.com'`).run();
+    // Amit (Priya's husband) has his own family login, covered by Priya's Family membership.
+    const amitRow = db.prepare(`SELECT id FROM household_members WHERE user_id = ? AND name = 'Amit Shah'`).get(userId['member@example.com']).id;
+    userId['amit.shah@example.com'] = Number(db.prepare(`INSERT INTO users (email, password_hash, first_name, last_name, phone, city, state, owner_id)
+      VALUES ('amit.shah@example.com', ?, 'Amit', 'Shah', '501-555-0112', 'Conway', 'AR', ?)`).run(hash, userId['member@example.com']).lastInsertRowid);
+    db.prepare('UPDATE household_members SET email = ?, login_user_id = ? WHERE id = ?').run('amit.shah@example.com', userId['amit.shah@example.com'], amitRow);
     const admin = userId['admin@example.com'];
     const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>
       Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,
@@ -158,12 +164,20 @@ function seedDemo(db) {
       localDateTime(100, '11:00'), null, 0, null, 10, 0, 'Two Rivers Park, Little Rock'),
     { title_gu: 'પતંગ મહોત્સવ (ઉત્તરાયણ)', description_gu: 'પતંગ, ચિક્કી અને ઊંધિયું! આખા પરિવારને સાથે લાવો.' });
 
+    // Each RSVP lists who it's for: the member, then family from their profile (or `extra.who`, by first name).
+    const addAttendee = db.prepare('INSERT INTO rsvp_attendees (rsvp_id, event_id, person, name, relationship) VALUES (?, ?, ?, ?, ?)');
     const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18, extra = {}) => {
       const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, answers, status,
           qr_token, checked_in_at, checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(eventId, userId[email], partySize, extra.guests ?? 0, extra.total ?? 0, JSON.stringify(extra.answers ?? []), status, newToken(),
           checkedIn ? localDateTime(-daysAgo, '18:20').replace('T', ' ') + ':00' : null,
           checkedIn ? admin : null, checkedIn ? checkedIn : null).lastInsertRowid);
+      const u = db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(userId[email]);
+      const family = [{ person: `u:${u.id}`, name: `${u.first_name} ${u.last_name}`, relationship: null },
+        ...db.prepare('SELECT * FROM household_members WHERE user_id = ? ORDER BY id').all(u.id)
+          .map((h) => ({ person: `h:${h.id}`, name: h.name, relationship: h.relationship }))];
+      const who = extra.who ? family.filter((p) => extra.who.includes(p.name.split(' ')[0])) : family.slice(0, partySize - (extra.guests ?? 0));
+      for (const p of who) addAttendee.run(id, eventId, p.person, p.name, p.relationship);
       return id;
     };
     const diet = (choice) => [{ label: 'Dietary preference', answer: choice }, { label: 'Will you perform in the cultural program?', answer: 'No' }];
@@ -184,8 +198,9 @@ function seedDemo(db) {
     rsvp(pastIds['Cook-Off'], 'falguni.trivedi@example.com', 2, 'confirmed', 2, 3);
     rsvp(pastIds['Cook-Off'], 'anjali.vyas@example.com', 2, 'confirmed', 2, 3);
 
-    // Navratri Garba #1 (free): the demo member already has a QR ticket.
-    rsvp(garba1, 'member@example.com', 4, 'confirmed');
+    // Navratri Garba #1 (free): the demo member has a ticket for herself and the kids — not Amit,
+    // who can add himself from his own family login.
+    rsvp(garba1, 'member@example.com', 3, 'confirmed', null, 0, { who: ['Priya', 'Diya', 'Aarav'] });
     rsvp(garba1, 'admin@example.com', 3, 'confirmed');
     rsvp(garba1, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, total: 2000 });
     rsvp(garba1, 'anjali.vyas@example.com', 2, 'confirmed');
@@ -229,7 +244,7 @@ function seedDemo(db) {
   });
 }
 
-const TABLES = ['news_posts', 'retired_qr_tokens', 'coupons', 'rsvps', 'memberships', 'payments', 'household_members', 'events',
+const TABLES = ['news_posts', 'rsvp_attendees', 'retired_qr_tokens', 'coupons', 'rsvps', 'memberships', 'payments', 'household_members', 'events',
   'campaigns', 'membership_plans', 'users', 'pages'];
 
 // Wipes all data and loads the demo set again. Sessions are kept: the admin keeps the same id.

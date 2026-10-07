@@ -21,7 +21,9 @@
   <div class="card">
     <h2><%= t('Your RSVP') %></h2>
     <% if (rsvp) { %>
-      <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %> <%= plural(rsvp.party_size, '1 person', '{n} people') %><%= rsvp.guest_count ? ` (${plural(rsvp.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : ` (${t('including you')})` %>
+      <% const onTicket = people.filter((p) => p.chosen).map((p) => p.name); %>
+      <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %> <%= plural(rsvp.party_size, '1 person', '{n} people') %><%= rsvp.guest_count ? ` (${plural(rsvp.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : '' %>
+        <% if (onTicket.length) { %><br><span class="small"><%= onTicket.join(', ') %></span><% } %>
         <% if (rsvp.total_cents) { %><br><span class="muted small"><%= rsvp.discount_cents ? t('Total {total} after {discount} coupon discount', { total: money(rsvp.total_cents), discount: money(rsvp.discount_cents) }) : t('Total {total}', { total: money(rsvp.total_cents) }) %></span><% } %></p>
       <% if (rsvp.checked_in_at) { %>
         <p class="badge ok"><%= t('Checked in — {n} arrived', { n: rsvp.checked_in_count }) %></p>
@@ -45,28 +47,25 @@
             data-price="<%= JSON.stringify(prices) %>"
             data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free') }) %>">
         <%- include('../partials/csrf') %>
+        <%- include('../partials/people-picker', { people, hasRsvp: Boolean(rsvp) }) %>
+        <% if (event.guest_fee_cents !== null && !event.members_only) { %>
         <div class="fields">
-          <label><%= t('Family coming (including you)') %>
-            <select name="party_size">
-              <% const familyNow = rsvp ? rsvp.party_size - rsvp.guest_count : 1; for (let i = 1; i <= Math.max(maxParty, familyNow); i++) { %><option <%= familyNow === i ? 'selected' : '' %>><%= i %></option><% } %>
-            </select>
-          </label>
-          <% if (event.guest_fee_cents !== null) { %>
           <label><%= event.guest_fee_cents ? t('Guests ({price} each)', { price: money(event.guest_fee_cents) }) : t('Guests (free)') %>
             <select name="guests">
               <% for (let i = 0; i <= event.max_guests; i++) { %><option <%= (rsvp?.guest_count || 0) === i ? 'selected' : '' %>><%= i %></option><% } %>
             </select>
           </label>
-          <% } %>
         </div>
-        <p class="muted small" style="margin:0"><%= maxParty > 1 ? t('You can bring up to {n} (you plus the family members covered by your membership).', { n: maxParty }) : t('You can bring up to {n} (just you).', { n: maxParty }) %>
-          <%= event.guest_fee_cents !== null ? t('Guests can come too, at the guest price.') : '' %>
-          <% if (maxParty < event.max_party_size) { %>
+        <% } %>
+        <p class="muted small" style="margin:0"><%= t('Tick each family member who is coming. Only family on your profile and covered by your membership level can be registered.') %>
+          <%= people.length > event.max_party_size ? t('Up to {n} people per RSVP.', { n: event.max_party_size }) : '' %>
+          <%= event.guest_fee_cents !== null && !event.members_only ? t('Guests can come too, at the guest price.') : '' %>
+          <% if (!isFamilyLogin) { %>
             <% if (!membership.active && familyListed) { %><a href="/membership"><%= t('Pay your membership') %></a> <%= t('to bring your family.') %>
             <% } else if (!membership.active) { %><a href="/membership"><%= t('Become a member') %></a> <%= t('and list your family to bring them.') %>
-            <% } else { %><a href="/profile#family"><%= t('Add family members') %></a> <%= t('your level covers, or') %> <a href="/membership"><%= t('upgrade') %></a>.<% } %>
+            <% } else if (people.length === 1 || people.some((p) => !p.canRegister)) { %><a href="/profile#family"><%= t('Add family members') %></a> <%= t('your level covers, or') %> <a href="/membership"><%= t('upgrade') %></a>.<% } %>
           <% } %>
-          <% if (rsvp) { %><%= t('Changing the number of people gives you a new QR code; the old one stops working.') %><% } %>
+          <% if (rsvp) { %><%= t("Changing who's coming gives you a new QR code; the old one stops working.") %><% } %>
           <% if (event.fee_cents || event.guest_fee_cents) { %><%= t('Event fees are non-refundable, including if you reduce your number of guests.') %><% } %></p>
 
         <% questions.forEach((q, i) => { %>

@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS users (
   language TEXT,                          -- 'en' | 'gu' (display preference)
   text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
   checkin_access INTEGER NOT NULL DEFAULT 0, -- door volunteer: may use the check-in scanner
+  -- Family login: a spouse/child/parent with their own sign-in, covered by this member's membership.
+  owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -38,7 +40,9 @@ CREATE TABLE IF NOT EXISTS household_members (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   relationship TEXT,
-  birth_year INTEGER
+  birth_year INTEGER,
+  email TEXT COLLATE NOCASE,                                         -- set by the member so this person can get their own login
+  login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL      -- their login, once they've joined
 );
 
 CREATE TABLE IF NOT EXISTS membership_plans (
@@ -132,6 +136,17 @@ CREATE TABLE IF NOT EXISTS payments (
   paid_at TEXT
 );
 
+-- Who an RSVP is for, by name: the member ('u:<user id>') and family on their profile
+-- ('h:<household member id>'). A person can be on only one active RSVP per event.
+CREATE TABLE IF NOT EXISTS rsvp_attendees (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rsvp_id INTEGER NOT NULL REFERENCES rsvps(id) ON DELETE CASCADE,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  person TEXT NOT NULL,
+  name TEXT NOT NULL,
+  relationship TEXT
+);
+
 -- QR codes that were replaced (guest count changed, RSVP re-opened). Kept so a scan of an
 -- old code can say "replaced" instead of just "invalid".
 CREATE TABLE IF NOT EXISTS retired_qr_tokens (
@@ -187,16 +202,25 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rsvps_event ON rsvps(event_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_rsvp ON rsvp_attendees(rsvp_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_event ON rsvp_attendees(event_id, person);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_household_email ON household_members(email) WHERE email IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
   4: ['ALTER TABLE users ADD COLUMN checkin_access INTEGER NOT NULL DEFAULT 0'],
+  // rsvp_attendees itself is created by SCHEMA. Older RSVPs have no names and show a head count.
+  5: [
+    'ALTER TABLE users ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
+    'ALTER TABLE household_members ADD COLUMN email TEXT COLLATE NOCASE',
+    'ALTER TABLE household_members ADD COLUMN login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
+  ],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',

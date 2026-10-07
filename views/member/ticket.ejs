@@ -10,6 +10,20 @@
     <img src="<%= qrDataUrl %>" alt="<%= t('QR code ticket') %>">
     <p class="party-count" style="margin:8px 0 0"><%= rsvp.party_size %></p>
     <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered') : t('people registered') %><%= rsvp.guest_count ? ` (${plural(rsvp.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : '' %></p>
+  <% } else { %>
+    <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %></p>
+  <% } %>
+  <% if (names.length) { %>
+    <div class="ticket-for">
+      <h2><%= t('This ticket is for') %></h2>
+      <ul>
+        <% for (const name of names) { %><li><%= name %></li><% } %>
+        <% if (rsvp.guest_count) { %><li class="muted"><%= plural(rsvp.guest_count, '1 guest', '{n} guests') %></li><% } %>
+      </ul>
+    </div>
+  <% } %>
+  <% if (!mine) { %><p class="small muted"><%= t("{name}'s ticket", { name: `${rsvp.holder_first} ${rsvp.holder_last}` }) %></p><% } %>
+  <% if (qrDataUrl) { %>
     <p class="small"><%= t('Show this code at the entrance. It can only be scanned once.') %></p>
     <p class="small muted"><%= t('Tip: turn your screen brightness up so the code scans quickly.') %></p>
     <div class="actions no-print" style="justify-content:center">
@@ -17,9 +31,35 @@
       <button class="btn secondary small" onclick="window.print()"><%= t('Print') %></button>
     </div>
   <% } else { %>
-    <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %></p>
     <p><%= t('Your QR ticket will appear here once your RSVP is confirmed.') %></p>
     <a class="btn" href="/events/<%= rsvp.event_id %>"><%= t('Go to event') %></a>
   <% } %>
 </div>
+
+<% if (canChange) { %>
+<div class="card no-print" id="change" style="max-width:520px;margin:16px auto">
+  <h2><%= t("Change who's coming") %></h2>
+  <form method="post" action="/events/<%= rsvp.event_id %>/rsvp" class="stack"
+        data-price="<%= JSON.stringify(prices) %>"
+        data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free') }) %>">
+    <%- include('../partials/csrf') %>
+    <input type="hidden" name="from" value="ticket">
+    <%- include('../partials/people-picker', { people, hasRsvp: true }) %>
+    <% if (event.guest_fee_cents !== null && !event.members_only) { %>
+      <label><%= event.guest_fee_cents ? t('Guests ({price} each)', { price: money(event.guest_fee_cents) }) : t('Guests (free)') %>
+        <select name="guests">
+          <% for (let i = 0; i <= event.max_guests; i++) { %><option <%= (rsvp.guest_count || 0) === i ? 'selected' : '' %>><%= i %></option><% } %>
+        </select>
+      </label>
+    <% } %>
+    <% if (event.fee_cents || event.guest_fee_cents) { %><p class="estimate" data-estimate style="margin:0"></p><% } %>
+    <p class="muted small" style="margin:0"><%= t("Changing who's coming gives you a new QR code; the old one stops working.") %>
+      <% if (event.fee_cents || event.guest_fee_cents) { %><%= t('Event fees are non-refundable, including if you reduce your number of guests.') %><% } %></p>
+    <button class="btn big"><%= t('Save changes') %></button>
+  </form>
+</div>
+<script src="/forms.js"></script>
+<% } else if (mine && !rsvp.checked_in_at && rsvp.status !== 'cancelled') { %>
+  <p class="muted small" style="text-align:center"><%= t('RSVPs are closed for this event, so the ticket can no longer be changed.') %></p>
+<% } %>
 <%- include('../partials/foot') %>

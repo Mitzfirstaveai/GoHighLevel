@@ -19,6 +19,10 @@ before(async () => {
 
 after(() => t.close());
 
+
+// How many family members can be ticked on an event's "Who's coming?" list.
+const choosable = (html) => (html.match(/<input type="checkbox" name="people"[^>]*>/g) || []).filter((tag) => !/disabled/.test(tag)).length;
+
 test('pages require sign-in and admin area requires admin', async () => {
   const anon = new Client();
   assert.equal((await anon.get('/dashboard')).location, '/login');
@@ -260,7 +264,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   // Event guest limit = member + covered family.
   const eventId = await createEvent(admin, { title: 'Couple Event' });
   res = await m.get(`/events/${eventId}`);
-  assert.match(res.text, /You can bring up to 2/);
+  assert.equal(choosable(res.text), 2); // people who can be ticked on the RSVP form
 
   // Upgrade to Family: pays only the $55 difference, keeps the same end date.
   res = await m.get('/membership');
@@ -279,7 +283,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   res = await m.follow(await m.post('/profile/household', { name: 'Papa', relationship: 'Father' }));
   assert.match(res.text, /Upgrade to Family with Parents/);
   res = await m.get(`/events/${eventId}`);
-  assert.match(res.text, /You can bring up to 4/);
+  assert.equal(choosable(res.text), 4); // people who can be ticked on the RSVP form
 
   // Admins can add beyond the level as an exception, with a warning.
   const id = db.prepare(`SELECT id FROM users WHERE email = 'couple@test.org'`).get().id;
@@ -288,7 +292,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   assert.match(res.text, /More family listed than this level covers/);
   // ...but the uncovered parent still doesn't count toward event guests.
   res = await m.get(`/events/${eventId}`);
-  assert.match(res.text, /You can bring up to 4/);
+  assert.equal(choosable(res.text), 4); // people who can be ticked on the RSVP form
 });
 
 test('without an active membership a member can only RSVP for themselves', async () => {
@@ -297,7 +301,7 @@ test('without an active membership a member can only RSVP for themselves', async
   const m = await register('nomember@test.org');
   await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
   const res = await m.get(`/events/${eventId}`);
-  assert.match(res.text, /You can bring up to 1/);
+  assert.equal(choosable(res.text), 1); // people who can be ticked on the RSVP form
   assert.match(res.text, /Pay your membership<\/a> to bring your family/);
 });
 
@@ -322,7 +326,7 @@ test('guest limit is the member plus family members on their profile', async () 
   const eventId = await createEvent(admin, { title: 'Family Limit', max_party_size: '10' });
   const m = await register('family@test.org', 'Test', 2); // member + 2 children = 3
   let res = await m.get(`/events/${eventId}`);
-  assert.match(res.text, /You can bring up to 3/);
+  assert.equal(choosable(res.text), 3); // people who can be ticked on the RSVP form
   res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '4' }));
   assert.match(res.text, /between 1 and 3/);
   assert.equal(rsvpFor(eventId, 'family@test.org'), undefined);

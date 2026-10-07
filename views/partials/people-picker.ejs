@@ -1,0 +1,16 @@
+<%# Family checklist for an RSVP. `people` comes from eventPeople(); `hasRsvp` = editing an existing RSVP. %>
+<fieldset class="people-picker">
+  <legend><%= t("Who's coming?") %></legend>
+  <input type="hidden" name="choose" value="1">
+  <% for (const p of people) { %>
+    <% const disabled = !p.canRegister || Boolean(p.taken); %>
+    <label class="person-row<%= disabled ? ' dim' : '' %>">
+      <input type="checkbox" name="people" value="<%= p.key %>" data-rate="<%= p.member ? 'member' : 'nonmember' %>"
+        <%= p.chosen || (!hasRsvp && !disabled && p.self) ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>>
+      <span><strong><%= p.name %></strong><%= p.self ? ` (${t('you')})` : '' %><% if (p.relationship) { %><span class="muted"> · <%= t.data(p.relationship) %></span><% } %>
+        <% if (p.taken) { %><br><span class="small muted"><%= t("Already registered on {holder}'s ticket", { holder: p.taken }) %></span>
+        <% } else if (!p.canRegister) { %><br><span class="small muted"><%= t('Not covered by your membership level') %></span><% } %>
+      </span>
+    </label>
+  <% } %>
+</fieldset>

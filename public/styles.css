@@ -330,3 +330,19 @@ body.door-mode .topbar .brand-short { display: inline; }
   border: 2px solid var(--border); border-radius: 12px; text-decoration: none; color: var(--text); font-weight: 600; background: var(--surface); }
 .choice.on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
 .choice.on::before { content: "✓"; font-weight: 800; }
+
+/* "Who's coming?" — one big tappable row per family member. */
+.people-picker { border: 0; padding: 0; margin: 0; }
+.people-picker legend { font-weight: 700; font-size: 1.05rem; padding: 0; margin-bottom: 4px; }
+.person-row { display: flex; gap: 14px; align-items: flex-start; font-weight: 400; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.person-row:last-child { border-bottom: 0; }
+.person-row input[type=checkbox] { width: 26px; height: 26px; margin-top: 1px; }
+.person-row.dim { cursor: default; opacity: .75; }
+/* Names on a ticket. */
+.ticket-for { margin: 12px auto; max-width: 360px; }
+.ticket-for h2, .ticket-for h3 { font-size: 1.05rem; margin: 0 0 6px; }
+.ticket-for ul { list-style: none; padding: 0; margin: 0; }
+.ticket-for li { padding: 6px 10px; border-radius: 8px; background: var(--brand-soft); margin-bottom: 4px; font-weight: 600; }
+.ticket-for li.muted { background: none; font-weight: 400; }
+.ticket-names { margin-top: 4px; }
+.family-list { padding-left: 18px; }

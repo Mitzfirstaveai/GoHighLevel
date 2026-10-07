@@ -130,7 +130,10 @@ router.get('/members/:id', (req, res) => {
   if (!member) return notFound(res, 'Member');
   const membership = svc.membershipStatus(db, member.id);
   const household = svc.getHousehold(db, member.id);
+  // A family login (spouse etc. with their own sign-in) is covered by the member who listed them.
+  const owner = member.owner_id ? db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(member.owner_id) : null;
   res.render('admin/member', {
+    owner,
     coverage: membership.plan ? svc.planCoverage(membership.plan) : null,
     coverageProblems: membership.active && membership.plan ? svc.planProblems(membership.plan, household) : [],
     title: `${member.first_name} ${member.last_name}`,
@@ -160,7 +163,7 @@ router.post('/members/:id/household', (req, res) => {
 });
 
 router.post('/members/:id/household/:hid/delete', (req, res) => {
-  req.app.locals.db.prepare('DELETE FROM household_members WHERE id = ? AND user_id = ?').run(req.params.hid, req.params.id);
+  svc.removeHouseholdMember(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid) });
   res.redirect(`/admin/members/${req.params.id}#family`);
 });
 
@@ -366,7 +369,7 @@ function eventAttendees(db, event) {
     WHERE r.event_id = ?
     ORDER BY r.status = 'cancelled', u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
   `).all(event.id).map((r) => ({
-    ...r, paid_cents: svc.paidForRsvp(db, r.id), answers: JSON.parse(r.answers || '[]'),
+    ...r, paid_cents: svc.paidForRsvp(db, r.id), answers: JSON.parse(r.answers || '[]'), names: svc.attendeeNames(db, r),
   }));
 }
 
@@ -390,10 +393,10 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   const event = svc.getEvent(db, req.params.id);
   if (!event) return notFound(res, 'Event');
   const questions = svc.eventQuestions(event);
-  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Of whom guests', 'Total price',
+  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Names', 'Of whom guests', 'Total price',
     'Paid', 'Coupon', ...questions.map((q) => q.label), 'Checked in at', 'People checked in', 'RSVP date']];
   for (const a of eventAttendees(db, event)) {
-    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.guest_count, money(a.total_cents),
+    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.names.join(', '), a.guest_count, money(a.total_cents),
       money(a.paid_cents), a.coupon_code, ...questions.map((q, i) => a.answers[i]?.answer ?? ''),
       localTimestamp(a.checked_in_at), a.checked_in_count, localTimestamp(a.created_at)]);
   }

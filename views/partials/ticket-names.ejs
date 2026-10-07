@@ -1,0 +1,8 @@
+<%# Who a ticket is for: names (newer RSVPs) or a head count (older ones), plus guests. `tk` has names, party_size, guest_count. %>
+<div class="ticket-names">
+  <% if (tk.names.length) { %>
+    👥 <%= tk.names.join(', ') %><%= tk.guest_count ? ` + ${plural(tk.guest_count, '1 guest', '{n} guests')}` : '' %>
+  <% } else { %>
+    👥 <%= plural(tk.party_size, '1 person', '{n} people') %><%= tk.guest_count ? ` (${plural(tk.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : '' %>
+  <% } %>
+</div>

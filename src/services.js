@@ -121,7 +121,14 @@ function suggestPlan(db, household) {
     .find((p) => planProblems(p, household).length === 0) || null;
 }
 
+// A family login (spouse, child, parent with their own sign-in) belongs to the member who listed
+// them; membership, family and coverage are always those of that member's account.
+function householdOwnerId(db, userId) {
+  return db.prepare('SELECT owner_id FROM users WHERE id = ?').get(userId)?.owner_id || Number(userId);
+}
+
 function membershipStatus(db, userId) {
+  userId = householdOwnerId(db, userId);
   const now = today();
   const rows = db.prepare(`
     SELECT m.*, p.name AS plan_name FROM memberships m
@@ -142,6 +149,7 @@ function periodEnd(plan, startDate) {
 }
 
 function grantMembership(db, { userId, planId, paymentId }) {
+  userId = householdOwnerId(db, userId);
   const plan = db.prepare('SELECT * FROM membership_plans WHERE id = ?').get(planId);
   if (!plan) throw new UserError('Membership plan not found.');
   const { active, validUntil } = membershipStatus(db, userId);
@@ -153,6 +161,7 @@ function grantMembership(db, { userId, planId, paymentId }) {
 
 // Moving up to a bigger level mid-period: same end date, new plan from today.
 function upgradeMembership(db, { userId, planId, paymentId }) {
+  userId = householdOwnerId(db, userId);
   const { active, current } = membershipStatus(db, userId);
   if (!active) return grantMembership(db, { userId, planId, paymentId });
   db.prepare(`INSERT INTO memberships (user_id, plan_id, payment_id, start_date, end_date)
@@ -184,14 +193,88 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, overrid
   return { name, exceedsPlan: Boolean(active && plan && planProblems(plan, household).length) };
 }
 
+/**
+ * Everyone in a member's family, by name, as seen by `userId` (the member or one of their family
+ * logins). Each person has a key: 'u:<id>' for the member, 'h:<id>' for family on the profile.
+ *  - member: covered by the active membership (member price), up to what the level includes
+ *  - canRegister: may be put on an RSVP — covered people, plus the signed-in person themselves
+ *    (who pays the guest price without a membership)
+ */
+function familyPeople(db, userId) {
+  userId = Number(userId);
+  const ownerId = householdOwnerId(db, userId);
+  const owner = db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(ownerId);
+  const { active, plan } = membershipStatus(db, ownerId);
+  const allowed = {
+    spouse: active && plan?.spouse_allowed ? 1 : 0,
+    child: active && plan?.children_allowed ? Infinity : 0,
+    parent: active && plan ? plan.max_parents : 0,
+    other: 0,
+  };
+  const people = [{
+    key: `u:${owner.id}`, name: `${owner.first_name} ${owner.last_name}`, relationship: null,
+    self: owner.id === userId, member: active, loginUserId: owner.id,
+  }];
+  for (const h of getHousehold(db, ownerId)) {
+    const group = relationshipGroup(h.relationship);
+    const member = allowed[group] > 0;
+    if (member) allowed[group] -= 1;
+    people.push({ key: `h:${h.id}`, name: h.name, relationship: h.relationship, self: h.login_user_id === userId, member, loginUserId: h.login_user_id });
+  }
+  return people.map((p) => ({ ...p, canRegister: p.member || p.self }));
+}
+
 // Family members the active membership actually covers (0 without an active membership).
 function coveredFamily(db, userId) {
-  const { active, plan } = membershipStatus(db, userId);
-  if (!active || !plan) return 0;
-  const c = countByGroup(getHousehold(db, userId));
-  return Math.min(c.spouse, plan.spouse_allowed ? 1 : 0)
-    + (plan.children_allowed ? c.child : 0)
-    + Math.min(c.parent, plan.max_parents);
+  return familyPeople(db, userId).filter((p) => p.member && !p.key.startsWith('u:')).length;
+}
+
+// ---------- Family logins ----------
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// A member lets someone in their family have their own login by adding that person's email.
+// The person then joins with that email and is linked to the family (see linkFamilyLogin).
+function setFamilyEmail(db, { ownerId, householdId, email }) {
+  const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
+  if (!h) throw new UserError('Family member not found.');
+  if (h.login_user_id) throw new UserError('{name} already has their own login.', { name: h.name });
+  email = String(email || '').trim().toLowerCase();
+  if (email && !EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
+  if (email && db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
+    throw new UserError('That email already has an account. Please ask a committee member to link it to your family.');
+  }
+  if (email && db.prepare('SELECT 1 FROM household_members WHERE email = ? AND id != ?').get(email, h.id)) {
+    throw new UserError('That email is already used for another family member.');
+  }
+  db.prepare('UPDATE household_members SET email = ? WHERE id = ?').run(email || null, h.id);
+  return { name: h.name, email };
+}
+
+// The family member waiting to join with this email (null if none).
+function pendingFamilyLogin(db, email) {
+  return db.prepare(`SELECT h.*, u.first_name AS owner_first, u.last_name AS owner_last FROM household_members h
+    JOIN users u ON u.id = h.user_id WHERE h.email = ? AND h.login_user_id IS NULL`).get(String(email || '').trim()) || null;
+}
+
+function linkFamilyLogin(db, { householdId, userId }) {
+  const h = db.prepare('SELECT * FROM household_members WHERE id = ?').get(householdId);
+  db.prepare('UPDATE users SET owner_id = ? WHERE id = ?').run(h.user_id, userId);
+  db.prepare('UPDATE household_members SET login_user_id = ? WHERE id = ?').run(userId, householdId);
+}
+
+// Removing someone from the family also ends their family login's link (their account stays).
+function removeHouseholdMember(db, { ownerId, householdId }) {
+  const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
+  if (!h) return;
+  if (h.login_user_id) db.prepare('UPDATE users SET owner_id = NULL WHERE id = ? AND owner_id = ?').run(h.login_user_id, ownerId);
+  db.prepare('DELETE FROM household_members WHERE id = ?').run(h.id);
+}
+
+// Accounts that share a family: the member and their family logins.
+function familyUserIds(db, userId) {
+  const ownerId = householdOwnerId(db, userId);
+  return [ownerId, ...db.prepare('SELECT id FROM users WHERE owner_id = ?').all(ownerId).map((u) => u.id)];
 }
 
 function nextDay(isoDate) {
@@ -244,10 +327,44 @@ function paidForRsvp(db, rsvpId) {
     .get(rsvpId).cents;
 }
 
-// A member can bring themselves plus the family on their profile that their membership level
-// covers, never more than the event's own per-RSVP limit. Guests are counted separately.
+// People already on another active RSVP for this event: person key → name of the ticket holder.
+function takenPeople(db, eventId, excludeRsvpId = 0) {
+  const rows = db.prepare(`SELECT a.person, u.first_name, u.last_name FROM rsvp_attendees a
+    JOIN rsvps r ON r.id = a.rsvp_id JOIN users u ON u.id = r.user_id
+    WHERE a.event_id = ? AND r.status != 'cancelled' AND r.id != ?`).all(eventId, excludeRsvpId);
+  return new Map(rows.map((r) => [r.person, `${r.first_name} ${r.last_name}`]));
+}
+
+function ownRsvp(db, eventId, userId) {
+  return db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId);
+}
+
+/**
+ * The family as offered on an RSVP form: each person with `taken` (the ticket holder's name if
+ * they're already on another family ticket for this event) and `chosen` (on this member's RSVP).
+ */
+function eventPeople(db, event, userId) {
+  const mine = ownRsvp(db, event.id, userId);
+  const active = mine && mine.status !== 'cancelled';
+  const taken = takenPeople(db, event.id, mine?.id ?? 0);
+  const chosen = new Set(active ? rsvpAttendees(db, mine.id).map((a) => a.person) : []);
+  return familyPeople(db, userId).map((p) => ({ ...p, taken: taken.get(p.key) || null, chosen: chosen.has(p.key) }));
+}
+
+function rsvpAttendees(db, rsvpId) {
+  return db.prepare('SELECT * FROM rsvp_attendees WHERE rsvp_id = ? ORDER BY id').all(rsvpId);
+}
+
+// Names on a ticket, for display: family by name, then "+ 2 guests". Older RSVPs have no names.
+function attendeeNames(db, rsvp) {
+  return rsvpAttendees(db, rsvp.id).map((a) => a.name);
+}
+
+// A member can register themselves plus the family on their profile that their membership level
+// covers (and who aren't on another family ticket), never more than the event's per-RSVP limit.
 function maxPartySize(db, event, userId) {
-  return Math.min(event.max_party_size, 1 + coveredFamily(db, userId));
+  const free = eventPeople(db, event, userId).filter((p) => p.canRegister && !p.taken).length;
+  return Math.max(1, Math.min(event.max_party_size, free));
 }
 
 // Swaps in a new QR code. The old one stops working immediately (check-in matches on the
@@ -331,14 +448,13 @@ function findCoupon(db, code, event, excludeRsvpId = 0) {
 }
 
 /**
- * Price of an RSVP: the member pays the member price for themselves and covered family; guests
- * (and someone without an active membership) pay the guest price. A coupon then comes off the total.
+ * Price of an RSVP: family covered by the membership pay the member price; guests (and someone
+ * without an active membership) pay the guest price. A coupon then comes off the total.
  */
-function priceRsvp(db, { event, userId, family, guests, couponCode, excludeRsvpId = 0 }) {
-  const isMember = membershipStatus(db, userId).active;
+function priceRsvp(db, { event, people, guests, couponCode, excludeRsvpId = 0 }) {
   const mPrice = memberPrice(event);
   const gPrice = event.guest_fee_cents ?? event.fee_cents;
-  const subtotal = (isMember ? mPrice : gPrice) + (family - 1) * mPrice + guests * gPrice;
+  const subtotal = people.reduce((sum, p) => sum + (p.member ? mPrice : gPrice), 0) + guests * gPrice;
   let discount = 0;
   let coupon = null;
   if (couponCode && subtotal > 0) {
@@ -353,7 +469,39 @@ function priceRsvp(db, { event, userId, family, guests, couponCode, excludeRsvpI
  * Free (or fully paid) RSVPs are confirmed at once; otherwise they wait in pending_payment.
  * If the event is full and the member asked for it, the RSVP goes on the waitlist instead.
  */
-function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false }) {
+// Which family members an RSVP is for: chosen by name (`people`, person keys), or — from a form
+// that only asks how many — the member first, then covered family in profile order.
+function chooseAttendees(db, { event, userId, people, partySize, existingId }) {
+  const everyone = familyPeople(db, userId);
+  const taken = takenPeople(db, event.id, existingId);
+  let chosen;
+  if (people) {
+    const keys = [...new Set([].concat(people).map(String))];
+    chosen = keys.map((key) => everyone.find((p) => p.key === key));
+    if (chosen.some((p) => !p)) throw new UserError('Please choose people from your family list.');
+    for (const p of chosen) {
+      if (taken.has(p.key)) throw new UserError("{name} is already registered for this event on {holder}'s ticket.", { name: p.name, holder: taken.get(p.key) });
+      if (!p.canRegister) throw new UserError("{name} isn't covered by your membership level, so they can't be registered.", { name: p.name });
+    }
+    if (!chosen.length) throw new UserError('Please choose who is coming.');
+    if (chosen.length > event.max_party_size) throw new UserError('You can register up to {n} people on one RSVP for this event.', { n: event.max_party_size });
+  } else {
+    const free = everyone.filter((p) => p.canRegister && !taken.has(p.key));
+    const ordered = [...free.filter((p) => p.self), ...free.filter((p) => !p.self)];
+    const maxParty = Math.max(1, Math.min(event.max_party_size, ordered.length));
+    if (!Number.isInteger(partySize) || partySize < 1 || partySize > maxParty || !ordered.length) {
+      throw new UserError(maxParty === 1
+        ? 'You can register 1 person. Family members listed on your profile and covered by your membership level can come with you.'
+        : 'Number of people must be between 1 and {n} (you plus the family members covered by your membership).', { n: maxParty });
+    }
+    chosen = ordered.slice(0, partySize);
+  }
+  return chosen;
+}
+
+function upsertRsvp(db, {
+  eventId, userId, people = null, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false, keepAnswers = false,
+}) {
   return transaction(db, () => {
     const event = getEvent(db, eventId);
     if (!event) throw new UserError('Event not found.');
@@ -361,25 +509,30 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
     if (event.members_only && !membershipStatus(db, userId).active) {
       throw new UserError('This event is for members with an active membership.');
     }
-    const maxParty = maxPartySize(db, event, userId);
-    if (!Number.isInteger(partySize) || partySize < 1 || partySize > maxParty) {
-      throw new UserError(maxParty === 1
-        ? 'You can register 1 person. Family members listed on your profile and covered by your membership level can come with you.'
-        : 'Number of people must be between 1 and {n} (you plus the family members covered by your membership).', { n: maxParty });
-    }
+    const existing = ownRsvp(db, eventId, userId);
+    if (existing?.checked_in_at) throw new UserError('You have already checked in to this event.');
+    const chosen = chooseAttendees(db, { event, userId, people, partySize, existingId: existing?.id ?? 0 });
     guests = Number(guests) || 0;
     if (!Number.isInteger(guests) || guests < 0) throw new UserError('Number of guests looks incorrect.');
-    if (guests > 0 && event.guest_fee_cents === null) throw new UserError('This event does not allow guests.');
+    if (guests > 0 && (event.guest_fee_cents === null || event.members_only)) throw new UserError('This event does not allow guests.');
     if (guests > event.max_guests) throw new UserError(event.max_guests === 1 ? 'You can bring up to 1 guest to this event.' : 'You can bring up to {n} guests to this event.', { n: event.max_guests });
-    const answers = JSON.stringify(collectAnswers(event, body));
-    const total = partySize + guests;
+    // Changing who's coming from My tickets keeps the answers given when registering.
+    const active = existing && existing.status !== 'cancelled';
+    const answers = keepAnswers && active ? existing.answers : JSON.stringify(collectAnswers(event, body));
+    const total = chosen.length + guests;
+    const keys = chosen.map((p) => p.key).sort().join();
+    const oldKeys = active ? rsvpAttendees(db, existing.id).map((a) => a.person).sort().join() : '';
+    const peopleChanged = Boolean(oldKeys) && oldKeys !== keys; // older RSVPs without names: compare head counts only
 
-    const existing = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId);
-    if (existing?.checked_in_at) throw new UserError('You have already checked in to this event.');
-    const reuseCoupon = !couponCode && existing && existing.status !== 'cancelled' ? existing.coupon_code : null;
+    const reuseCoupon = !couponCode && active ? existing.coupon_code : null;
     const price = priceRsvp(db, {
-      event, userId, family: partySize, guests, couponCode: couponCode || reuseCoupon, excludeRsvpId: existing?.id ?? 0,
+      event, people: chosen, guests, couponCode: couponCode || reuseCoupon, excludeRsvpId: existing?.id ?? 0,
     });
+    const saveAttendees = (rsvpId) => {
+      db.prepare('DELETE FROM rsvp_attendees WHERE rsvp_id = ?').run(rsvpId);
+      const add = db.prepare('INSERT INTO rsvp_attendees (rsvp_id, event_id, person, name, relationship) VALUES (?, ?, ?, ?, ?)');
+      for (const p of chosen) add.run(rsvpId, eventId, p.key, p.name, p.relationship);
+    };
 
     let waitlisted = false;
     if (event.capacity) {
@@ -393,10 +546,11 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
       }
     }
 
-    const sameRequest = existing && existing.status !== 'cancelled' && existing.party_size === total
+    const sameRequest = active && existing.party_size === total && !peopleChanged
       && existing.guest_count === guests && (existing.coupon_code || null) === price.couponCode;
     if (sameRequest && (existing.status !== 'waitlisted' || waitlisted)) {
       db.prepare(`UPDATE rsvps SET answers = ?, updated_at = datetime('now') WHERE id = ?`).run(answers, existing.id);
+      saveAttendees(existing.id);
       return { rsvp: { ...existing, answers }, amountDue: amountDue(db, existing), qrReplaced: false, waitlisted: existing.status === 'waitlisted' };
     }
 
@@ -404,12 +558,12 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
     let qrReplaced = false;
     if (existing) {
       // Any change in who is coming (or re-opening a cancelled RSVP) issues a new QR code,
-      // so a ticket showing the old number of people can never be scanned.
+      // so a ticket showing the old people can never be scanned.
       const hadTicket = ['confirmed', 'pending_payment'].includes(existing.status);
-      const changed = existing.party_size !== total || existing.guest_count !== guests;
+      const changed = existing.party_size !== total || existing.guest_count !== guests || peopleChanged;
       if (existing.status === 'cancelled' || changed) {
         replaceQrToken(db, existing, existing.status === 'cancelled' ? 'rsvp reopened'
-          : `guests changed ${existing.party_size} → ${total}`);
+          : `people changed ${existing.party_size} → ${total}`);
       }
       qrReplaced = hadTicket && changed;
       db.prepare(`UPDATE rsvps SET party_size = ?, guest_count = ?, total_cents = ?, discount_cents = ?, coupon_code = ?,
@@ -423,6 +577,7 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
         .run(eventId, userId, total, guests, price.total, price.discount, price.couponCode, answers,
           waitlisted ? 'waitlisted' : 'pending_payment', newToken()).lastInsertRowid);
     }
+    saveAttendees(rsvpId);
     // Any checkout started for the old request is now stale.
     db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
                 AND reference_id = ? AND status = 'pending'`).run(rsvpId);
@@ -627,7 +782,9 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
 module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
-  coveredFamily, membershipQuote, periodEnd,
+  coveredFamily, membershipQuote, periodEnd, householdOwnerId, familyPeople, familyUserIds,
+  setFamilyEmail, pendingFamilyLogin, linkFamilyLogin, removeHouseholdMember,
+  eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,
   maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, checkIn,

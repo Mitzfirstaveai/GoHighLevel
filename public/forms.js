@@ -18,9 +18,11 @@
   // Labels come from the page so they're in the reader's language.
   const L = JSON.parse(form.dataset.labels || '{}');
   const update = () => {
-    const family = Number(form.party_size.value) || 1;
+    // Each ticked family member pays the member price if the membership covers them, else the guest price.
+    const ticked = [...form.querySelectorAll('input[name="people"]:checked')];
+    const family = ticked.reduce((sum, box) => sum + (box.dataset.rate === 'member' ? p.member : p.nonmember), 0);
     const guests = form.guests ? Number(form.guests.value) || 0 : 0;
-    const total = p.self + (family - 1) * p.member + guests * p.guest;
+    const total = family + guests * p.guest;
     out.textContent = total
       ? L.estimate.replace('{amount}', fmt(total)) + (form.coupon && form.coupon.value ? ` ${L.beforeCoupon}` : '')
       : L.free;

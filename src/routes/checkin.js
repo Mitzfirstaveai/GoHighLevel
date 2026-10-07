@@ -38,7 +38,7 @@ function doorEvents(db) {
     .map((e) => ({ ...e, today: e.starts_at.slice(0, 10) === today, stats: svc.eventStats(db, e.id) }));
 }
 
-// Find a family by the member's name, a family member's name or phone digits.
+// Find a family by the member's name, a name on the ticket, a family member's name or phone digits.
 function searchRsvps(db, eventId, query) {
   const q = query.trim();
   const digits = q.replace(/\D/g, '');
@@ -50,11 +50,13 @@ function searchRsvps(db, eventId, query) {
     FROM rsvps r JOIN users u ON u.id = r.user_id
     WHERE r.event_id = :event AND r.status != 'cancelled' AND (
       (u.first_name || ' ' || u.last_name) LIKE :like ESCAPE '\\' OR u.last_name LIKE :like ESCAPE '\\'
-      OR EXISTS (SELECT 1 FROM household_members h WHERE h.user_id = u.id AND h.name LIKE :like ESCAPE '\\')
+      OR EXISTS (SELECT 1 FROM rsvp_attendees a WHERE a.rsvp_id = r.id AND a.name LIKE :like ESCAPE '\\')
+      OR (NOT EXISTS (SELECT 1 FROM rsvp_attendees a2 WHERE a2.rsvp_id = r.id) -- older tickets without names
+          AND EXISTS (SELECT 1 FROM household_members h WHERE h.user_id = COALESCE(u.owner_id, u.id) AND h.name LIKE :like ESCAPE '\\'))
       OR (length(:digits) >= 4 AND replace(replace(replace(replace(COALESCE(u.phone, ''), '-', ''), ' ', ''), '(', ''), ')', '') LIKE '%' || :digits || '%')
     )
     ORDER BY u.last_name, u.first_name LIMIT 25
-  `).all({ event: eventId, like, digits: digits || '' });
+  `).all({ event: eventId, like, digits: digits || '' }).map((r) => ({ ...r, names: svc.attendeeNames(db, r) }));
 }
 
 router.get('/', (req, res) => {
@@ -91,6 +93,7 @@ router.get('/:token', (req, res) => {
   const event = rsvp && db.prepare('SELECT title_gu FROM events WHERE id = ?').get(rsvp.event_id);
   res.status(rsvp ? 200 : 404).render('admin/checkin_result', {
     title: 'Check-in', rsvp, retired, due, justCheckedIn, notToday, token: req.params.token,
+    names: rsvp ? svc.attendeeNames(db, rsvp) : [],
     eventTitle: rsvp ? (req.lang === 'gu' && event.title_gu) || rsvp.event_title : '',
   });
 });

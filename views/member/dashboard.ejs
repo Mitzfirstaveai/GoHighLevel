@@ -51,7 +51,9 @@
       <%- include('../partials/date-chip', { when: r.starts_at }) %>
       <div style="flex:1">
         <strong><%= loc(r, 'title') %></strong> <%- include('../partials/rsvp-badge', { status: r.status }) %>
-        <div class="muted small"><%= fmtDate(r.starts_at) %><%= r.location ? ` · ${r.location}` : '' %> · <%= plural(r.party_size, '1 person', '{n} people') %></div>
+        <div class="muted small"><%= fmtDate(r.starts_at) %><%= r.location ? ` · ${r.location}` : '' %></div>
+        <%- include('../partials/ticket-names', { tk: r }) %>
+        <% if (!r.mine) { %><div class="small muted"><%= t("{name}'s ticket", { name: `${r.holder_first} ${r.holder_last}` }) %></div><% } %>
         <div class="actions" style="margin-top:6px">
           <% if (r.status === 'confirmed') { %><a class="btn small" href="/tickets/<%= r.id %>"><%= t('Show QR ticket') %></a><% } %>
           <a class="btn secondary small" href="/events/<%= r.event_id %>"><%= r.status === 'pending_payment' ? t('Complete payment') : t('Details') %></a>

@@ -22,12 +22,14 @@
 <div class="grid grid-2">
   <div class="card" id="family">
     <h2>Family members (<%= household.length %>)</h2>
+    <% if (owner) { %><p class="flash info small">Family login — covered by <a href="/admin/members/<%= owner.id %>"><%= owner.first_name %> <%= owner.last_name %></a>'s membership. Their family is managed there.</p><% } %>
     <% if (coverage) { %><p class="small"><strong><%= membership.current.plan_name %></strong> covers <%= coverage %>.</p><% } %>
     <% if (coverageProblems.length) { %><p class="flash error small">More family listed than this level covers: <%= membership.current.plan_name %> <%= coverageProblems.join(', ') %>.</p><% } %>
     <% if (!household.length) { %><p class="muted">None listed.</p><% } %>
     <% for (const h of household) { %>
       <div class="actions" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
-        <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (b. ${h.birth_year})` : '' %></span>
+        <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (b. ${h.birth_year})` : '' %>
+          <% if (h.login_user_id) { %><a class="badge ok" href="/admin/members/<%= h.login_user_id %>">Own login</a><% } else if (h.email) { %><span class="badge neutral">Can join with <%= h.email %></span><% } %></span>
         <form method="post" action="/admin/members/<%= member.id %>/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm('Remove <%= h.name %>?')"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form>
       </div>
     <% } %>

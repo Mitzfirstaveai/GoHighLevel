@@ -106,6 +106,25 @@ test('every member and public page is fully translated', async () => {
   assert.deepEqual([...missing], [], `Untranslated text: ${[...missing].join(' | ')}`);
 });
 
+test('family-login screens are fully translated', async () => {
+  const c = await signIn('amit.shah@example.com');
+  await c.get('/prefs?lang=gu&back=/');
+  const { db } = t;
+  const garba = db.prepare(`SELECT id FROM events WHERE title = 'Navratri Garba #1'`).get().id;
+  const priyasTicket = db.prepare(`SELECT r.id FROM rsvps r JOIN users u ON u.id = r.user_id WHERE u.email = 'member@example.com' AND r.event_id = ?`).get(garba).id;
+  missing.clear();
+  for (const p of ['/dashboard', '/profile', '/membership', '/tickets', `/events/${garba}`, `/tickets/${priyasTicket}`]) {
+    assert.equal((await c.get(p)).status, 200, p);
+  }
+  // Amit adds himself (Priya's ticket is for her and the kids), then sees his own ticket.
+  const amit = db.prepare(`SELECT h.id FROM household_members h JOIN users u ON u.id = h.login_user_id WHERE u.email = 'amit.shah@example.com'`).get().id;
+  const res = await c.follow(await c.post(`/events/${garba}/rsvp`, { choose: '1', people: `h:${amit}` }));
+  assert.match(res.text, /આ ટિકિટ આમના માટે છે/);
+  await c.get('/tickets');
+  assert.deepEqual([...missing], [], `Untranslated text: ${[...missing].join(' | ')}`);
+  await c.get('/prefs?lang=en&back=/');
+});
+
 test('dictionary placeholders match the English text', () => {
   for (const [en, g] of Object.entries(gu)) {
     const a = (en.match(/\{\w+\}/g) || []).sort().join();
