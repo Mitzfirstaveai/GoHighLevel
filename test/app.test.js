@@ -331,14 +331,12 @@ test('guest limit is the member plus family members on their profile', async () 
   assert.match(res.text, /Add your family members to your profile/);
 });
 
-test('changing 4 → 2 guests on a paid event: old QR stops working, new QR issued, refund owed', async () => {
+test('changing 4 → 2 guests on a free event: old QR stops working, new QR issued everywhere', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
-  const eventId = await createEvent(admin, { title: 'Garba Change', fee: '15' });
+  const eventId = await createEvent(admin, { title: 'Free Garba' });
   const m = await register('change@test.org', 'Asha', 3);
 
-  let res = await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
-  const paymentId = Number(res.location.match(/\/pay\/(\d+)\/demo/)[1]);
-  await m.post(`/pay/${paymentId}/demo`);
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
   const before = rsvpFor(eventId, 'change@test.org');
   assert.equal(before.status, 'confirmed');
 
@@ -346,11 +344,11 @@ test('changing 4 → 2 guests on a paid event: old QR stops working, new QR issu
   await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
   assert.equal(rsvpFor(eventId, 'change@test.org').qr_token, before.qr_token);
 
-  res = await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
+  let res = await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
   assert.equal(res.location, `/tickets/${before.id}`);
   res = await m.get(res.location);
   assert.match(res.text, /A new QR code was issued — your old QR code no longer works/);
-  assert.match(res.text, /\$30\.00 coming back to you/);
+  assert.doesNotMatch(res.text, /refund/i);
   assert.match(res.text, /data:image\/png;base64/);
   assert.match(res.text, /<p class="party-count"[^>]*>2<\/p>/);
 
@@ -368,21 +366,42 @@ test('changing 4 → 2 guests on a paid event: old QR stops working, new QR issu
   assert.match(res.text, /replaced by a newer one/);
   assert.equal(rsvpFor(eventId, 'change@test.org').checked_in_at, null);
 
-  // Admin's guest list links to the new QR and shows the refund owed.
+  // Admin's guest list uses the new QR and the new headcount.
   res = await admin.get(`/admin/events/${eventId}`);
   assert.ok(res.text.includes(`/admin/checkin/${after.qr_token}`));
   assert.ok(!res.text.includes(before.qr_token));
-  assert.match(res.text, /Refund due \$30\.00/);
   assert.match(res.text, /People attending \(confirmed\)<\/div><div class="value">2/);
-
-  await admin.post(`/admin/rsvps/${after.id}/refund`, { method: 'stripe' });
-  res = await admin.get(`/admin/events/${eventId}`);
-  assert.doesNotMatch(res.text, /Refund due/);
-  assert.match(res.text, /Fees collected<\/div><div class="value">\$30\.00/);
 
   // New QR checks in 2 people.
   res = await admin.get(`/admin/checkin/${after.qr_token}`);
   assert.match(res.text, /<div class="party-count">2<\/div>/);
   await admin.post(`/admin/checkin/${after.qr_token}`, { guests: '2' });
   assert.equal(rsvpFor(eventId, 'change@test.org').checked_in_count, 2);
+});
+
+test('paid event: reducing guests gives no refund; paid amount stays as credit', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const eventId = await createEvent(admin, { title: 'Paid Dinner', fee: '15' });
+  const m = await register('norefund@test.org', 'Test', 3);
+
+  let res = await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
+  await m.post(`/pay/${Number(res.location.match(/\/pay\/(\d+)\/demo/)[1])}/demo`);
+  res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /non-refundable/);
+
+  res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '2' }));
+  assert.doesNotMatch(res.text, /coming back to you|refund pending/i);
+  const rsvp = rsvpFor(eventId, 'norefund@test.org');
+  assert.equal(rsvp.status, 'confirmed');
+  assert.equal(rsvp.party_size, 2);
+
+  res = await admin.get(`/admin/events/${eventId}`);
+  assert.doesNotMatch(res.text, /Refund/);
+  assert.match(res.text, /Fees collected<\/div><div class="value">\$60\.00/);
+
+  // Going back up to 4 is already covered by what they paid — no new charge.
+  res = await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
+  assert.match(res.location, /^\/tickets\//);
+  assert.equal(rsvpFor(eventId, 'norefund@test.org').status, 'confirmed');
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE reference_id = ? AND status = 'pending'`).get(rsvp.id).n, 0);
 });

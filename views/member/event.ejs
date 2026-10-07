@@ -8,7 +8,7 @@
   <div class="card">
     <p><strong>When:</strong> <%= fmtDate(event.starts_at) %><%= event.ends_at ? ` – ${fmtDate(event.ends_at)}` : '' %></p>
     <% if (event.location) { %><p><strong>Where:</strong> <%= event.location %></p><% } %>
-    <p><strong>Fee:</strong> <%= event.fee_cents ? `${money(event.fee_cents)} per person` : 'Free' %></p>
+    <p><strong>Fee:</strong> <%= event.fee_cents ? `${money(event.fee_cents)} per person (non-refundable)` : 'Free' %></p>
     <% if (event.rsvp_deadline) { %><p><strong>RSVP by:</strong> <%= fmtDate(event.rsvp_deadline) %></p><% } %>
     <% if (spotsLeft !== null) { %><p><strong>Spots left:</strong> <%= spotsLeft %></p><% } %>
     <% if (event.description) { %><p style="white-space:pre-line"><%= event.description %></p><% } %>
@@ -18,7 +18,6 @@
     <h2>Your RSVP</h2>
     <% if (rsvp) { %>
       <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %> <%= rsvp.party_size %> <%= rsvp.party_size === 1 ? 'person' : 'people' %> (including you)</p>
-      <% if (refund > 0) { %><p><span class="badge warn">Refund pending: <%= money(refund) %></span> An organizer will return this to you.</p><% } %>
       <% if (rsvp.checked_in_at) { %>
         <p class="badge ok">Checked in — <%= rsvp.checked_in_count %> arrived</p>
       <% } else if (rsvp.status === 'confirmed') { %>
@@ -44,7 +43,8 @@
         </label>
         <p class="muted small" style="margin:0">You can bring up to <%= maxParty %> (you<%= maxParty > 1 ? ' plus the family members on your profile' : '' %>).
           <% if (maxParty < event.max_party_size) { %><a href="/profile#family">Add family members</a> to bring more.<% } %>
-          <% if (rsvp) { %>Changing the number of people gives you a new QR code; the old one stops working.<% } %></p>
+          <% if (rsvp) { %>Changing the number of people gives you a new QR code; the old one stops working.<% } %>
+          <% if (event.fee_cents) { %>Event fees are non-refundable, including if you reduce your number of guests.<% } %></p>
         <button class="btn <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? 'Update RSVP' : (event.fee_cents ? 'RSVP & pay' : 'RSVP') %></button>
       </form>
       <% } %>
