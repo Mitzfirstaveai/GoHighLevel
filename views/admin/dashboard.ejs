@@ -1,5 +1,6 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1>Admin overview</h1></div>
+<% if (refundsNeeded) { %><div class="flash error" role="alert"><strong><%= refundsNeeded %> payment<%= refundsNeeded === 1 ? '' : 's' %> need<%= refundsNeeded === 1 ? 's' : '' %> a refund by hand</strong> — the automatic refund did not go through. <a href="/admin/payments#refunds">See Payments</a>.</div><% } %>
 <div class="tiles">
   <a class="tile primary" href="/admin/checkin"><%- include('../partials/icon', { name: 'scan' }) %>Scan QR tickets<small>Check guests in at the door</small></a>
   <a class="tile" href="/admin/events/new"><%- include('../partials/icon', { name: 'plus' }) %>Create event<small>With optional fee</small></a>

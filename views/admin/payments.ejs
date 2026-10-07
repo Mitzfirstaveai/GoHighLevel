@@ -16,4 +16,20 @@
     <% if (!payments.length) { %><tr><td colspan="5" class="muted">No payments.</td></tr><% } %></tbody>
   </table>
 </div>
+<% if (refunds.length) { %>
+<div class="card table-wrap" id="refunds">
+  <h2>Refunded — not applied</h2>
+  <p class="muted small">Dues that arrived but would have gone more than one year ahead (for example, paid twice from two browser tabs). They were not applied, and the money was given back automatically.</p>
+  <table>
+    <thead><tr><th>Date</th><th>Member</th><th>For</th><th class="num">Amount</th><th>Status</th></tr></thead>
+    <tbody>
+    <% for (const p of refunds) { %>
+      <tr><td><%= fmtDay(p.refunded_at) %></td><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a></td>
+        <td><%= p.description %></td><td class="num"><%= money(p.amount_cents) %></td>
+        <td><% if (p.note?.startsWith('REFUND NEEDED')) { %><span class="badge err">Refund by hand in Stripe</span><% } else { %><span class="badge neutral">Refunded</span><% } %></td></tr>
+    <% } %>
+    </tbody>
+  </table>
+</div>
+<% } %>
 <%- include('../partials/foot') %>

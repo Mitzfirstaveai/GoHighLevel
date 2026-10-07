@@ -28,7 +28,8 @@ router.get('/', (req, res) => {
     .map((e) => ({ ...e, stats: svc.eventStats(db, e.id) }));
   const recentPayments = db.prepare(`SELECT p.*, u.first_name, u.last_name FROM payments p JOIN users u ON u.id = p.user_id
                                      WHERE p.status = 'paid' ORDER BY p.paid_at DESC LIMIT 8`).all();
-  res.render('admin/dashboard', { title: 'Admin', stats, events, recentPayments });
+  const refundsNeeded = db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE note LIKE 'REFUND NEEDED%'`).get().n;
+  res.render('admin/dashboard', { title: 'Admin', stats, events, recentPayments, refundsNeeded });
 });
 
 router.post('/demo/reset', (req, res) => {
@@ -238,7 +239,12 @@ router.post('/members/:id/payments', (req, res) => {
     if (!(amount > 0) || !description) throw new svc.UserError('Enter an amount and description.');
     payment = svc.createPayment(db, { userId: member.id, kind: 'other', amountCents: amount, description });
   }
-  svc.markPaymentPaid(db, payment.id, { method, providerRef: String(req.body.reference || '').slice(0, 100) || null, recordedBy: req.user.id });
+  const result = svc.markPaymentPaid(db, payment.id, { method, providerRef: String(req.body.reference || '').slice(0, 100) || null, recordedBy: req.user.id });
+  if (result === 'refund') {
+    // Another payment got there first (e.g. the member paid online a moment ago).
+    req.flash('error', 'Not recorded: membership is already paid one year ahead. Please give this money back to the member.');
+    return res.redirect(`/admin/members/${member.id}`);
+  }
   req.flash('success', 'Payment recorded.');
   res.redirect(`/admin/members/${member.id}`);
 });
@@ -462,7 +468,10 @@ router.get('/payments', (req, res) => {
     ORDER BY p.paid_at DESC LIMIT 500
   `).all(kind, kind, kind);
   const total = payments.reduce((sum, p) => sum + p.amount_cents, 0);
-  res.render('admin/payments', { title: 'Payments', payments, total, kind });
+  // Dues that arrived but weren't applied (e.g. paid twice from two tabs) and were given back.
+  const refunds = db.prepare(`SELECT p.*, u.first_name, u.last_name FROM payments p JOIN users u ON u.id = p.user_id
+    WHERE p.refunded_at IS NOT NULL ORDER BY p.refunded_at DESC LIMIT 50`).all();
+  res.render('admin/payments', { title: 'Payments', payments, total, kind, refunds });
 });
 
 router.get('/payments.csv', (req, res) => {

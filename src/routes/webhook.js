@@ -1,9 +1,9 @@
 const express = require('express');
-const { markPaymentPaid } = require('../services');
+const { settlePayment } = require('./pay');
 
 const router = express.Router();
 
-router.post('/', express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
+router.post('/', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
   const { gateway, db } = req.app.locals;
   let event;
   try {
@@ -17,7 +17,7 @@ router.post('/', express.raw({ type: 'application/json', limit: '1mb' }), (req, 
     const session = event.data.object;
     const paymentId = Number(session.metadata?.payment_id);
     if (paymentId && session.payment_status === 'paid') {
-      markPaymentPaid(db, paymentId, { method: 'stripe', providerRef: session.payment_intent || session.id });
+      await settlePayment(db, gateway, paymentId, { method: 'stripe', providerRef: session.payment_intent || session.id });
     }
   }
   res.json({ received: true });

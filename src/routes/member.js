@@ -349,7 +349,8 @@ router.get('/membership', requireAuth, (req, res) => {
 router.post('/membership/pay', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
   if (req.user.owner_id) throw new svc.UserError('Your membership is part of your family membership. The member who holds it renews it.');
-  const payment = svc.createMembershipPayment(db, { planId: Number(req.body.plan_id), user: req.user });
+  const { payment, staleCheckouts } = svc.createMembershipPayment(db, { planId: Number(req.body.plan_id), user: req.user });
+  await gateway.expireCheckouts(staleCheckouts); // close payment pages left open in other tabs
   if (!payment) {
     req.flash('success', 'Your membership is active.');
     return res.redirect('/membership');

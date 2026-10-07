@@ -746,14 +746,39 @@ function createMembershipPayment(db, { planId, user }) {
   if (reason) throw new UserError(reason.template, reason.vars);
   const { kind, amountCents } = membershipQuote(db, plan, user.id);
   if (kind === 'membership') assertCanRenew(db, user.id);
-  if (amountCents === 0) {
-    (kind === 'membership_upgrade' ? upgradeMembership : grantMembership)(db, { userId: user.id, planId });
-    return null;
-  }
-  return createPayment(db, {
-    userId: user.id, kind, referenceId: plan.id, amountCents,
-    description: kind === 'membership_upgrade' ? `Membership upgrade — ${plan.name}` : `Membership — ${plan.name}`,
+  return transaction(db, () => {
+    // Only one dues checkout can be open per family: starting a new one cancels the others, so a
+    // second browser tab can't be used to pay for another year. Their Stripe pages get closed too.
+    const ids = familyUserIds(db, user.id);
+    const marks = ids.map(() => '?').join(',');
+    const staleCheckouts = db.prepare(`SELECT provider_ref FROM payments WHERE status = 'pending'
+      AND kind IN ('membership', 'membership_upgrade') AND user_id IN (${marks})`).all(...ids).map((p) => p.provider_ref);
+    db.prepare(`UPDATE payments SET status = 'cancelled' WHERE status = 'pending'
+      AND kind IN ('membership', 'membership_upgrade') AND user_id IN (${marks})`).run(...ids);
+    if (amountCents === 0) {
+      (kind === 'membership_upgrade' ? upgradeMembership : grantMembership)(db, { userId: user.id, planId });
+      return { payment: null, staleCheckouts };
+    }
+    const payment = createPayment(db, {
+      userId: user.id, kind, referenceId: plan.id, amountCents,
+      description: kind === 'membership_upgrade' ? `Membership upgrade — ${plan.name}` : `Membership — ${plan.name}`,
+    });
+    return { payment, staleCheckouts };
   });
+}
+
+// Final check when dues money actually arrives (another tab or device may have paid first):
+// dues that would go more than a year ahead, or an upgrade to a level already held, are refused.
+function duesProblem(db, payment) {
+  if (payment.kind === 'membership') {
+    return renewalOpensOn(db, payment.user_id) ? 'membership was already paid one year ahead' : null;
+  }
+  if (payment.kind === 'membership_upgrade') {
+    const { active, plan } = membershipStatus(db, payment.user_id);
+    const target = db.prepare('SELECT amount_cents FROM membership_plans WHERE id = ?').get(payment.reference_id);
+    if (!active || !plan || !target || plan.amount_cents >= target.amount_cents) return 'the upgrade no longer applies';
+  }
+  return null;
 }
 
 // ---------- Donations ----------
@@ -781,16 +806,27 @@ function createDonationPayment(db, { userId, campaignId, amountCents, note }) {
 /**
  * Marks a payment as paid and applies its effect (membership granted / RSVP confirmed).
  * Idempotent: Stripe may deliver both a redirect and a webhook for the same payment.
- * A 'cancelled' payment is still honoured if money actually arrived for it.
+ * A 'cancelled' payment is still honoured if money actually arrived for it — except dues that
+ * would break the one-year-ahead rule: those are not applied and come back as 'refund', and the
+ * caller gives the money back (see settlePayment in routes/pay.js).
+ * Returns 'applied', 'refund', or false if this payment was already handled.
  */
 function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy = null }) {
   return transaction(db, () => {
-    const result = db.prepare(`
+    const before = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
+    if (!before || before.status === 'paid' || before.refunded_at) return false;
+    const problem = duesProblem(db, before);
+    if (problem) {
+      db.prepare(`UPDATE payments SET status = 'cancelled', method = ?, provider_ref = COALESCE(?, provider_ref), recorded_by = ?,
+                  refunded_at = datetime('now'), note = ? WHERE id = ?`)
+        .run(method, providerRef, recordedBy, `Not applied and refunded: ${problem}.`, paymentId);
+      return 'refund';
+    }
+    db.prepare(`
       UPDATE payments SET status = 'paid', method = ?, provider_ref = COALESCE(?, provider_ref),
              recorded_by = ?, paid_at = datetime('now')
-      WHERE id = ? AND status != 'paid'
+      WHERE id = ?
     `).run(method, providerRef, recordedBy, paymentId);
-    if (result.changes === 0) return false;
     const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
     if (payment.kind === 'membership') {
       grantMembership(db, { userId: payment.user_id, planId: payment.reference_id, paymentId });
@@ -799,7 +835,7 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
     } else if (payment.kind === 'event') {
       confirmRsvpIfPaid(db, payment.reference_id);
     }
-    return true;
+    return 'applied';
   });
 }
 

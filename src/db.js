@@ -133,7 +133,8 @@ CREATE TABLE IF NOT EXISTS payments (
   provider_ref TEXT,
   recorded_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  paid_at TEXT
+  paid_at TEXT,
+  refunded_at TEXT -- money that arrived but couldn't be applied (e.g. dues beyond one year ahead) and was given back
 );
 
 -- Who an RSVP is for, by name: the member ('u:<user id>') and family on their profile
@@ -239,7 +240,7 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 6; // 6: photo albums (new tables only, created by SCHEMA)
+const SCHEMA_VERSION = 7; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
@@ -250,6 +251,7 @@ const MIGRATIONS = {
     'ALTER TABLE household_members ADD COLUMN email TEXT COLLATE NOCASE',
     'ALTER TABLE household_members ADD COLUMN login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
   ],
+  7: ['ALTER TABLE payments ADD COLUMN refunded_at TEXT'],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',

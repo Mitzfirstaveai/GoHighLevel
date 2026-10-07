@@ -16,7 +16,11 @@ const { i18nMiddleware, prefsRoute } = require('./i18n');
 
 function createApp(config) {
   const db = openDb(config.databaseFile);
-  const gateway = createGateway(config);
+  const gateway = createGateway(config, {
+    // Remember each Stripe checkout page so a newer dues checkout can close older ones.
+    onSession: (paymentId, sessionId) => db.prepare(`UPDATE payments SET provider_ref = ? WHERE id = ? AND status = 'pending'`)
+      .run(sessionId, paymentId),
+  });
   if (config.demoMode && isEmpty(db)) seedDemo(db, { photosDir: config.photosDir });
   ensureAdmin(db, config);
 

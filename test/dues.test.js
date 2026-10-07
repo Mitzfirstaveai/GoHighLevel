@@ -68,3 +68,62 @@ test('renewal opens exactly when the paid-up date is a year away', () => {
   t.db.prepare('UPDATE memberships SET end_date = ? WHERE user_id = ?').run('2999-12-31', id);
   assert.equal(renewalOpensOn(t.db, id), '2999-01-01');
 });
+
+test('two payment screens open at once: starting the second closes the first', async () => {
+  const m = await t.register('twotabs@test.org', 'Tara');
+  const year = new Date().getFullYear();
+  await pay(m, 'Married Couple'); // this year
+  const tabB = await t.login('twotabs@test.org', 'secret123');
+  const a = await m.post('/membership/pay', { plan_id: String(t.planId('Married Couple')) });
+  const b = await tabB.post('/membership/pay', { plan_id: String(t.planId('Married Couple')) });
+  const [idA, idB] = [a, b].map((r) => Number(r.location.match(/\/pay\/(\d+)\/demo/)[1]));
+  assert.equal(t.db.prepare('SELECT status FROM payments WHERE id = ?').get(idA).status, 'cancelled');
+
+  let res = await tabB.follow(await tabB.post(`/pay/${idB}/demo`));
+  assert.match(res.text, /Payment received/);
+  res = await m.follow(await m.post(`/pay/${idA}/demo`));
+  assert.match(res.text, /This checkout has expired/);
+  const until = t.db.prepare('SELECT MAX(end_date) AS d FROM memberships WHERE user_id = ?').get(userId('twotabs@test.org')).d;
+  assert.equal(until, `${year + 1}-12-31`); // one year ahead, not two
+});
+
+test('if two dues payments still both go through, the second is refunded, not applied', async () => {
+  const svc = require('../src/services');
+  const m = await t.register('race@test.org', 'Ravi');
+  const year = new Date().getFullYear();
+  await pay(m, 'Married Couple'); // this year
+  // Two checkouts that were both already open when the money arrived (simulated directly).
+  const plan = t.planId('Married Couple');
+  const mk = () => svc.createPayment(t.db, { userId: userId('race@test.org'), kind: 'membership', referenceId: plan, amountCents: 27500, description: 'Membership — Married Couple' }).id;
+  const [first, second] = [mk(), mk()];
+  let res = await m.follow(await m.post(`/pay/${first}/demo`));
+  assert.match(res.text, /Payment received/);
+  res = await m.follow(await m.post(`/pay/${second}/demo`));
+  assert.match(res.text, /already paid one year ahead, so this payment was not applied\. It has been refunded/);
+  const p = t.db.prepare('SELECT * FROM payments WHERE id = ?').get(second);
+  assert.equal(p.status, 'cancelled');
+  assert.ok(p.refunded_at);
+  assert.equal(t.db.prepare('SELECT MAX(end_date) AS d FROM memberships WHERE user_id = ?').get(userId('race@test.org')).d, `${year + 1}-12-31`);
+  // Paying it again (e.g. a Stripe webhook arriving later) does nothing more.
+  assert.equal(svc.markPaymentPaid(t.db, second, { method: 'demo' }), false);
+  // Not counted as income; listed for the committee.
+  res = await admin.get('/admin/payments');
+  assert.match(res.text, /Refunded — not applied/);
+  assert.match(res.text, /Ravi Member/);
+});
+
+test('a duplicate upgrade is refunded, and a failed automatic refund is flagged for the committee', async () => {
+  const svc = require('../src/services');
+  const { settlePayment } = require('../src/routes/pay');
+  const m = await t.register('upgrade2@test.org', 'Uma');
+  await pay(m, 'Married Couple');
+  const uid = userId('upgrade2@test.org');
+  const mk = () => svc.createPayment(t.db, { userId: uid, kind: 'membership_upgrade', referenceId: t.planId('Family'), amountCents: 5500, description: 'Membership upgrade — Family' }).id;
+  const [first, second] = [mk(), mk()];
+  const failingGateway = { refund: async () => false };
+  assert.equal(await settlePayment(t.db, failingGateway, first, { method: 'stripe', providerRef: 'pi_1' }), 'applied');
+  assert.equal(await settlePayment(t.db, failingGateway, second, { method: 'stripe', providerRef: 'pi_2' }), 'refund');
+  assert.match(t.db.prepare('SELECT note FROM payments WHERE id = ?').get(second).note, /^REFUND NEEDED/);
+  assert.match((await admin.get('/admin')).text, /1 payment needs a refund by hand/);
+  assert.match((await admin.get('/admin/payments')).text, /Refund by hand in Stripe/);
+});
