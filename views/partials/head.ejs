@@ -76,10 +76,11 @@
     </div>
   </div>
   <% if (!user) { %>
-    <nav class="nav mainnav desktop-only" aria-label="<%= t('Main menu') %>">
+    <%# The website menu: on phones it scrolls sideways under the logo. %>
+    <nav class="nav mainnav visitor-nav" aria-label="<%= t('Main menu') %>">
       <div class="inner">
-        <% for (const [href, label] of [['/about', 'About'], ['/committee', 'Committee'], ['/sponsors', 'Sponsors'], ['/contact', 'Contact']]) { %>
-          <a href="<%= href %>" class="<%= path === href ? 'active' : '' %>"><%= t(label) %></a>
+        <% for (const [href, label] of [['/', 'Home'], ['/#events', 'Events'], ['/#app', 'GSA app'], ['/#membership', 'Membership'], ['/about', 'About'], ['/committee', 'Committee'], ['/sponsors', 'Sponsors'], ['/contact', 'Contact']]) { %>
+          <a href="<%= href %>" class="<%= path === href ? 'active' : '' %>"<%- path === href ? ' aria-current="page"' : '' %>><%= t(label) %></a>
         <% } %>
       </div>
     </nav>
@@ -108,5 +109,5 @@
 <% } %>
 
 <% if (paymentMode === 'demo') { %><div class="demo-banner"><%= t('Demo payment mode — no real money is charged. Connect Stripe to accept card payments.') %></div><% } %>
-<main id="main">
+<main id="main"<%- locals.site ? ' class="site"' : '' %>>
 <% for (const f of flash) { %><div class="flash <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>"><%= f.message %></div><% } %>

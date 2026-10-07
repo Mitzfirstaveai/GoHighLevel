@@ -4,6 +4,17 @@ A simple, mobile-friendly web app for the samaj's members and committee:
 
 Organization details (About, Committee, Sponsors, Contact) live in `src/content.js`.
 
+**The GSA website (for everyone)**
+- The home page is the samaj's public website, in the logo's saffron, white and green, with the GSA logo front and
+  centre: welcome and motto, GSA at a glance, upcoming events, what we celebrate, the GSA app, membership levels, our
+  story, sponsors and how to visit. It works in English or Gujarati, at any text size, on phones and computers.
+- It's built into the app, so it's always up to date: the next events and the membership levels and prices come
+  straight from the app, and the About, contact and sponsor details from **Admin → Website**.
+- Members can **sign in right on the website**, or tap **Open the GSA app**. Once signed in, the website address takes
+  them straight to their app.
+- **Put the GSA app on your phone**: step-by-step instructions for iPhone and Android, an **Install** button where the
+  phone's browser offers one, and a QR code so someone on a computer can open it on their phone.
+
 **Easy for every member**
 - **ગુજરાતી / English** button on every page (also before signing in). The choice is saved to the member's profile,
   so the app opens in their language on any phone. Membership levels, family relationships, About Us, mission and
@@ -59,7 +70,8 @@ about a minute to wake up), and every restart reloads fresh demo data. Open the 
 
 ## Demo walkthrough
 
-On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed. The **Door volunteer** button is on
+The link opens on the GSA website. Scroll through it, try **ગુજરાતી**, then sign in from the **Sign in your way**
+section (or the sign-in page). On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed. The **Door volunteer** button is on
 **Committee & volunteer sign-in** (link under the sign-in form and at the bottom of every page).
 Other sample members use the password `demo1234`.
 

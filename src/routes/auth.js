@@ -7,11 +7,6 @@ const {
 const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-router.get('/', (req, res) => {
-  if (req.user) return res.redirect(req.user.role === 'admin' ? '/admin' : '/dashboard');
-  res.render('home', { title: 'Welcome' });
-});
-
 router.get('/login', (req, res) => {
   if (req.user) return res.redirect('/');
   res.render('auth/login', { title: 'Sign in', email: '' });
