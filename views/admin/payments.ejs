@@ -10,7 +10,7 @@
   <table>
     <thead><tr><th>Date</th><th>Member</th><th>Description</th><th>Method</th><th class="num">Amount</th></tr></thead>
     <tbody><% for (const p of payments) { %>
-      <tr><td><%= fmtDate(p.paid_at.slice(0, 10)) %></td><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a></td>
+      <tr><td><%= fmtDay(p.paid_at) %></td><td><a href="/admin/members/<%= p.user_id %>"><%= p.first_name %> <%= p.last_name %></a></td>
         <td><%= p.description %></td><td><%= p.method %></td><td class="num"><%= money(p.amount_cents) %></td></tr>
     <% } %>
     <% if (!payments.length) { %><tr><td colspan="5" class="muted">No payments.</td></tr><% } %></tbody>

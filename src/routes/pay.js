@@ -19,6 +19,7 @@ router.get('/success', requireAuth, async (req, res) => {
   }
   markPaymentPaid(db, verified.paymentId, { method: 'stripe', providerRef: verified.providerRef });
   const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(verified.paymentId);
+  if (!payment) return res.redirect('/payments');
   req.flash('success', 'Payment received — thank you!');
   res.redirect(redirectAfterPayment(db, payment));
 });

@@ -5,7 +5,7 @@
   <div class="table-wrap"><table>
     <thead><tr><th><%= t('Date') %></th><th><%= t('Description') %></th><th><%= t('Method') %></th><th class="num"><%= t('Amount') %></th><th></th></tr></thead>
     <tbody><% for (const p of payments) { %>
-      <tr><td><%= fmtDate(p.paid_at.slice(0, 10)) %></td><td><%- include('../partials/payment-desc', { p }) %></td><td><%- include('../partials/payment-method', { method: p.method }) %></td><td class="num"><%= money(p.amount_cents) %></td><td class="num"><a href="/receipts/<%= p.id %>"><%= t('Receipt') %></a></td></tr>
+      <tr><td><%= fmtDay(p.paid_at) %></td><td><%- include('../partials/payment-desc', { p }) %></td><td><%- include('../partials/payment-method', { method: p.method }) %></td><td class="num"><%= money(p.amount_cents) %></td><td class="num"><a href="/receipts/<%= p.id %>"><%= t('Receipt') %></a></td></tr>
     <% } %></tbody>
   </table></div>
   <% } %>

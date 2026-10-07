@@ -43,6 +43,24 @@ function addMonths(isoDate, months) {
   return date.toISOString().slice(0, 10);
 }
 
+// SQLite datetime('now') values ("YYYY-MM-DD HH:MM:SS") are UTC; this gives the local date
+// (Central time on the server), so an evening payment isn't dated tomorrow.
+function localDate(value) {
+  if (!value) return '';
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) return String(value).slice(0, 10);
+  const d = new Date(`${value.replace(' ', 'T')}Z`);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Local "YYYY-MM-DD HH:MM" for a stored UTC timestamp (used in spreadsheet exports).
+function localTimestamp(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) return value || '';
+  const d = new Date(`${value.replace(' ', 'T')}Z`);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${localDate(value)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function formatDateTime(value, locale = 'en-US') {
   if (!value) return '';
   // SQLite's datetime('now') timestamps ("YYYY-MM-DD HH:MM:SS") are UTC.
@@ -66,6 +84,6 @@ function toCsv(rows) {
 }
 
 module.exports = {
-  formatMoney, parseMoney, parseIntInRange, newToken, nowLocal, today, addMonths,
+  formatMoney, parseMoney, localDate, localTimestamp, parseIntInRange, newToken, nowLocal, today, addMonths,
   formatDateTime, toCsv,
 };

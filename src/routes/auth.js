@@ -15,15 +15,41 @@ router.get('/login', (req, res) => {
   res.render('auth/login', { title: 'Sign in', email: '' });
 });
 
+// Slows down password guessing: after 8 wrong passwords for an email (or 30 from one address)
+// within 15 minutes, sign-in is paused for that email/address until the window passes.
+const FAILED_LIMIT = { perEmail: 8, perIp: 30, windowMs: 15 * 60 * 1000 };
+const failures = new Map();
+
+function tooManyFailures(keys) {
+  const now = Date.now();
+  return keys.some(([key, limit]) => {
+    const hits = (failures.get(key) || []).filter((t) => now - t < FAILED_LIMIT.windowMs);
+    failures.set(key, hits);
+    return hits.length >= limit;
+  });
+}
+
+function recordFailure(keys) {
+  for (const [key] of keys) failures.set(key, [...(failures.get(key) || []), Date.now()]);
+  if (failures.size > 10000) failures.clear(); // keep memory bounded
+}
+
 router.post('/login', (req, res, next) => {
   const { db } = req.app.locals;
   const email = String(req.body.email || '').trim();
+  const keys = [[`email:${email.toLowerCase()}`, FAILED_LIMIT.perEmail], [`ip:${req.ip}`, FAILED_LIMIT.perIp]];
+  if (tooManyFailures(keys)) {
+    res.locals.flash = [{ type: 'error', message: 'Too many attempts. Please wait 15 minutes and try again, or ask a committee member to reset your password.' }];
+    return res.status(429).render('auth/login', { title: 'Sign in', email });
+  }
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   // Contacts added by an admin or imported have no password until they're given a login.
   if (!user?.password_hash || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
+    recordFailure(keys);
     res.locals.flash = [{ type: 'error', message: 'Incorrect email or password.' }];
     return res.status(401).render('auth/login', { title: 'Sign in', email });
   }
+  failures.delete(keys[0][0]);
   const returnTo = req.session.returnTo;
   req.session.regenerate((err) => {
     if (err) return next(err);

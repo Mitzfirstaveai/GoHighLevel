@@ -5,7 +5,7 @@ const { getContent } = require('../site');
 const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts } = require('../contacts');
 const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
-const { parseMoney, parseIntInRange, nowLocal, toCsv } = require('../util');
+const { parseMoney, parseIntInRange, nowLocal, toCsv, localTimestamp } = require('../util');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -97,7 +97,7 @@ router.get('/members.csv', (req, res) => {
     const tags = [...new Set([...m.tags.split(',').filter(Boolean), ...(m.is_donor ? ['Donor'] : [])])].join(', ');
     rows.push([m.first_name, m.last_name, m.email, m.phone, m.address_line1, m.address_line2, m.city, m.state,
       m.postal_code, m.native_place, m.date_of_birth, m.occupation, m.level_name, m.membership_end, tags, fam,
-      m.password_hash ? 'yes' : 'no', m.created_at]);
+      m.password_hash ? 'yes' : 'no', localTimestamp(m.created_at)]);
   }
   res.attachment('contacts.csv').type('text/csv').send(toCsv(rows));
 });
@@ -381,7 +381,7 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   for (const a of eventAttendees(db, event)) {
     rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.guest_count, money(a.total_cents),
       money(a.paid_cents), a.coupon_code, ...questions.map((q, i) => a.answers[i]?.answer ?? ''),
-      a.checked_in_at, a.checked_in_count, a.created_at]);
+      localTimestamp(a.checked_in_at), a.checked_in_count, localTimestamp(a.created_at)]);
   }
   const slug = event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event';
   res.attachment(`${slug}-attendees.csv`).type('text/csv').send(toCsv(rows));
@@ -427,7 +427,9 @@ router.get('/checkin/:token', (req, res) => {
   const justCheckedIn = req.session.justCheckedIn === req.params.token;
   delete req.session.justCheckedIn;
   const retired = rsvp ? null : svc.findRetiredToken(db, req.params.token);
-  res.status(rsvp ? 200 : 404).render('admin/checkin_result', { title: 'Check-in', rsvp, retired, due, justCheckedIn, token: req.params.token });
+  // Catch a ticket for another day's event (e.g. a Diwali ticket shown at Garba).
+  const notToday = rsvp && rsvp.starts_at.slice(0, 10) !== nowLocal().slice(0, 10);
+  res.status(rsvp ? 200 : 404).render('admin/checkin_result', { title: 'Check-in', rsvp, retired, due, justCheckedIn, notToday, token: req.params.token });
 });
 
 router.post('/checkin/:token', (req, res) => {
@@ -492,7 +494,7 @@ router.get('/payments.csv', (req, res) => {
   const rows = [['Date', 'First name', 'Last name', 'Email', 'Type', 'Description', 'Amount', 'Method', 'Reference']];
   for (const p of db.prepare(`SELECT p.*, u.first_name, u.last_name, u.email FROM payments p JOIN users u ON u.id = p.user_id
                               WHERE p.status = 'paid' ORDER BY p.paid_at DESC`).all()) {
-    rows.push([p.paid_at, p.first_name, p.last_name, p.email, p.kind, p.description, money(p.amount_cents), p.method, p.provider_ref]);
+    rows.push([localTimestamp(p.paid_at), p.first_name, p.last_name, p.email, p.kind, p.description, money(p.amount_cents), p.method, p.provider_ref]);
   }
   res.attachment('payments.csv').type('text/csv').send(toCsv(rows));
 });

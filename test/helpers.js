@@ -1,5 +1,7 @@
 // Shared test harness: starts the app on an in-memory database and provides a tiny
 // cookie-keeping browser plus helpers for common flows.
+// Run tests in the org's time zone (production sets TZ=America/Chicago on Render).
+process.env.TZ = 'America/Chicago';
 const assert = require('node:assert/strict');
 const { createApp } = require('../src/app');
 const { loadConfig } = require('../src/config');

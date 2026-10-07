@@ -17,10 +17,16 @@
       <div class="big-status err">❌ RSVP cancelled</div>
     <% } else if (rsvp.status === 'pending_payment') { %>
       <div class="big-status warn">⚠️ Payment due: <%= money(due) %></div>
+    <% } else if (rsvp.status === 'waitlisted') { %>
+      <div class="big-status warn">⏳ On the waitlist — no seat yet</div>
+      <p>This family joined the waitlist and hasn't been given a seat. Admit them only if there is room.</p>
     <% } else { %>
       <div class="big-status ok">✔ Valid ticket</div>
     <% } %>
 
+    <% if (notToday && !rsvp.checked_in_at) { %>
+      <div class="flash error" role="alert"><strong>Check the event:</strong> this ticket is for <strong><%= rsvp.event_title %></strong> on <strong><%= fmtDate(rsvp.starts_at) %></strong> — not today.</div>
+    <% } %>
     <h2 style="margin-bottom:0"><%= rsvp.first_name %> <%= rsvp.last_name %></h2>
     <p class="muted"><%= rsvp.event_title %> · <%= fmtDate(rsvp.starts_at) %></p>
     <div class="party-count"><%= rsvp.party_size %></div>

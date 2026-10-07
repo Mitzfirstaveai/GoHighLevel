@@ -12,7 +12,7 @@
   <div class="fields">
     <div><span class="muted small"><%= t('Received from') %></span><br><strong><%= payment.first_name %> <%= payment.last_name %></strong>
       <% if (payment.address_line1) { %><br><span class="small"><%= payment.address_line1 %><%= payment.address_line2 ? `, ${payment.address_line2}` : '' %><br><%= [payment.city, payment.state, payment.postal_code].filter(Boolean).join(', ') %></span><% } %></div>
-    <div><span class="muted small"><%= t('Date') %></span><br><strong><%= fmtDate(payment.paid_at.slice(0, 10)) %></strong></div>
+    <div><span class="muted small"><%= t('Date') %></span><br><strong><%= fmtDay(payment.paid_at) %></strong></div>
     <div><span class="muted small"><%= t('Payment method') %></span><br><strong><%- include('../partials/payment-method', { method: payment.method }) %><%= payment.method === 'check' && payment.provider_ref ? ` #${payment.provider_ref}` : '' %></strong></div>
   </div>
   <table style="margin:16px 0">

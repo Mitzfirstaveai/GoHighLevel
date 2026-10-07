@@ -37,7 +37,7 @@
   <table>
     <thead><tr><th>Date</th><th>Donor</th><th>Fund</th><th>Method</th><th class="num">Amount</th><th></th></tr></thead>
     <tbody><% for (const d of donations) { %>
-      <tr><td><%= fmtDate(d.paid_at.slice(0, 10)) %></td><td><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
+      <tr><td><%= fmtDay(d.paid_at) %></td><td><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
         <td><%= d.campaign_title || 'General fund' %></td><td><%= d.method %></td><td class="num"><%= money(d.amount_cents) %></td><td class="num"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
     <% } %>
     <% if (!donations.length) { %><tr><td colspan="6" class="muted">No donations match.</td></tr><% } %></tbody>

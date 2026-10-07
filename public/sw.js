@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and keeps QR tickets available offline
 // (venues often have poor signal). Pages are always fetched fresh when online.
-const VERSION = 'gsa-v1';
+const VERSION = 'gsa-v2';
 const STATIC = ['/styles.css', '/logo.png', '/icon-192.png', '/offline.html', '/forms.js', '/app.js'];
 
 self.addEventListener('install', (event) => {
@@ -35,8 +35,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Styles and scripts: always the latest when online (so app updates reach installed phones),
+  // the saved copy when offline.
   if (STATIC.includes(url.pathname)) {
-    event.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
+    event.respondWith(fetch(req).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(VERSION).then((c) => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req)));
     return;
   }
 

@@ -516,6 +516,7 @@ function checkIn(db, { token, guests, adminId }) {
   if (!rsvp) throw new UserError('This QR code is not valid.');
   if (rsvp.status === 'cancelled') throw new UserError('This RSVP was cancelled.');
   if (rsvp.status === 'pending_payment') throw new UserError('Payment is still outstanding for this RSVP.');
+  if (rsvp.status === 'waitlisted') throw new UserError('This RSVP is on the waitlist and has no seat yet.');
   if (!Number.isInteger(guests) || guests < 1 || guests > rsvp.party_size) {
     throw new UserError('Guests arriving must be between 1 and {n}.', { n: rsvp.party_size });
   }

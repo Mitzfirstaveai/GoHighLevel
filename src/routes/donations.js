@@ -1,7 +1,7 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware');
 const svc = require('../services');
-const { parseMoney, toCsv } = require('../util');
+const { parseMoney, toCsv, localDate } = require('../util');
 
 const router = express.Router();
 const PRESETS = [2100, 5100, 10100, 25100, 50100]; // the customary "+1" amounts
@@ -49,8 +49,8 @@ function searchDonations(db, f) {
   if (f.q) { where.push(`(u.first_name || ' ' || u.last_name LIKE ? OR u.email LIKE ?)`); args.push(`%${f.q}%`, `%${f.q}%`); }
   if (f.campaign === 'general') where.push('p.reference_id IS NULL');
   else if (f.campaign) { where.push('p.reference_id = ?'); args.push(Number(f.campaign)); }
-  if (f.from) { where.push('substr(p.paid_at, 1, 10) >= ?'); args.push(f.from); }
-  if (f.to) { where.push('substr(p.paid_at, 1, 10) <= ?'); args.push(f.to); }
+  if (f.from) { where.push("substr(datetime(p.paid_at, 'localtime'), 1, 10) >= ?"); args.push(f.from); }
+  if (f.to) { where.push("substr(datetime(p.paid_at, 'localtime'), 1, 10) <= ?"); args.push(f.to); }
   return db.prepare(`SELECT p.*, u.first_name, u.last_name, u.email, c.title AS campaign_title FROM payments p
     JOIN users u ON u.id = p.user_id LEFT JOIN campaigns c ON c.id = p.reference_id
     WHERE ${where.join(' AND ')} ORDER BY p.paid_at DESC`).all(...args);
@@ -72,7 +72,7 @@ router.get('/admin/donations.csv', requireAdmin, (req, res) => {
   const { db, money } = req.app.locals;
   const rows = [['Date', 'First name', 'Last name', 'Email', 'Fund', 'Amount', 'Method', 'Reference', 'Note', 'Receipt #']];
   for (const d of searchDonations(db, donationFilters(req.query))) {
-    rows.push([d.paid_at.slice(0, 10), d.first_name, d.last_name, d.email, d.campaign_title || 'General fund',
+    rows.push([localDate(d.paid_at), d.first_name, d.last_name, d.email, d.campaign_title || 'General fund',
       money(d.amount_cents), d.method, d.provider_ref, d.note, receiptNumber(d.id)]);
   }
   res.attachment('donations.csv').type('text/csv').send(toCsv(rows));

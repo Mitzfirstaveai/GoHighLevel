@@ -107,6 +107,7 @@ module.exports = {
   'Create account': 'ખાતું બનાવો',
   'Already a member?': 'પહેલેથી સભ્ય છો?',
   'Incorrect email or password.': 'ઈમેલ અથવા પાસવર્ડ ખોટો છે.',
+  'Too many attempts. Please wait 15 minutes and try again, or ask a committee member to reset your password.': 'ઘણા બધા પ્રયત્નો થયા. કૃપા કરી 15 મિનિટ રાહ જોઈ ફરી પ્રયત્ન કરો, અથવા સમિતિના સભ્યને પાસવર્ડ રીસેટ કરવા કહો.',
   'Please enter a valid email address.': 'કૃપા કરી સાચું ઈમેલ સરનામું લખો.',
   'Password must be at least 8 characters.': 'પાસવર્ડ ઓછામાં ઓછા 8 અક્ષરનો હોવો જોઈએ.',
   'Passwords do not match.': 'બંને પાસવર્ડ સરખા નથી.',
@@ -510,5 +511,6 @@ module.exports = {
   'This QR code was replaced by a newer one. Ask the member to open My tickets and show the latest code.': 'આ QR કોડની જગ્યાએ નવો કોડ આપવામાં આવ્યો છે. સભ્યને "મારી ટિકિટો" ખોલી નવો કોડ બતાવવા કહો.',
   'This RSVP was cancelled.': 'આ RSVP રદ થયું છે.',
   'Payment is still outstanding for this RSVP.': 'આ RSVP માટે ચુકવણી હજી બાકી છે.',
+  'This RSVP is on the waitlist and has no seat yet.': 'આ RSVP રાહ-યાદીમાં છે અને હજી જગ્યા મળી નથી.',
   'Guests arriving must be between 1 and {n}.': 'આવનાર વ્યક્તિઓ 1 થી {n} વચ્ચે હોવા જોઈએ.',
 };

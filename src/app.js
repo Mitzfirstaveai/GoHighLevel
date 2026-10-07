@@ -62,6 +62,8 @@ function createApp(config) {
     secret: config.sessionSecret,
     resave: false,
     saveUninitialized: false,
+    // Keep members signed in while they keep using the app (30 days from their last visit).
+    rolling: true,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',

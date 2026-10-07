@@ -18,7 +18,7 @@
 </div>
 <% if (latestNews) { %>
 <a class="card" href="/news" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--green)">
-  <div class="small muted">📢 <%= t('Latest news') %> · <%= fmtDate(latestNews.created_at.slice(0, 10)) %></div>
+  <div class="small muted">📢 <%= t('Latest news') %> · <%= fmtDay(latestNews.created_at) %></div>
   <strong><%= loc(latestNews, 'title') %></strong>
   <% const newsBody = loc(latestNews, 'body'); %>
   <div class="muted small" style="margin-top:4px"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>

@@ -6,7 +6,7 @@
 </div>
 <div class="card">
   <h2>Profile</h2>
-  <p class="muted small"><%= member.password_hash ? 'Has app login' : 'No app login yet' %> · Added <%= fmtDate(member.created_at.slice(0, 10)) %> · Last updated <%= fmtDate(member.updated_at.slice(0, 10)) %></p>
+  <p class="muted small"><%= member.password_hash ? 'Has app login' : 'No app login yet' %> · Added <%= fmtDay(member.created_at) %> · Last updated <%= fmtDay(member.updated_at) %></p>
   <form method="post" action="/admin/members/<%= member.id %>" class="stack">
     <%- include('../partials/csrf') %>
     <label>Email <input type="email" name="email" value="<%= member.email || '' %>"></label>
@@ -77,7 +77,7 @@
   <% if (!payments.length) { %><p class="muted">None.</p><% } else { %>
   <div class="table-wrap"><table>
     <thead><tr><th>Date</th><th>Description</th><th>Method</th><th class="num">Amount</th></tr></thead>
-    <tbody><% for (const p of payments) { %><tr><td><%= fmtDate(p.paid_at.slice(0, 10)) %></td><td><%= p.description %></td><td><%= p.method %><%= p.provider_ref ? ` (${p.provider_ref})` : '' %></td><td class="num"><%= money(p.amount_cents) %></td></tr><% } %></tbody>
+    <tbody><% for (const p of payments) { %><tr><td><%= fmtDay(p.paid_at) %></td><td><%= p.description %></td><td><%= p.method %><%= p.provider_ref ? ` (${p.provider_ref})` : '' %></td><td class="num"><%= money(p.amount_cents) %></td></tr><% } %></tbody>
   </table></div>
   <% } %>
 </div>
