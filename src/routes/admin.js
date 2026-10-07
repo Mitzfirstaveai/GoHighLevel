@@ -200,14 +200,15 @@ router.post('/events/:id', (req, res) => {
   res.redirect(`/admin/events/${req.params.id}`);
 });
 
-function eventAttendees(db, eventId) {
+function eventAttendees(db, event) {
   return db.prepare(`
-    SELECT r.*, u.first_name, u.last_name, u.email, u.phone,
-      (SELECT COALESCE(SUM(amount_cents), 0) FROM payments p WHERE p.kind = 'event' AND p.reference_id = r.id AND p.status = 'paid') AS paid_cents
+    SELECT r.*, u.first_name, u.last_name, u.email, u.phone
     FROM rsvps r JOIN users u ON u.id = r.user_id
     WHERE r.event_id = ?
     ORDER BY r.status = 'cancelled', u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
-  `).all(eventId);
+  `).all(event.id).map((r) => ({
+    ...r, paid_cents: svc.paidForRsvp(db, r.id), refund_due: svc.refundDue(db, r, event),
+  }));
 }
 
 router.get('/events/:id', (req, res) => {
@@ -218,7 +219,7 @@ router.get('/events/:id', (req, res) => {
     title: event.title, event,
     stats: svc.eventStats(db, event.id),
     revenue: svc.eventRevenue(db, event.id),
-    attendees: eventAttendees(db, event.id),
+    attendees: eventAttendees(db, event),
   });
 });
 
@@ -226,11 +227,11 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   const { db, money } = req.app.locals;
   const event = svc.getEvent(db, req.params.id);
   if (!event) return notFound(res, 'Event');
-  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Paid',
+  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Paid (net)', 'Refund due',
     'Checked in at', 'People checked in', 'RSVP date']];
-  for (const a of eventAttendees(db, event.id)) {
+  for (const a of eventAttendees(db, event)) {
     rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, money(a.paid_cents),
-      a.checked_in_at, a.checked_in_count, a.created_at]);
+      a.refund_due ? money(a.refund_due) : '', a.checked_in_at, a.checked_in_count, a.created_at]);
   }
   const slug = event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event';
   res.attachment(`${slug}-attendees.csv`).type('text/csv').send(toCsv(rows));
@@ -254,6 +255,16 @@ router.post('/rsvps/:id/record-payment', (req, res) => {
   res.redirect(back.startsWith('/admin/') ? back : `/admin/events/${rsvp.event_id}`);
 });
 
+// Record that an overpayment / cancelled RSVP's fee was returned to the member
+// (issue the actual refund in Stripe, or hand back cash).
+router.post('/rsvps/:id/refund', (req, res) => {
+  const method = ['stripe', 'cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'other';
+  const amount = svc.recordRefund(req.app.locals.db, { rsvpId: Number(req.params.id), method, adminId: req.user.id });
+  req.flash('success', `Recorded a ${req.app.locals.money(amount)} refund.`);
+  const rsvp = req.app.locals.db.prepare('SELECT event_id FROM rsvps WHERE id = ?').get(req.params.id);
+  res.redirect(`/admin/events/${rsvp.event_id}`);
+});
+
 // ---------- Check-in ----------
 
 router.get('/checkin', (req, res) => {
@@ -275,7 +286,8 @@ router.get('/checkin/:token', (req, res) => {
   // Distinguishes "you just checked them in" from "this code was already used earlier".
   const justCheckedIn = req.session.justCheckedIn === req.params.token;
   delete req.session.justCheckedIn;
-  res.status(rsvp ? 200 : 404).render('admin/checkin_result', { title: 'Check-in', rsvp, due, justCheckedIn, token: req.params.token });
+  const retired = rsvp ? null : svc.findRetiredToken(db, req.params.token);
+  res.status(rsvp ? 200 : 404).render('admin/checkin_result', { title: 'Check-in', rsvp, retired, due, justCheckedIn, token: req.params.token });
 });
 
 router.post('/checkin/:token', (req, res) => {
@@ -305,7 +317,12 @@ router.get('/payments', (req, res) => {
     WHERE p.status = 'paid' AND (? = '' OR p.kind = ?) ORDER BY p.paid_at DESC LIMIT 500
   `).all(kind, kind);
   const total = payments.reduce((sum, p) => sum + p.amount_cents, 0);
-  res.render('admin/payments', { title: 'Payments', payments, total, kind });
+  const refunds = !kind || kind === 'event'
+    ? db.prepare(`SELECT f.*, u.first_name, u.last_name, e.title FROM refunds f JOIN users u ON u.id = f.user_id
+                  JOIN rsvps r ON r.id = f.rsvp_id JOIN events e ON e.id = r.event_id ORDER BY f.created_at DESC`).all()
+    : [];
+  const refundTotal = refunds.reduce((sum, f) => sum + f.amount_cents, 0);
+  res.render('admin/payments', { title: 'Payments', payments, total, refunds, refundTotal, kind });
 });
 
 router.get('/payments.csv', (req, res) => {

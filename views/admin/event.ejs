@@ -25,9 +25,16 @@
         <td><a href="/admin/members/<%= a.user_id %>"><%= a.last_name %>, <%= a.first_name %></a><div class="muted small"><%= a.phone || a.email %></div></td>
         <td><%- include('../partials/rsvp-badge', { status: a.status }) %></td>
         <td class="num"><strong><%= a.party_size %></strong></td>
-        <td class="num"><%= event.fee_cents ? money(a.paid_cents) : '—' %></td>
+        <td class="num"><%= event.fee_cents || a.paid_cents ? money(a.paid_cents) : '—' %>
+          <% if (a.refund_due) { %><div><span class="badge warn">Refund due <%= money(a.refund_due) %></span></div><% } %></td>
         <td><% if (a.checked_in_at) { %><span class="badge ok"><%= a.checked_in_count %> arrived</span><div class="muted small"><%= fmtDate(a.checked_in_at) %></div><% } else { %>—<% } %></td>
         <td class="num">
+          <% if (a.refund_due) { %>
+            <form method="post" action="/admin/rsvps/<%= a.id %>/refund" class="actions" style="justify-content:flex-end;margin-bottom:6px" onsubmit="return confirm('Record that <%= money(a.refund_due) %> was refunded?')">
+              <%- include('../partials/csrf') %>
+              <select name="method" style="width:auto;padding:6px"><option value="stripe">Stripe</option><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select>
+              <button class="btn secondary small">Mark refunded</button></form>
+          <% } %>
           <% if (a.status === 'pending_payment') { %>
             <form method="post" action="/admin/rsvps/<%= a.id %>/record-payment" class="inline" onsubmit="return confirm('Record a cash payment for this RSVP?')">
               <%- include('../partials/csrf') %><input type="hidden" name="method" value="cash"><button class="btn secondary small">Record cash</button></form>

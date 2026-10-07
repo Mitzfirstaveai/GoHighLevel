@@ -18,6 +18,7 @@
     <h2>Your RSVP</h2>
     <% if (rsvp) { %>
       <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %> <%= rsvp.party_size %> <%= rsvp.party_size === 1 ? 'person' : 'people' %> (including you)</p>
+      <% if (refund > 0) { %><p><span class="badge warn">Refund pending: <%= money(refund) %></span> An organizer will return this to you.</p><% } %>
       <% if (rsvp.checked_in_at) { %>
         <p class="badge ok">Checked in — <%= rsvp.checked_in_count %> arrived</p>
       <% } else if (rsvp.status === 'confirmed') { %>
@@ -38,9 +39,12 @@
         <%- include('../partials/csrf') %>
         <label>How many people are coming (including you)?
           <select name="party_size">
-            <% for (let i = 1; i <= event.max_party_size; i++) { %><option <%= (rsvp?.party_size || 1) === i ? 'selected' : '' %>><%= i %></option><% } %>
+            <% for (let i = 1; i <= Math.max(maxParty, rsvp?.party_size || 1); i++) { %><option <%= (rsvp?.party_size || 1) === i ? 'selected' : '' %>><%= i %></option><% } %>
           </select>
         </label>
+        <p class="muted small" style="margin:0">You can bring up to <%= maxParty %> (you<%= maxParty > 1 ? ' plus the family members on your profile' : '' %>).
+          <% if (maxParty < event.max_party_size) { %><a href="/profile#family">Add family members</a> to bring more.<% } %>
+          <% if (rsvp) { %>Changing the number of people gives you a new QR code; the old one stops working.<% } %></p>
         <button class="btn <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? 'Update RSVP' : (event.fee_cents ? 'RSVP & pay' : 'RSVP') %></button>
       </form>
       <% } %>

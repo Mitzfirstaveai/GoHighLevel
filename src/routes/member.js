@@ -88,19 +88,27 @@ router.get('/events/:id', requireAuth, (req, res) => {
   const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`)
     .get(event.id, req.user.id);
   const due = rsvp ? svc.amountDue(db, rsvp, event) : 0;
+  const refund = rsvp ? svc.refundDue(db, rsvp, event) : 0;
+  const maxParty = svc.maxPartySize(db, event, req.user.id);
   const spotsLeft = event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null;
   const membership = svc.membershipStatus(db, req.user.id);
   res.render('member/event', {
-    title: event.title, event, rsvp, due, spotsLeft, membership, open: svc.rsvpWindowOpen(event),
+    title: event.title, event, rsvp, due, refund, maxParty, spotsLeft, membership, open: svc.rsvpWindowOpen(event),
   });
 });
 
 router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
   const partySize = parseIntInRange(req.body.party_size, 1, 1000);
-  const { rsvp, amountDue } = svc.upsertRsvp(db, { eventId: Number(req.params.id), userId: req.user.id, partySize });
+  const { rsvp, amountDue, refundDue, qrReplaced } = svc.upsertRsvp(db, { eventId: Number(req.params.id), userId: req.user.id, partySize });
+  if (qrReplaced) {
+    req.flash('info', `Your RSVP is now for ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}. A new QR code was issued — your old QR code no longer works.`);
+  }
+  if (refundDue > 0) {
+    req.flash('info', `You have ${req.app.locals.money(refundDue)} coming back to you. An organizer will process your refund.`);
+  }
   if (amountDue === 0) {
-    req.flash('success', 'You are registered! Show this QR code at the entrance.');
+    if (!qrReplaced) req.flash('success', 'You are registered! Show this QR code at the entrance.');
     return res.redirect(`/tickets/${rsvp.id}`);
   }
   const payment = svc.createEventPayment(db, { rsvpId: rsvp.id, userId: req.user.id });
@@ -195,7 +203,9 @@ router.post('/membership/pay', requireAuth, async (req, res) => {
 router.get('/payments', requireAuth, (req, res) => {
   const payments = req.app.locals.db.prepare(`SELECT * FROM payments WHERE user_id = ? AND status = 'paid' ORDER BY paid_at DESC`)
     .all(req.user.id);
-  res.render('member/payments', { title: 'My payments', payments });
+  const refunds = req.app.locals.db.prepare(`SELECT f.*, e.title FROM refunds f JOIN rsvps r ON r.id = f.rsvp_id
+    JOIN events e ON e.id = r.event_id WHERE f.user_id = ? ORDER BY f.created_at DESC`).all(req.user.id);
+  res.render('member/payments', { title: 'My payments', payments, refunds });
 });
 
 module.exports = router;

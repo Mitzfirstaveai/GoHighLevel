@@ -4,7 +4,7 @@
   <% for (const [k, label] of [['', 'All'], ['membership', 'Membership'], ['event', 'Event fees'], ['other', 'Other']]) { %>
     <a class="btn small <%= kind === k ? '' : 'secondary' %>" href="/admin/payments<%= k ? `?kind=${k}` : '' %>"><%= label %></a>
   <% } %>
-  <span style="margin-left:auto">Total: <strong><%= money(total) %></strong></span>
+  <span style="margin-left:auto">Received: <strong><%= money(total) %></strong><% if (refundTotal) { %> · Refunded: <strong><%= money(refundTotal) %></strong> · Net: <strong><%= money(total - refundTotal) %></strong><% } %></span>
 </div>
 <div class="card table-wrap">
   <table>
@@ -16,4 +16,16 @@
     <% if (!payments.length) { %><tr><td colspan="5" class="muted">No payments.</td></tr><% } %></tbody>
   </table>
 </div>
+<% if (refunds.length) { %>
+<div class="card table-wrap">
+  <h2>Refunds</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Member</th><th>Event</th><th>Method</th><th class="num">Amount</th></tr></thead>
+    <tbody><% for (const f of refunds) { %>
+      <tr><td><%= fmtDate(f.created_at.slice(0, 10)) %></td><td><a href="/admin/members/<%= f.user_id %>"><%= f.first_name %> <%= f.last_name %></a></td>
+        <td><%= f.title %></td><td><%= f.method %></td><td class="num">−<%= money(f.amount_cents) %></td></tr>
+    <% } %></tbody>
+  </table>
+</div>
+<% } %>
 <%- include('../partials/foot') %>

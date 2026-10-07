@@ -1,6 +1,10 @@
 <%- include('../partials/head') %>
 <div class="card result">
-  <% if (!rsvp) { %>
+  <% if (!rsvp && retired) { %>
+    <div class="big-status err">⛔ Old QR code — replaced</div>
+    <p><strong><%= retired.first_name %> <%= retired.last_name %></strong> changed their RSVP for <%= retired.event_title %> (<%= retired.reason %>), so this code no longer works.</p>
+    <p>Ask them to open <strong>My tickets</strong> in the app and show their latest QR code<%= retired.status === 'cancelled' ? ' — note their RSVP is currently cancelled' : ` (now ${retired.party_size} ${retired.party_size === 1 ? 'person' : 'people'})` %>.</p>
+  <% } else if (!rsvp) { %>
     <div class="big-status err">❌ Invalid QR code</div>
     <p>This code does not match any RSVP.</p>
   <% } else { %>

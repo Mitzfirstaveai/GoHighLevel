@@ -62,7 +62,7 @@ async function login(email, password) {
   return c;
 }
 
-async function register(email, first = 'Test') {
+async function register(email, first = 'Test', familyMembers = 0) {
   const c = new Client();
   await c.get('/register');
   const res = await c.post('/register', {
@@ -70,6 +70,9 @@ async function register(email, first = 'Test') {
   });
   assert.equal(res.status, 302);
   await c.get('/profile');
+  for (let i = 1; i <= familyMembers; i++) {
+    await c.post('/profile/household', { name: `Family ${i}`, relationship: 'Other' });
+  }
   return c;
 }
 
@@ -131,7 +134,7 @@ test('free event: RSVP gives a QR ticket, admin sees headcount, QR checks in onl
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Diwali Sneh Milan' });
 
-  const member = await register('raj@test.org', 'Raj');
+  const member = await register('raj@test.org', 'Raj', 3);
   let res = await member.post(`/events/${eventId}/rsvp`, { party_size: '4' });
   assert.match(res.location, /^\/tickets\/\d+$/);
   res = await member.get(res.location);
@@ -177,7 +180,7 @@ test('free event: RSVP gives a QR ticket, admin sees headcount, QR checks in onl
 test('cannot check in more guests than registered, or an unknown code', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Picnic' });
-  const member = await register('guestcap@test.org');
+  const member = await register('guestcap@test.org', 'Test', 1);
   await member.post(`/events/${eventId}/rsvp`, { party_size: '2' });
   const rsvp = rsvpFor(eventId, 'guestcap@test.org');
   await admin.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '5' });
@@ -188,7 +191,7 @@ test('cannot check in more guests than registered, or an unknown code', async ()
 test('paid event: RSVP requires payment before a QR is issued', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Navratri', fee: '15' });
-  const member = await register('meena@test.org', 'Meena');
+  const member = await register('meena@test.org', 'Meena', 3);
 
   let res = await member.post(`/events/${eventId}/rsvp`, { party_size: '3' });
   assert.match(res.location, /^\/pay\/\d+\/demo$/);
@@ -217,6 +220,7 @@ test('paid event: RSVP requires payment before a QR is issued', async () => {
   const topUp = db.prepare(`SELECT * FROM payments WHERE reference_id = ? AND status = 'pending'`).get(rsvp.id);
   assert.equal(topUp.amount_cents, 1500);
   assert.equal(rsvpFor(eventId, 'meena@test.org').status, 'pending_payment');
+  rsvp = rsvpFor(eventId, 'meena@test.org'); // a new QR code was issued for the new guest count
 
   // Admin collects the balance in cash at the door, then checks them in.
   await admin.get(`/admin/checkin/${rsvp.qr_token}`);
@@ -233,8 +237,8 @@ test('paid event: RSVP requires payment before a QR is issued', async () => {
 test('capacity and max party size are enforced', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Small Event', capacity: '5', max_party_size: '4' });
-  const a = await register('cap-a@test.org');
-  const b = await register('cap-b@test.org');
+  const a = await register('cap-a@test.org', 'Test', 3);
+  const b = await register('cap-b@test.org', 'Test', 5);
   await a.post(`/events/${eventId}/rsvp`, { party_size: '4' });
   let res = await b.follow(await b.post(`/events/${eventId}/rsvp`, { party_size: '2' }));
   assert.match(res.text, /only 1 spot left/);
@@ -246,7 +250,7 @@ test('capacity and max party size are enforced', async () => {
 test('cancelled RSVP frees capacity and invalidates the old QR code', async () => {
   const admin = await login('admin@test.org', 'adminpass1');
   const eventId = await createEvent(admin, { title: 'Bhajan Sandhya' });
-  const m = await register('cancel@test.org');
+  const m = await register('cancel@test.org', 'Test', 1);
   await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
   const oldToken = rsvpFor(eventId, 'cancel@test.org').qr_token;
   await m.post(`/events/${eventId}/cancel`);
@@ -308,4 +312,77 @@ test('admin records an offline payment and payments ledger shows it', async () =
 test('CSV export neutralises spreadsheet formulas', async () => {
   const { toCsv } = require('../src/util');
   assert.equal(toCsv([['=SUM(A1)', 'a,b', 'ok']]), `'=SUM(A1),"a,b",ok\r\n`);
+});
+
+test('guest limit is the member plus family members on their profile', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const eventId = await createEvent(admin, { title: 'Family Limit', max_party_size: '10' });
+  const m = await register('family@test.org', 'Test', 2); // member + 2 family = 3
+  let res = await m.get(`/events/${eventId}`);
+  assert.match(res.text, /You can bring up to 3/);
+  res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '4' }));
+  assert.match(res.text, /between 1 and 3/);
+  assert.equal(rsvpFor(eventId, 'family@test.org'), undefined);
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '3' });
+  assert.equal(rsvpFor(eventId, 'family@test.org').party_size, 3);
+
+  const single = await register('single@test.org');
+  res = await single.follow(await single.post(`/events/${eventId}/rsvp`, { party_size: '2' }));
+  assert.match(res.text, /Add your family members to your profile/);
+});
+
+test('changing 4 → 2 guests on a paid event: old QR stops working, new QR issued, refund owed', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const eventId = await createEvent(admin, { title: 'Garba Change', fee: '15' });
+  const m = await register('change@test.org', 'Asha', 3);
+
+  let res = await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
+  const paymentId = Number(res.location.match(/\/pay\/(\d+)\/demo/)[1]);
+  await m.post(`/pay/${paymentId}/demo`);
+  const before = rsvpFor(eventId, 'change@test.org');
+  assert.equal(before.status, 'confirmed');
+
+  // Re-submitting the same number keeps the same QR.
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
+  assert.equal(rsvpFor(eventId, 'change@test.org').qr_token, before.qr_token);
+
+  res = await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
+  assert.equal(res.location, `/tickets/${before.id}`);
+  res = await m.get(res.location);
+  assert.match(res.text, /A new QR code was issued — your old QR code no longer works/);
+  assert.match(res.text, /\$30\.00 coming back to you/);
+  assert.match(res.text, /data:image\/png;base64/);
+  assert.match(res.text, /<p class="party-count"[^>]*>2<\/p>/);
+
+  const after = rsvpFor(eventId, 'change@test.org');
+  assert.equal(after.status, 'confirmed');
+  assert.equal(after.party_size, 2);
+  assert.notEqual(after.qr_token, before.qr_token);
+
+  // Old QR: shown as replaced and cannot be checked in.
+  res = await admin.get(`/admin/checkin/${before.qr_token}`);
+  assert.equal(res.status, 404);
+  assert.match(res.text, /Old QR code — replaced/);
+  assert.match(res.text, /now 2 people/);
+  res = await admin.follow(await admin.post(`/admin/checkin/${before.qr_token}`, { guests: '2' }));
+  assert.match(res.text, /replaced by a newer one/);
+  assert.equal(rsvpFor(eventId, 'change@test.org').checked_in_at, null);
+
+  // Admin's guest list links to the new QR and shows the refund owed.
+  res = await admin.get(`/admin/events/${eventId}`);
+  assert.ok(res.text.includes(`/admin/checkin/${after.qr_token}`));
+  assert.ok(!res.text.includes(before.qr_token));
+  assert.match(res.text, /Refund due \$30\.00/);
+  assert.match(res.text, /People attending \(confirmed\)<\/div><div class="value">2/);
+
+  await admin.post(`/admin/rsvps/${after.id}/refund`, { method: 'stripe' });
+  res = await admin.get(`/admin/events/${eventId}`);
+  assert.doesNotMatch(res.text, /Refund due/);
+  assert.match(res.text, /Fees collected<\/div><div class="value">\$30\.00/);
+
+  // New QR checks in 2 people.
+  res = await admin.get(`/admin/checkin/${after.qr_token}`);
+  assert.match(res.text, /<div class="party-count">2<\/div>/);
+  await admin.post(`/admin/checkin/${after.qr_token}`, { guests: '2' });
+  assert.equal(rsvpFor(eventId, 'change@test.org').checked_in_count, 2);
 });

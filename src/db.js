@@ -99,6 +99,27 @@ CREATE TABLE IF NOT EXISTS payments (
   paid_at TEXT
 );
 
+-- QR codes that were replaced (guest count changed, RSVP re-opened). Kept so a scan of an
+-- old code can say "replaced" instead of just "invalid".
+CREATE TABLE IF NOT EXISTS retired_qr_tokens (
+  token TEXT PRIMARY KEY,
+  rsvp_id INTEGER NOT NULL REFERENCES rsvps(id) ON DELETE CASCADE,
+  reason TEXT,
+  retired_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Money returned to a member for an event RSVP (fewer guests, or cancellation).
+CREATE TABLE IF NOT EXISTS refunds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rsvp_id INTEGER NOT NULL REFERENCES rsvps(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+  method TEXT NOT NULL,
+  note TEXT,
+  recorded_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   sid TEXT PRIMARY KEY,
   sess TEXT NOT NULL,

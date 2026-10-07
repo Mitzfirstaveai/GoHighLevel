@@ -83,17 +83,63 @@ function eventStats(db, eventId) {
   `).get(eventId);
 }
 
+// Net fees collected for an event (payments minus refunds).
 function eventRevenue(db, eventId) {
-  return db.prepare(`SELECT COALESCE(SUM(p.amount_cents), 0) AS cents FROM payments p
-                     JOIN rsvps r ON r.id = p.reference_id
-                     WHERE p.kind = 'event' AND p.status = 'paid' AND r.event_id = ?`)
-    .get(eventId).cents;
+  const paid = db.prepare(`SELECT COALESCE(SUM(p.amount_cents), 0) AS cents FROM payments p
+                           JOIN rsvps r ON r.id = p.reference_id
+                           WHERE p.kind = 'event' AND p.status = 'paid' AND r.event_id = ?`).get(eventId).cents;
+  const refunded = db.prepare(`SELECT COALESCE(SUM(f.amount_cents), 0) AS cents FROM refunds f
+                               JOIN rsvps r ON r.id = f.rsvp_id WHERE r.event_id = ?`).get(eventId).cents;
+  return paid - refunded;
 }
 
+// Net amount the member has paid toward this RSVP (payments minus refunds).
 function paidForRsvp(db, rsvpId) {
-  return db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS cents FROM payments
-                     WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`)
+  const paid = db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS cents FROM payments
+                           WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvpId).cents;
+  const refunded = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) AS cents FROM refunds WHERE rsvp_id = ?')
     .get(rsvpId).cents;
+  return paid - refunded;
+}
+
+// Money owed back to the member: everything for a cancelled RSVP, otherwise any overpayment
+// left after reducing the number of guests.
+function refundDue(db, rsvp, event) {
+  const paid = paidForRsvp(db, rsvp.id);
+  if (rsvp.status === 'cancelled') return Math.max(0, paid);
+  return Math.max(0, paid - event.fee_cents * rsvp.party_size);
+}
+
+function recordRefund(db, { rsvpId, method, adminId }) {
+  return transaction(db, () => {
+    const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
+    if (!rsvp) throw new UserError('RSVP not found.');
+    const due = refundDue(db, rsvp, getEvent(db, rsvp.event_id));
+    if (due === 0) throw new UserError('No refund is owed for this RSVP.');
+    db.prepare(`INSERT INTO refunds (rsvp_id, user_id, amount_cents, method, recorded_by) VALUES (?, ?, ?, ?, ?)`)
+      .run(rsvp.id, rsvp.user_id, due, method, adminId);
+    return due;
+  });
+}
+
+function householdSize(db, userId) {
+  return 1 + db.prepare('SELECT COUNT(*) AS n FROM household_members WHERE user_id = ?').get(userId).n;
+}
+
+// A member can bring themselves plus the family members listed on their profile,
+// never more than the event's own per-RSVP limit.
+function maxPartySize(db, event, userId) {
+  return Math.min(event.max_party_size, householdSize(db, userId));
+}
+
+// Swaps in a new QR code. The old one stops working immediately (check-in matches on the
+// current token only) and is remembered so a scan of it can be explained at the door.
+function replaceQrToken(db, rsvp, reason) {
+  db.prepare('INSERT OR IGNORE INTO retired_qr_tokens (token, rsvp_id, reason) VALUES (?, ?, ?)')
+    .run(rsvp.qr_token, rsvp.id, reason);
+  const token = newToken();
+  db.prepare(`UPDATE rsvps SET qr_token = ?, updated_at = datetime('now') WHERE id = ?`).run(token, rsvp.id);
+  return token;
 }
 
 function amountDue(db, rsvp, event) {
@@ -121,8 +167,11 @@ function upsertRsvp(db, { eventId, userId, partySize }) {
     if (event.members_only && !membershipStatus(db, userId).active) {
       throw new UserError('This event is for members with an active membership.');
     }
-    if (!Number.isInteger(partySize) || partySize < 1 || partySize > event.max_party_size) {
-      throw new UserError(`Number of people must be between 1 and ${event.max_party_size}.`);
+    const maxParty = maxPartySize(db, event, userId);
+    if (!Number.isInteger(partySize) || partySize < 1 || partySize > maxParty) {
+      throw new UserError(maxParty === 1
+        ? 'You can register 1 person. Add your family members to your profile to bring them.'
+        : `Number of people must be between 1 and ${maxParty} (you plus the family members on your profile).`);
     }
 
     const existing = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?')
@@ -138,15 +187,17 @@ function upsertRsvp(db, { eventId, userId, partySize }) {
     }
 
     let rsvpId;
+    let qrReplaced = false;
     if (existing) {
-      const paid = paidForRsvp(db, existing.id);
-      if (event.fee_cents > 0 && paid > event.fee_cents * partySize && existing.status !== 'cancelled') {
-        throw new UserError('You have already paid for a larger group. Please contact an admin to reduce your RSVP.');
+      if (existing.status !== 'cancelled' && existing.party_size === partySize) {
+        return { rsvp: existing, amountDue: amountDue(db, existing, event), refundDue: refundDue(db, existing, event), qrReplaced };
       }
-      // A re-activated RSVP gets a fresh QR code so any old code can't be reused.
-      const token = existing.status === 'cancelled' ? newToken() : existing.qr_token;
-      db.prepare(`UPDATE rsvps SET party_size = ?, qr_token = ?, status = 'pending_payment',
-                  updated_at = datetime('now') WHERE id = ?`).run(partySize, token, existing.id);
+      // Any change in guest count (or re-opening a cancelled RSVP) issues a new QR code,
+      // so a ticket showing the old number of people can never be scanned.
+      replaceQrToken(db, existing, existing.status === 'cancelled' ? 'rsvp reopened' : `guests changed ${existing.party_size} → ${partySize}`);
+      qrReplaced = existing.status !== 'cancelled';
+      db.prepare(`UPDATE rsvps SET party_size = ?, status = 'pending_payment', updated_at = datetime('now')
+                  WHERE id = ?`).run(partySize, existing.id);
       rsvpId = existing.id;
     } else {
       rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, status, qr_token)
@@ -163,7 +214,7 @@ function upsertRsvp(db, { eventId, userId, partySize }) {
       db.prepare(`UPDATE rsvps SET status = 'confirmed' WHERE id = ?`).run(rsvpId);
       rsvp.status = 'confirmed';
     }
-    return { rsvp, amountDue: due };
+    return { rsvp, amountDue: due, refundDue: refundDue(db, rsvp, event), qrReplaced };
   });
 }
 
@@ -205,8 +256,20 @@ function findRsvpByToken(db, token) {
  * Checks in a QR code exactly once. The conditional UPDATE makes this safe even if two
  * volunteers scan the same code at the same moment: only one of them succeeds.
  */
+function findRetiredToken(db, token) {
+  return db.prepare(`
+    SELECT t.*, r.party_size, r.status, u.first_name, u.last_name, e.title AS event_title
+    FROM retired_qr_tokens t JOIN rsvps r ON r.id = t.rsvp_id
+    JOIN users u ON u.id = r.user_id JOIN events e ON e.id = r.event_id
+    WHERE t.token = ?
+  `).get(String(token));
+}
+
 function checkIn(db, { token, guests, adminId }) {
   const rsvp = findRsvpByToken(db, token);
+  if (!rsvp && findRetiredToken(db, token)) {
+    throw new UserError('This QR code was replaced by a newer one. Ask the member to open My tickets and show the latest code.');
+  }
   if (!rsvp) throw new UserError('This QR code is not valid.');
   if (rsvp.status === 'cancelled') throw new UserError('This RSVP was cancelled.');
   if (rsvp.status === 'pending_payment') throw new UserError('Payment is still outstanding for this RSVP.');
@@ -282,7 +345,7 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
 
 module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership,
-  getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats,
-  upsertRsvp, cancelRsvp, findRsvpByToken, checkIn,
+  getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, refundDue, recordRefund, rsvpWindowOpen, reservedSeats,
+  householdSize, maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, checkIn,
   createPayment, createEventPayment, createMembershipPayment, markPaymentPaid,
 };
