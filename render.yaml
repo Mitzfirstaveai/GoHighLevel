@@ -1,0 +1,29 @@
+# One-click hosting on Render (https://render.com): New → Blueprint → pick this repository.
+# The free plan sleeps when idle and starts fresh (with demo data) after a restart —
+# fine for demos. For real use, switch to a paid plan with a persistent disk.
+services:
+  - type: web
+    name: gsa-members
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: America/Chicago
+      - key: ORG_NAME
+        value: Gujarati Samaj of Arkansas
+      - key: SESSION_SECRET
+        generateValue: true
+      # Demo: sample data, one-tap sign-in, and simulated payments.
+      - key: DEMO_MODE
+        value: "true"
+      - key: ALLOW_DEMO_PAYMENTS
+        value: "true"
+      # Add later to take real card payments (Render dashboard → Environment):
+      # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET

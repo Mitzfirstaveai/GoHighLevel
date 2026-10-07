@@ -176,3 +176,4 @@ tr.dim td { opacity: .55; }
 @media print { .topbar, .tabbar, .subnav, .site-footer, .demo-banner, .no-print { display: none !important; } }
 @media (prefers-color-scheme: dark) { .tile.primary, .tile.primary .icon, .tile.primary small { color: #1a1310; } }
 @media (max-width: 420px) { .brand span { font-size: .95rem; } }
+.demo-login { background: var(--brand-soft); border-radius: 10px; padding: 12px; margin: 14px 0; }

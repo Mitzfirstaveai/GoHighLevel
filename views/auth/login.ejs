@@ -8,6 +8,19 @@
     <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
     <button class="btn">Sign in</button>
   </form>
+  <% if (demoAccounts.length) { %>
+    <div class="demo-login">
+      <p class="small" style="margin:0 0 8px"><strong>Demo site</strong> — tap to sign in as:</p>
+      <div class="actions">
+      <% for (const a of demoAccounts) { %>
+        <form method="post" action="/login"><%- include('../partials/csrf') %>
+          <input type="hidden" name="email" value="<%= a.email %>"><input type="hidden" name="password" value="<%= demoPassword %>">
+          <button class="btn secondary small"><%= a.label %></button></form>
+      <% } %>
+      </div>
+      <p class="muted small" style="margin:8px 0 0">Other sample members use password <code><%= demoPassword %></code>.</p>
+    </div>
+  <% } %>
   <p class="muted small">New here? <a href="/register">Create your member account</a>. Forgot your password? Ask a committee member to reset it.</p>
 </div>
 <%- include('../partials/foot') %>

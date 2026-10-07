@@ -17,7 +17,53 @@ A simple, mobile-friendly web app for the samaj's members and committee:
   registered on that code; the admin picks how many actually arrived and checks them in.
   **A QR code can only be used once** — a second scan shows "Already used", when, and by whom.
 - Collect cash/check at the door, or record any offline payment (dues, donations)
-- Manage membership plans (annual family, individual, life, …) and view all payments
+- Manage membership levels (Senior Citizen, Individual, Married Couple, Family, Family with Parents) — each level
+  decides which family members can be on the profile and how many people the member can bring to events
+
+## Put the demo online (free, about 10 minutes)
+
+1. Create a free account at [render.com](https://render.com) and sign in with GitHub.
+2. Click **New → Blueprint**, choose the `GoHighLevel` repository and this branch, then **Apply**.
+   Render reads `render.yaml` and sets everything up (demo mode, demo payments, Central time).
+3. After the build finishes you get a link like `https://gsa-members.onrender.com` — open it on your phone or
+   share it with the committee.
+
+Notes for the free plan: the site goes to sleep after ~15 minutes without visitors (the first visit then takes
+about a minute to wake up), and every restart reloads fresh demo data. Open the link a minute before presenting.
+
+## Demo walkthrough
+
+On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed.
+Other sample members use the password `demo1234`.
+
+**As a member (best shown on a phone)**
+1. *Home*: quick tiles, membership status, upcoming events.
+2. *My tickets*: the Diwali Sneh Milan QR ticket for 4 people.
+3. *Events → Navratri Garba Night*: RSVP for 4 → pay $60 (simulated) → QR ticket appears.
+4. Change the RSVP from 4 to 2 → a new QR code is issued and the old one stops working (fees are non-refundable).
+5. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests
+   upgrading to Family with Parents.
+6. *Dues*: see the five levels, "Upgrade — pay $55 difference", and renewal for next year.
+
+**As an admin**
+1. *Overview*: members, paid memberships, money collected, upcoming events.
+2. *Events → Navratri*: headcount (confirmed / awaiting payment / checked in) and the guest list; download CSV.
+3. *Check-in*: scan the member's QR with the phone camera (or click **Check in** on the guest list) → choose how many
+   arrived → **Check in**. Scan the same code again → **Already used**. Scan the old (replaced) code → **Old QR code — replaced**.
+4. *Members*: search the directory, open a profile, see family, payments and RSVPs; record a cash/check payment.
+5. *Membership levels*: the five GSA levels and who each covers.
+6. *Overview → Reset demo data* before the next presentation.
+
+## Adding Stripe later
+
+No code changes are needed. When you're ready to take real card payments:
+1. Create a Stripe account and copy the **secret key** (Developers → API keys).
+2. In Stripe, add a webhook endpoint `https://YOUR-SITE/pay/webhook` for the events `checkout.session.completed` and
+   `checkout.session.async_payment_succeeded`, and copy its **signing secret**.
+3. In Render → your service → **Environment**, add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, and set
+   `ALLOW_DEMO_PAYMENTS` to `false`. Render restarts the app and the "Simulate payment" button becomes a real card checkout.
+
+Tip: Stripe's *test mode* keys (`sk_test_…`) let you rehearse with test card `4242 4242 4242 4242` before going live.
 
 ## Run it locally
 
@@ -26,7 +72,7 @@ Requires Node.js 22.13+.
 ```bash
 npm install
 cp .env.example .env   # then edit
-npm run seed           # optional: demo data (admin@example.com / password123)
+npm run seed           # optional: demo data (admin@example.com or member@example.com / demo1234)
 npm start              # http://localhost:3000
 ```
 

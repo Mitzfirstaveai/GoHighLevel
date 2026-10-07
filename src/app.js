@@ -8,11 +8,13 @@ const { SqliteStore } = require('./session-store');
 const { createGateway } = require('./gateway');
 const { loadUser, csrf, flash } = require('./middleware');
 const { UserError } = require('./services');
+const { seedDemo, isEmpty, DEMO_ACCOUNTS, DEMO_PASSWORD } = require('./demo');
 const util = require('./util');
 
 function createApp(config) {
   const db = openDb(config.databaseFile);
   const gateway = createGateway(config);
+  if (config.demoMode && isEmpty(db)) seedDemo(db);
   ensureAdmin(db, config);
 
   const app = express();
@@ -25,6 +27,9 @@ function createApp(config) {
   Object.assign(app.locals, {
     orgName: config.orgName,
     paymentMode: gateway.mode,
+    demoMode: config.demoMode,
+    demoAccounts: config.demoMode ? DEMO_ACCOUNTS : [],
+    demoPassword: DEMO_PASSWORD,
     money: (cents) => util.formatMoney(cents, config.currency),
     fmtDate: util.formatDateTime,
   });
@@ -51,7 +56,8 @@ function createApp(config) {
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: config.isProduction,
+      // 'auto' = Secure cookie whenever the request came over HTTPS (behind Render's proxy too).
+      secure: config.isProduction ? 'auto' : false,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     },
   }));

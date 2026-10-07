@@ -36,4 +36,12 @@
     <p><a href="/admin/payments">All payments →</a> · <a href="/admin/plans">Membership levels →</a></p>
   </div>
 </div>
+<% if (demoMode) { %>
+<div class="card">
+  <h2>Demo site</h2>
+  <p class="muted">Restore the sample members, events, RSVPs and payments — handy before each presentation. All changes made during a demo are erased.</p>
+  <form method="post" action="/admin/demo/reset" onsubmit="return confirm('Erase everything and reload the demo data?')"><%- include('../partials/csrf') %>
+    <button class="btn secondary">Reset demo data</button></form>
+</div>
+<% } %>
 <%- include('../partials/foot') %>

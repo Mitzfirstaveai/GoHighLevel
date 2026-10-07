@@ -1,0 +1,163 @@
+// Realistic sample data for demonstrating the app. Used by `npm run seed`, by DEMO_MODE
+// auto-seeding on an empty database, and by the admin "Reset demo data" button.
+const bcrypt = require('bcryptjs');
+const { transaction } = require('./db');
+const { newToken } = require('./util');
+
+const DEMO_PASSWORD = 'demo1234';
+const DEMO_ACCOUNTS = [
+  { label: 'Admin (committee)', email: 'admin@example.com' },
+  { label: 'Member (Family level)', email: 'member@example.com' },
+];
+
+const LEVELS = [
+  // name, description, price, spouse, children, parents, min age
+  ['Senior Citizen', 'Per person, age 65 or older', 11000, 0, 0, 0, 65],
+  ['Individual Membership', 'One person aged 18 and over', 16500, 0, 0, 0, 18],
+  ['Married Couple', 'Married couple excluding children and parents', 27500, 1, 0, 0, 0],
+  ['Family', 'Married couple (or single parent) with their unmarried children', 33000, 1, 1, 0, 0],
+  ['Family with Parents', 'Married couple (or single parent) with their unmarried children, and one set of parents to be noted at renewal', 38500, 1, 1, 2, 0],
+];
+
+// email, first, last, phone, city, vatan, dob, level (null = none, 'expired:Level' = lapsed), family [name, relationship, birth year]
+const PEOPLE = [
+  ['admin@example.com', 'Kiran', 'Patel', '501-555-0100', 'Little Rock', 'Anand', '1975-04-12', 'Family',
+    [['Hetal Patel', 'Spouse', 1977], ['Rohan Patel', 'Son', 2006]]],
+  ['member@example.com', 'Priya', 'Shah', '501-555-0101', 'Conway', 'Surat', '1984-09-03', 'Family',
+    [['Amit Shah', 'Spouse', 1982], ['Diya Shah', 'Daughter', 2014], ['Aarav Shah', 'Son', 2017]]],
+  ['raj.desai@example.com', 'Raj', 'Desai', '479-555-0102', 'Bentonville', 'Navsari', '1988-01-21', 'Married Couple',
+    [['Kavita Desai', 'Spouse', 1990]]],
+  ['meena.mehta@example.com', 'Meena', 'Mehta', '501-555-0103', 'North Little Rock', 'Bhavnagar', '1956-06-30', 'Senior Citizen', []],
+  ['nilesh.joshi@example.com', 'Nilesh', 'Joshi', '501-555-0104', 'Little Rock', 'Vadodara', '1979-11-15', 'Family with Parents',
+    [['Rupal Joshi', 'Spouse', 1981], ['Isha Joshi', 'Daughter', 2010], ['Harshad Joshi', 'Father', 1950], ['Sarla Joshi', 'Mother', 1953]]],
+  ['dhruv.amin@example.com', 'Dhruv', 'Amin', '479-555-0105', 'Fayetteville', 'Nadiad', '1996-02-08', 'Individual Membership', []],
+  ['falguni.trivedi@example.com', 'Falguni', 'Trivedi', '870-555-0106', 'Jonesboro', 'Rajkot', '1985-07-19', 'Family',
+    [['Mihir Trivedi', 'Son', 2012]]],
+  ['jayesh.modi@example.com', 'Jayesh', 'Modi', '501-555-0107', 'Benton', 'Mehsana', '1970-12-01', 'expired:Married Couple',
+    [['Daksha Modi', 'Spouse', 1972]]],
+  ['sneha.parikh@example.com', 'Sneha', 'Parikh', '479-555-0108', 'Rogers', 'Ahmedabad', '1992-05-27', null, []],
+  ['vipul.bhatt@example.com', 'Vipul', 'Bhatt', '501-555-0109', 'Maumelle', 'Junagadh', '1983-03-14', 'Family',
+    [['Komal Bhatt', 'Spouse', 1985], ['Yash Bhatt', 'Son', 2011], ['Riya Bhatt', 'Daughter', 2015]]],
+  ['hemant.thakkar@example.com', 'Hemant', 'Thakkar', '501-555-0110', 'Hot Springs', 'Bhuj', '1957-10-09', 'Senior Citizen', []],
+  ['anjali.vyas@example.com', 'Anjali', 'Vyas', '479-555-0111', 'Springdale', 'Gandhinagar', '1990-08-22', 'Married Couple',
+    [['Chirag Vyas', 'Spouse', 1989]]],
+];
+
+function localDateTime(daysFromNow, time) {
+  const d = new Date(Date.now() + daysFromNow * 86400000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${time}`;
+}
+
+function seedDemo(db) {
+  return transaction(db, () => {
+    const year = new Date().getFullYear();
+    const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
+
+    const levelId = {};
+    LEVELS.forEach(([name, description, cents, spouse, children, parents, minAge], i) => {
+      levelId[name] = Number(db.prepare(`INSERT INTO membership_plans (name, description, amount_cents, duration_months,
+          calendar_year, spouse_allowed, children_allowed, max_parents, min_age, sort_order)
+        VALUES (?, ?, ?, 12, 1, ?, ?, ?, ?, ?)`).run(name, description, cents, spouse, children, parents, minAge, i + 1).lastInsertRowid);
+    });
+
+    const userId = {};
+    for (const [email, first, last, phone, city, vatan, dob, level, family] of PEOPLE) {
+      const id = Number(db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, phone,
+          address_line1, city, state, postal_code, native_place, date_of_birth)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AR', ?, ?, ?)`)
+        .run(email, hash, email === 'admin@example.com' ? 'admin' : 'member', first, last, phone,
+          `${100 + Object.keys(userId).length * 37} Main St`, city, '72201', vatan, dob).lastInsertRowid);
+      userId[email] = id;
+      for (const [name, relationship, birthYear] of family) {
+        db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (?, ?, ?, ?)')
+          .run(id, name, relationship, birthYear);
+      }
+      if (!level) continue;
+      const expired = level.startsWith('expired:');
+      const planName = expired ? level.slice(8) : level;
+      const plan = LEVELS.find((l) => l[0] === planName);
+      const y = expired ? year - 1 : year;
+      const paymentId = Number(db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents,
+          status, method, provider_ref, paid_at) VALUES (?, 'membership', ?, ?, ?, 'paid', ?, ?, ?)`)
+        .run(id, levelId[planName], `Membership — ${planName}`, plan[2], expired ? 'check' : 'demo',
+          expired ? '1187' : `demo_m${id}`, `${y}-01-${String(5 + (id % 20)).padStart(2, '0')} 15:00:00`).lastInsertRowid);
+      db.prepare('INSERT INTO memberships (user_id, plan_id, payment_id, start_date, end_date) VALUES (?, ?, ?, ?, ?)')
+        .run(id, levelId[planName], paymentId, `${y}-01-01`, `${y}-12-31`);
+    }
+
+    const admin = userId['admin@example.com'];
+    const addEvent = (title, description, location, start, end, feeCents, capacity, maxParty, membersOnly = 0) =>
+      Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,
+          max_party_size, members_only, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)`)
+        .run(title, description, location, start, end, feeCents, capacity, maxParty, membersOnly, admin).lastInsertRowid);
+
+    const past = addEvent('Ganesh Chaturthi Puja', 'Ganpati sthapana, aarti and prasad for the whole community.',
+      'Hindu Temple of Central Arkansas, Little Rock', localDateTime(-18, '18:00'), localDateTime(-18, '21:00'), 0, null, 10);
+    const navratri = addEvent('Navratri Garba Night', 'An evening of garba and dandiya raas with live music. Dinner included.',
+      'Statehouse Convention Center, Little Rock', localDateTime(10, '19:00'), localDateTime(10, '23:30'), 1500, 400, 10);
+    const diwali = addEvent('Diwali Sneh Milan', 'Celebrate the new year together with prayers, a cultural program and dinner.',
+      'Hindu Temple of Central Arkansas, Little Rock', localDateTime(30, '17:00'), localDateTime(30, '21:00'), 0, 500, 10);
+    addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
+      'Community Room, Little Rock Public Library', localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1);
+    addEvent('Youth Cricket Tournament', 'Teams of all ages welcome. Lunch provided for registered players.',
+      'Burns Park, North Little Rock', localDateTime(60, '09:00'), null, 1000, 120, 4);
+
+    const rsvp = (eventId, email, partySize, status, checkedIn) => {
+      const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, status, qr_token, checked_in_at,
+          checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId[email], partySize, status, newToken(),
+          checkedIn ? localDateTime(-18, '18:20').replace('T', ' ') + ':00' : null,
+          checkedIn ? admin : null, checkedIn ? checkedIn : null).lastInsertRowid);
+      return id;
+    };
+    const paidRsvp = (eventId, email, partySize, title) => {
+      const id = rsvp(eventId, email, partySize, 'confirmed');
+      db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
+                  VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-2 days'))`)
+        .run(userId[email], id, `${title} — ${partySize} people`, 1500 * partySize, `demo_e${id}`);
+    };
+
+    // Past event: everyone checked in (a couple came with fewer people than registered).
+    rsvp(past, 'admin@example.com', 3, 'confirmed', 3);
+    rsvp(past, 'member@example.com', 4, 'confirmed', 4);
+    rsvp(past, 'raj.desai@example.com', 2, 'confirmed', 2);
+    rsvp(past, 'nilesh.joshi@example.com', 5, 'confirmed', 4);
+    rsvp(past, 'vipul.bhatt@example.com', 4, 'confirmed', 3);
+    rsvp(past, 'meena.mehta@example.com', 1, 'confirmed', 1);
+
+    // Navratri (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & pay live.
+    paidRsvp(navratri, 'nilesh.joshi@example.com', 5, 'Navratri Garba Night');
+    paidRsvp(navratri, 'vipul.bhatt@example.com', 4, 'Navratri Garba Night');
+    paidRsvp(navratri, 'raj.desai@example.com', 2, 'Navratri Garba Night');
+    rsvp(navratri, 'falguni.trivedi@example.com', 2, 'pending_payment');
+
+    // Diwali (free): the demo member already has a QR ticket.
+    rsvp(diwali, 'member@example.com', 4, 'confirmed');
+    rsvp(diwali, 'admin@example.com', 3, 'confirmed');
+    rsvp(diwali, 'anjali.vyas@example.com', 2, 'confirmed');
+    rsvp(diwali, 'hemant.thakkar@example.com', 1, 'confirmed');
+    rsvp(diwali, 'dhruv.amin@example.com', 1, 'confirmed');
+
+    db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, provider_ref, recorded_by, paid_at)
+                VALUES (?, 'other', 'Temple building fund donation', 25100, 'paid', 'check', '2045', ?, datetime('now', '-9 days'))`)
+      .run(userId['hemant.thakkar@example.com'], admin);
+  });
+}
+
+const TABLES = ['retired_qr_tokens', 'rsvps', 'memberships', 'payments', 'household_members', 'events', 'membership_plans', 'users'];
+
+// Wipes all data and loads the demo set again. Sessions are kept: the admin keeps the same id.
+function resetDemo(db) {
+  transaction(db, () => {
+    for (const t of TABLES) db.exec(`DELETE FROM ${t}`);
+    db.exec(`DELETE FROM sqlite_sequence WHERE name IN (${TABLES.map((t) => `'${t}'`).join(', ')})`);
+  });
+  seedDemo(db);
+}
+
+function isEmpty(db) {
+  return db.prepare('SELECT COUNT(*) AS n FROM users').get().n === 0;
+}
+
+module.exports = { seedDemo, resetDemo, isEmpty, DEMO_PASSWORD, DEMO_ACCOUNTS };

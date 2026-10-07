@@ -26,6 +26,13 @@ router.get('/', (req, res) => {
   res.render('admin/dashboard', { title: 'Admin', stats, events, recentPayments });
 });
 
+router.post('/demo/reset', (req, res) => {
+  if (!req.app.locals.config.demoMode) return res.sendStatus(404);
+  require('../demo').resetDemo(req.app.locals.db);
+  req.flash('success', 'Demo data has been reset. Event dates are relative to today.');
+  res.redirect('/admin');
+});
+
 // ---------- Members ----------
 
 const MEMBER_LIST_SQL = `

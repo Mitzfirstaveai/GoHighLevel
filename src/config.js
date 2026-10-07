@@ -12,7 +12,11 @@ function loadConfig(overrides = {}) {
   const config = {
     isProduction,
     port,
-    baseUrl: (env.BASE_URL || `http://localhost:${port}`).replace(/\/$/, ''),
+    // RENDER_EXTERNAL_URL is provided automatically when hosted on Render.
+    baseUrl: (env.BASE_URL || env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, ''),
+    // Demo site: loads sample data into an empty database, shows one-tap demo sign-in
+    // buttons, and gives admins a "Reset demo data" button.
+    demoMode: env.DEMO_MODE === 'true',
     orgName: env.ORG_NAME || 'Gujarati Samaj of Arkansas',
     currency: (env.CURRENCY || 'usd').toLowerCase(),
     databaseFile: env.DATABASE_FILE || path.join(__dirname, '..', 'data', 'samaj.db'),
