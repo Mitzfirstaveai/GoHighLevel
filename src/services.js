@@ -161,12 +161,23 @@ function grantMembership(db, { userId, planId, paymentId }) {
 }
 
 // Moving up to a bigger level mid-period: same end date, new plan from today.
+// The level stays with the member: an upgrade changes this period from today, and any period
+// already paid ahead (e.g. next year) moves up too — the upgrade price includes those years.
 function upgradeMembership(db, { userId, planId, paymentId }) {
   userId = householdOwnerId(db, userId);
   const { active, current } = membershipStatus(db, userId);
   if (!active) return grantMembership(db, { userId, planId, paymentId });
   db.prepare(`INSERT INTO memberships (user_id, plan_id, payment_id, start_date, end_date)
               VALUES (?, ?, ?, ?, ?)`).run(userId, planId, paymentId ?? null, today(), current.end_date);
+  db.prepare(`UPDATE memberships SET plan_id = :plan WHERE user_id = :user AND start_date > :today
+              AND plan_id IN (SELECT id FROM membership_plans WHERE amount_cents < (SELECT amount_cents FROM membership_plans WHERE id = :plan))`)
+    .run({ plan: planId, user: userId, today: today() });
+}
+
+// Periods already paid for that haven't started yet (a renewal paid ahead), with their level's price.
+function prepaidPeriods(db, userId) {
+  return db.prepare(`SELECT m.*, p.amount_cents AS plan_amount FROM memberships m JOIN membership_plans p ON p.id = m.plan_id
+    WHERE m.user_id = ? AND m.start_date > ? ORDER BY m.start_date`).all(householdOwnerId(db, userId), today());
 }
 
 /**
@@ -746,7 +757,13 @@ function renewalOpensOn(db, userId) {
 function membershipQuote(db, plan, userId) {
   const { active, plan: currentPlan, validUntil } = membershipStatus(db, userId);
   if (active && currentPlan && plan.id !== currentPlan.id && plan.amount_cents > currentPlan.amount_cents) {
-    return { kind: 'membership_upgrade', amountCents: plan.amount_cents - currentPlan.amount_cents };
+    // This year's difference, plus the difference for any year already paid ahead at a lower level.
+    const prepaid = prepaidPeriods(db, userId).filter((m) => m.plan_amount < plan.amount_cents);
+    return {
+      kind: 'membership_upgrade',
+      amountCents: plan.amount_cents - currentPlan.amount_cents + prepaid.reduce((sum, m) => sum + plan.amount_cents - m.plan_amount, 0),
+      prepaidYears: prepaid.map((m) => m.start_date.slice(0, 4)),
+    };
   }
   const opensOn = renewalOpensOn(db, userId);
   return { kind: 'membership', amountCents: plan.amount_cents, opensOn, paidThrough: opensOn ? validUntil : null };
@@ -797,9 +814,12 @@ function duesProblem(db, payment) {
     return renewalOpensOn(db, payment.user_id) ? 'membership was already paid one year ahead' : null;
   }
   if (payment.kind === 'membership_upgrade') {
-    const { active, plan } = membershipStatus(db, payment.user_id);
-    const target = db.prepare('SELECT amount_cents FROM membership_plans WHERE id = ?').get(payment.reference_id);
-    if (!active || !plan || !target || plan.amount_cents >= target.amount_cents) return 'the upgrade no longer applies';
+    // Still an upgrade, at the price that was paid (another payment, e.g. a renewal in another tab,
+    // or a fee change may have happened in between).
+    const target = db.prepare('SELECT * FROM membership_plans WHERE id = ?').get(payment.reference_id);
+    const quote = target && membershipQuote(db, target, payment.user_id);
+    if (!quote || quote.kind !== 'membership_upgrade') return 'the upgrade no longer applies';
+    if (quote.amountCents !== payment.amount_cents) return 'the upgrade price changed before payment arrived';
   }
   return null;
 }

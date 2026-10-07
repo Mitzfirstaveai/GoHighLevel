@@ -35,6 +35,11 @@
           <% } else if (membership.active) { %><%= t('Renew for next year — {amount}', { amount: money(p.amount_cents) }) %>
           <% } else { %><%= t('Join — {amount}', { amount: money(p.amount_cents) }) %><% } %>
         </button></form>
+      <% if (p.quote.kind === 'membership_upgrade') { %>
+        <p class="small muted" style="margin-bottom:0"><%= p.quote.prepaidYears?.length
+          ? t('Changes your level from today, including {years}, which you already paid for. Renewals after that are at this level.', { years: p.quote.prepaidYears.join(', ') })
+          : t('Changes your level from today. Renewals after that are at this level.') %></p>
+      <% } %>
     <% } else { %><p class="muted small"><%= t('Online payment not available — please pay a committee member.') %></p><% } %>
   </div>
 <% } %>

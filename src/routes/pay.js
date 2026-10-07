@@ -22,7 +22,7 @@ async function settlePayment(db, gateway, paymentId, opts) {
   return result;
 }
 
-const REFUNDED = 'Your membership was already paid one year ahead, so this payment was not applied. It has been refunded to your card.';
+const REFUNDED = 'This payment couldn\'t be applied (your membership is already paid one year ahead, or it changed before the payment arrived), so it has been refunded to your card. Please check the Membership page.';
 
 function redirectAfterPayment(db, payment) {
   if (payment.kind === 'event') return `/tickets/${payment.reference_id}`;

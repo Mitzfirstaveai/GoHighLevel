@@ -648,7 +648,7 @@ module.exports = {
   "You're paid up through {date}. Dues can be paid at most one year ahead (fees may change), so renewal for the following year opens on {opens}.": 'તમારું સભ્યપદ {date} સુધી ભરાયેલું છે. ફી વધુમાં વધુ એક વર્ષ અગાઉથી ભરી શકાય છે (ફી બદલાઈ શકે છે), એટલે પછીના વર્ષનું રિન્યૂઅલ {opens}થી શરૂ થશે.',
   'Renewal opens on {date}.': 'રિન્યૂઅલ {date}થી શરૂ થશે.',
   'Membership is already paid through {date}. Dues can be paid at most one year ahead, so renewal opens on {opens}.': 'સભ્યપદ {date} સુધી પહેલેથી ભરાયેલું છે. ફી વધુમાં વધુ એક વર્ષ અગાઉથી ભરી શકાય છે, એટલે રિન્યૂઅલ {opens}થી શરૂ થશે.',
-  'Your membership was already paid one year ahead, so this payment was not applied. It has been refunded to your card.': 'તમારું સભ્યપદ એક વર્ષ અગાઉથી ભરાયેલું હતું, એટલે આ ચુકવણી લાગુ કરવામાં આવી નથી. રકમ તમારા કાર્ડમાં પરત કરવામાં આવી છે.',
+  "This payment couldn't be applied (your membership is already paid one year ahead, or it changed before the payment arrived), so it has been refunded to your card. Please check the Membership page.": 'આ ચુકવણી લાગુ થઈ શકી નથી (તમારું સભ્યપદ એક વર્ષ અગાઉથી ભરાયેલું છે, અથવા ચુકવણી પહોંચે તે પહેલાં તે બદલાયું હતું), એટલે રકમ તમારા કાર્ડમાં પરત કરવામાં આવી છે. કૃપા કરી સભ્યપદ પેજ જુઓ.',
 
   // Family invite links
   'Create invite link': 'આમંત્રણ લિંક બનાવો',
@@ -679,4 +679,6 @@ module.exports = {
   'Your account has its own membership, family list or event tickets, so it can’t be joined to another family here. Please ask a committee member.': 'તમારા ખાતામાં પોતાનું સભ્યપદ, પરિવારની યાદી અથવા કાર્યક્રમની ટિકિટો છે, એટલે તેને અહીં બીજા પરિવાર સાથે જોડી શકાશે નહીં. કૃપા કરી સમિતિના સભ્યને કહો.',
   'Is this {name} on a shared phone or computer? Sign out first, then create their login.': 'શું {name} એ જ ફોન કે કમ્પ્યુટર વાપરે છે? પહેલાં સાઇન આઉટ કરો, પછી તેમનું લોગ ઇન બનાવો.',
   "Sign out and create {name}'s login": 'સાઇન આઉટ કરીને {name}નું લોગ ઇન બનાવો',
+  'Changes your level from today, including {years}, which you already paid for. Renewals after that are at this level.': 'આજથી તમારું સ્તર બદલાશે, જેમાં તમે અગાઉથી ભરેલું {years} પણ સામેલ છે. ત્યાર પછીનું રિન્યૂઅલ આ સ્તરે થશે.',
+  'Changes your level from today. Renewals after that are at this level.': 'આજથી તમારું સ્તર બદલાશે. ત્યાર પછીનું રિન્યૂઅલ આ સ્તરે થશે.',
 };

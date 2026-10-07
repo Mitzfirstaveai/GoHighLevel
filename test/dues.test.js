@@ -53,10 +53,34 @@ test('a member can pay for next year, but not the year after', async () => {
   assert.equal(payments(), before);
 });
 
-test('upgrading the current level is still allowed after paying ahead', async () => {
+test('upgrading after paying ahead moves this year and the prepaid year up, at the difference for both', async () => {
   const m = await t.login('dues@test.org', 'secret123');
-  const res = await m.get('/membership');
-  assert.match(res.text, /Upgrade — pay/);
+  const year = new Date().getFullYear();
+  const uid = userId('dues@test.org');
+  // Married Couple ($275) is paid for this year and next; Family is $330 → $55 × 2.
+  let res = await m.get('/membership');
+  assert.match(res.text, /Upgrade — pay \$110\.00 difference/);
+  assert.match(res.text, new RegExp(`including ${year + 1}, which you already paid for`));
+
+  res = await pay(m, 'Family');
+  const payment = t.db.prepare(`SELECT * FROM payments WHERE user_id = ? AND kind = 'membership_upgrade' ORDER BY id DESC`).get(uid);
+  assert.equal(payment.amount_cents, 11000);
+  assert.equal(payment.status, 'paid');
+  const level = (date) => t.db.prepare(`SELECT p.name FROM memberships m JOIN membership_plans p ON p.id = m.plan_id
+    WHERE m.user_id = ? AND m.start_date <= ? AND m.end_date >= ? ORDER BY m.id DESC`).get(uid, date, date).name;
+  assert.equal(level(new Date().toISOString().slice(0, 10)), 'Family');
+  assert.equal(level(`${year + 1}-06-01`), 'Family'); // the prepaid year moved up too
+  res = await m.get('/membership');
+  assert.match(res.text, new RegExp(`Renewal opens on Jan 1, ${year + 1}`)); // still only one year ahead
+
+  // If the price changes between starting the upgrade and paying, it's refunded, not applied at the old price.
+  const start = await m.post('/membership/pay', { plan_id: String(t.planId('Family with Parents')) });
+  const pid = Number(start.location.match(/\/pay\/(\d+)\/demo/)[1]);
+  t.db.prepare(`UPDATE membership_plans SET amount_cents = amount_cents + 1000 WHERE name = 'Family with Parents'`).run();
+  res = await m.follow(await m.post(`/pay/${pid}/demo`));
+  assert.match(res.text, /couldn&#39;t be applied/);
+  assert.equal(level(`${year + 1}-06-01`), 'Family');
+  t.db.prepare(`UPDATE membership_plans SET amount_cents = amount_cents - 1000 WHERE name = 'Family with Parents'`).run();
 });
 
 test('renewal opens exactly when the paid-up date is a year away', () => {
@@ -99,7 +123,7 @@ test('if two dues payments still both go through, the second is refunded, not ap
   let res = await m.follow(await m.post(`/pay/${first}/demo`));
   assert.match(res.text, /Payment received/);
   res = await m.follow(await m.post(`/pay/${second}/demo`));
-  assert.match(res.text, /already paid one year ahead, so this payment was not applied\. It has been refunded/);
+  assert.match(res.text, /couldn&#39;t be applied .* it has been refunded to your card/);
   const p = t.db.prepare('SELECT * FROM payments WHERE id = ?').get(second);
   assert.equal(p.status, 'cancelled');
   assert.ok(p.refunded_at);
