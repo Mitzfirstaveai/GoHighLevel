@@ -2,6 +2,8 @@
 
 A simple, mobile-friendly web app for the samaj's members and committee:
 
+Organization details (About, Committee, Sponsors, Contact) live in `src/content.js`.
+
 **Members can**
 - Create an account and keep their profile up to date (contact info, address, native place/vatan, occupation)
 - List family members in their household
@@ -38,21 +40,23 @@ Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
 1. *Home*: quick tiles, membership status, upcoming events.
-2. *My tickets*: the Diwali Sneh Milan QR ticket for 4 people.
-3. *Events → Navratri Garba Night*: RSVP for 4 → pay $60 (simulated) → QR ticket appears.
+2. *My tickets*: the Navratri Garba #1 QR ticket for 4 people.
+3. *Events → Diwali Dinner & Cultural Program*: RSVP for 4 → pay $60 (simulated) → QR ticket appears.
 4. Change the RSVP from 4 to 2 → a new QR code is issued and the old one stops working (fees are non-refundable).
 5. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests
    upgrading to Family with Parents.
 6. *Dues*: see the five levels, "Upgrade — pay $55 difference", and renewal for next year.
+7. *More*: member directory (with privacy settings), News, About Us, Committee, Sponsors and Contact.
 
 **As an admin**
 1. *Overview*: members, paid memberships, money collected, upcoming events.
-2. *Events → Navratri*: headcount (confirmed / awaiting payment / checked in) and the guest list; download CSV.
+2. *Events → Navratri Garba #1*: headcount (confirmed / awaiting payment / checked in) and the guest list; download CSV.
 3. *Check-in*: scan the member's QR with the phone camera (or click **Check in** on the guest list) → choose how many
    arrived → **Check in**. Scan the same code again → **Already used**. Scan the old (replaced) code → **Old QR code — replaced**.
 4. *Members*: search the directory, open a profile, see family, payments and RSVPs; record a cash/check payment.
 5. *Membership levels*: the five GSA levels and who each covers.
-6. *Overview → Reset demo data* before the next presentation.
+6. *News*: post an announcement — it appears on every member's home page.
+7. *Overview → Reset demo data* before the next presentation.
 
 ## Adding Stripe later
 

@@ -18,8 +18,12 @@
     ['/events', 'Events', 'calendar'],
     ['/tickets', 'My tickets', 'ticket'],
     ['/membership', 'Membership', 'card'],
+    ['/directory', 'Directory', 'book'],
+    ['/news', 'News', 'news'],
+    ['/about', 'About GSA', 'info'],
     ['/profile', 'Profile', 'user'],
   ];
+  const aboutPaths = ['/about', '/committee', '/sponsors', '/contact'];
   const adminTabs = [
     ['/admin', 'Overview', 'shield', true],
     ['/admin/checkin', 'Check-in', 'scan'],
@@ -27,6 +31,7 @@
     ['/admin/members', 'Members', 'users'],
     ['/admin/payments', 'Payments', 'dollar'],
     ['/admin/plans', 'Membership levels', 'list'],
+    ['/admin/news', 'News', 'news'],
   ];
 %>
 <body class="<%= user ? 'signed-in' : '' %>">
@@ -35,18 +40,25 @@
   <div class="inner">
     <a class="brand" href="/">
       <img src="/logo.png" alt="" width="44" height="44">
-      <span><%= orgName %></span>
+      <span class="brand-full"><%= orgName %></span><span class="brand-short"><%= org.shortName %></span>
     </a>
     <% if (user) { %>
       <nav class="nav desktop-only" aria-label="Main">
         <% for (const [href, label, icon, exact] of memberTabs) { %>
-          <a href="<%= href %>" class="<%= active(href, exact) ? 'active' : '' %>"><%= label %></a>
+          <a href="<%= href %>" class="<%= active(href, exact) || (href === '/about' && aboutPaths.includes(path)) ? 'active' : '' %>"><%= label %></a>
         <% } %>
         <% if (isAdmin) { %><a href="/admin" class="admin-link <%= inAdmin ? 'active' : '' %>"><%- include('icon', { name: 'shield' }) %> Admin</a><% } %>
       </nav>
       <form method="post" action="/logout" class="desktop-only"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="linkish" title="Sign out"><%- include('icon', { name: 'logout' }) %><span class="sr-only">Sign out</span></button></form>
     <% } else { %>
-      <nav class="nav"><a href="/login">Sign in</a><a href="/register" class="btn small">Join</a></nav>
+      <nav class="nav">
+        <span class="desktop-only" style="display:contents">
+          <a href="/about" class="<%= path === '/about' ? 'active' : '' %>">About</a>
+          <a href="/committee" class="<%= path === '/committee' ? 'active' : '' %>">Committee</a>
+          <a href="/sponsors" class="<%= path === '/sponsors' ? 'active' : '' %>">Sponsors</a>
+          <a href="/contact" class="<%= path === '/contact' ? 'active' : '' %>">Contact</a>
+        </span>
+        <a href="/login">Sign in</a><a href="/register" class="btn small">Join</a></nav>
     <% } %>
   </div>
   <div class="stripe" aria-hidden="true"></div>

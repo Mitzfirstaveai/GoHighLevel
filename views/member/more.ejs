@@ -1,0 +1,19 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>More</h1></div>
+<div class="card menu-list">
+  <a href="/profile"><%- include('../partials/icon', { name: 'user' }) %>My profile &amp; family</a>
+  <a href="/payments"><%- include('../partials/icon', { name: 'dollar' }) %>My payments</a>
+  <a href="/directory"><%- include('../partials/icon', { name: 'book' }) %>Member directory</a>
+  <a href="/news"><%- include('../partials/icon', { name: 'news' }) %>News</a>
+</div>
+<h2>About GSA</h2>
+<div class="card menu-list">
+  <a href="/about"><%- include('../partials/icon', { name: 'info' }) %>About us, mission &amp; vision</a>
+  <a href="/committee"><%- include('../partials/icon', { name: 'users' }) %>Committee members</a>
+  <a href="/sponsors"><%- include('../partials/icon', { name: 'star' }) %>Sponsors</a>
+  <a href="/contact"><%- include('../partials/icon', { name: 'phone' }) %>Contact us</a>
+</div>
+<form method="post" action="/logout" class="card menu-list"><%- include('../partials/csrf') %>
+  <button><%- include('../partials/icon', { name: 'logout' }) %>Sign out</button>
+</form>
+<%- include('../partials/foot') %>

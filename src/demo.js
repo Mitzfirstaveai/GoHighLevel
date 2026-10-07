@@ -5,6 +5,7 @@ const { transaction } = require('./db');
 const { newToken } = require('./util');
 
 const DEMO_PASSWORD = 'demo1234';
+const GSA_CENTER = require('./content').ORG.venue;
 const DEMO_ACCOUNTS = [
   { label: 'Admin (committee)', email: 'admin@example.com' },
   { label: 'Member (Family level)', email: 'member@example.com' },
@@ -87,27 +88,39 @@ function seedDemo(db) {
     }
 
     const admin = userId['admin@example.com'];
-    const addEvent = (title, description, location, start, end, feeCents, capacity, maxParty, membersOnly = 0) =>
+    const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>
       Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,
           max_party_size, members_only, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)`)
         .run(title, description, location, start, end, feeCents, capacity, maxParty, membersOnly, admin).lastInsertRowid);
 
-    const past = addEvent('Ganesh Chaturthi Puja', 'Ganpati sthapana, aarti and prasad for the whole community.',
-      'Hindu Temple of Central Arkansas, Little Rock', localDateTime(-18, '18:00'), localDateTime(-18, '21:00'), 0, null, 10);
-    const navratri = addEvent('Navratri Garba Night', 'An evening of garba and dandiya raas with live music. Dinner included.',
-      'Statehouse Convention Center, Little Rock', localDateTime(10, '19:00'), localDateTime(10, '23:30'), 1500, 400, 10);
-    const diwali = addEvent('Diwali Sneh Milan', 'Celebrate the new year together with prayers, a cultural program and dinner.',
-      'Hindu Temple of Central Arkansas, Little Rock', localDateTime(30, '17:00'), localDateTime(30, '21:00'), 0, 500, 10);
-    addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
-      'Community Room, Little Rock Public Library', localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1);
-    addEvent('Youth Cricket Tournament', 'Teams of all ages welcome. Lunch provided for registered players.',
-      'Burns Park, North Little Rock', localDateTime(60, '09:00'), null, 1000, 120, 4);
+    // Past events (names from the GSA calendar); dates are relative to today so the demo never goes stale.
+    const pastEvents = [
+      ['Cook-Off', -3], ['Summer Picnic #2', -10], ['Ganesh Chaturthi Utsav', -18], ['Shravan Somwar Bhajan #3', -30],
+      ['Krishna Janmashtami Celebration', -33], ['GSA Premier League Volleyball Tournament', -39], ['Shravan Somwar Bhajan #2', -44],
+      ['Shravan Somwar Bhajan #1', -51], ['Youth Outing Event', -70], ['Yoga and Father’s Day', -108], ['Summer Picnic', -129],
+    ];
+    const pastIds = {};
+    for (const [title, days] of pastEvents) {
+      pastIds[title] = addEvent(title, null, localDateTime(days, '18:00'), localDateTime(days, '21:00'), 0, null, 10);
+    }
+    const past = pastIds['Ganesh Chaturthi Utsav'];
 
-    const rsvp = (eventId, email, partySize, status, checkedIn) => {
+    const garba1 = addEvent('Navratri Garba #1', 'Garba and dandiya raas with live music. Wear your best chaniya choli and kediyu!',
+      localDateTime(2, '19:30'), localDateTime(2, '23:30'), 0, 600, 10);
+    addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
+      localDateTime(3, '19:30'), localDateTime(3, '23:30'), 0, 600, 10);
+    const diwali = addEvent('Diwali Dinner & Cultural Program', 'Celebrate Diwali and the Gujarati new year with a cultural program and dinner. Dinner fee $15 per person.',
+      localDateTime(24, '17:00'), localDateTime(24, '21:30'), 1500, 400, 10);
+    addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
+      localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1);
+    addEvent('Kite Flying Festival (Uttarayan)', 'Patang, chikki and undhiyu! Bring the whole family.',
+      localDateTime(100, '11:00'), null, 0, null, 10, 0, 'Two Rivers Park, Little Rock');
+
+    const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18) => {
       const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, status, qr_token, checked_in_at,
           checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(eventId, userId[email], partySize, status, newToken(),
-          checkedIn ? localDateTime(-18, '18:20').replace('T', ' ') + ':00' : null,
+          checkedIn ? localDateTime(-daysAgo, '18:20').replace('T', ' ') + ':00' : null,
           checkedIn ? admin : null, checkedIn ? checkedIn : null).lastInsertRowid);
       return id;
     };
@@ -118,26 +131,34 @@ function seedDemo(db) {
         .run(userId[email], id, `${title} — ${partySize} people`, 1500 * partySize, `demo_e${id}`);
     };
 
-    // Past event: everyone checked in (a couple came with fewer people than registered).
+    // Ganesh Chaturthi (past): everyone checked in (a couple came with fewer people than registered).
     rsvp(past, 'admin@example.com', 3, 'confirmed', 3);
     rsvp(past, 'member@example.com', 4, 'confirmed', 4);
     rsvp(past, 'raj.desai@example.com', 2, 'confirmed', 2);
     rsvp(past, 'nilesh.joshi@example.com', 5, 'confirmed', 4);
     rsvp(past, 'vipul.bhatt@example.com', 4, 'confirmed', 3);
     rsvp(past, 'meena.mehta@example.com', 1, 'confirmed', 1);
+    rsvp(pastIds['Cook-Off'], 'falguni.trivedi@example.com', 2, 'confirmed', 2, 3);
+    rsvp(pastIds['Cook-Off'], 'anjali.vyas@example.com', 2, 'confirmed', 2, 3);
 
-    // Navratri (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & pay live.
-    paidRsvp(navratri, 'nilesh.joshi@example.com', 5, 'Navratri Garba Night');
-    paidRsvp(navratri, 'vipul.bhatt@example.com', 4, 'Navratri Garba Night');
-    paidRsvp(navratri, 'raj.desai@example.com', 2, 'Navratri Garba Night');
-    rsvp(navratri, 'falguni.trivedi@example.com', 2, 'pending_payment');
+    // Navratri Garba #1 (free): the demo member already has a QR ticket.
+    rsvp(garba1, 'member@example.com', 4, 'confirmed');
+    rsvp(garba1, 'admin@example.com', 3, 'confirmed');
+    rsvp(garba1, 'nilesh.joshi@example.com', 5, 'confirmed');
+    rsvp(garba1, 'anjali.vyas@example.com', 2, 'confirmed');
+    rsvp(garba1, 'hemant.thakkar@example.com', 1, 'confirmed');
+    rsvp(garba1, 'dhruv.amin@example.com', 1, 'confirmed');
 
-    // Diwali (free): the demo member already has a QR ticket.
-    rsvp(diwali, 'member@example.com', 4, 'confirmed');
-    rsvp(diwali, 'admin@example.com', 3, 'confirmed');
-    rsvp(diwali, 'anjali.vyas@example.com', 2, 'confirmed');
-    rsvp(diwali, 'hemant.thakkar@example.com', 1, 'confirmed');
-    rsvp(diwali, 'dhruv.amin@example.com', 1, 'confirmed');
+    // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & pay live.
+    paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program');
+    paidRsvp(diwali, 'vipul.bhatt@example.com', 4, 'Diwali Dinner & Cultural Program');
+    paidRsvp(diwali, 'raj.desai@example.com', 2, 'Diwali Dinner & Cultural Program');
+    rsvp(diwali, 'falguni.trivedi@example.com', 2, 'pending_payment');
+
+    db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-1 day'))`)
+      .run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.', admin);
+    db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-14 days'))`)
+      .run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.', admin);
 
     db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, provider_ref, recorded_by, paid_at)
                 VALUES (?, 'other', 'Temple building fund donation', 25100, 'paid', 'check', '2045', ?, datetime('now', '-9 days'))`)
@@ -145,7 +166,7 @@ function seedDemo(db) {
   });
 }
 
-const TABLES = ['retired_qr_tokens', 'rsvps', 'memberships', 'payments', 'household_members', 'events', 'membership_plans', 'users'];
+const TABLES = ['news_posts', 'retired_qr_tokens', 'rsvps', 'memberships', 'payments', 'household_members', 'events', 'membership_plans', 'users'];
 
 // Wipes all data and loads the demo set again. Sessions are kept: the admin keeps the same id.
 function resetDemo(db) {

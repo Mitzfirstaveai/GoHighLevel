@@ -16,4 +16,10 @@
   </a>
 <% } %>
 </div>
+<% if (past.length) { %>
+<h2 style="margin-top:24px">Past events</h2>
+<div class="card table-wrap"><table><tbody>
+  <% for (const e of past) { %><tr><td class="muted" style="white-space:nowrap;width:1%"><%= fmtDate(e.starts_at.slice(0, 10)) %></td><td><%= e.title %></td></tr><% } %>
+</tbody></table></div>
+<% } %>
 <%- include('../partials/foot') %>

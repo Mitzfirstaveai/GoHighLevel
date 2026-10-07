@@ -21,12 +21,13 @@ router.get('/dashboard', requireAuth, (req, res) => {
     WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ?
     ORDER BY e.starts_at
   `).all(req.user.id, nowLocal().slice(0, 10));
+  const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
   const upcoming = db.prepare(`
     SELECT * FROM events WHERE status = 'published' AND starts_at >= ?
     AND id NOT IN (SELECT event_id FROM rsvps WHERE user_id = ? AND status != 'cancelled')
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
-  res.render('member/dashboard', { title: 'My dashboard', membership, myRsvps, upcoming });
+  res.render('member/dashboard', { title: 'My dashboard', membership, myRsvps, upcoming, latestNews });
 });
 
 // ---------- Profile ----------
@@ -72,6 +73,37 @@ router.post('/profile/password', requireAuth, (req, res) => {
   res.redirect('/profile');
 });
 
+router.post('/profile/privacy', requireAuth, (req, res) => {
+  const listed = req.body.directory_listed ? 1 : 0;
+  req.app.locals.db.prepare('UPDATE users SET directory_listed = ?, directory_contact = ? WHERE id = ?')
+    .run(listed, listed && req.body.directory_contact ? 1 : 0, req.user.id);
+  req.flash('success', 'Directory settings saved.');
+  res.redirect('/profile#privacy');
+});
+
+// ---------- Community ----------
+
+router.get('/directory', requireAuth, (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const like = `%${q}%`;
+  const members = req.app.locals.db.prepare(`
+    SELECT id, first_name, last_name, city, native_place, directory_contact, phone, email FROM users
+    WHERE directory_listed = 1
+      AND (? = '' OR first_name || ' ' || last_name LIKE ? OR city LIKE ? OR native_place LIKE ?)
+    ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE
+  `).all(q, like, like, like);
+  res.render('member/directory', { title: 'Member directory', members, q });
+});
+
+router.get('/news', requireAuth, (req, res) => {
+  const posts = req.app.locals.db.prepare(`SELECT n.*, u.first_name, u.last_name FROM news_posts n
+    LEFT JOIN users u ON u.id = n.author_id ORDER BY n.created_at DESC, n.id DESC`).all();
+  res.render('member/news', { title: 'News', posts });
+});
+
+// Phone "More" tab: everything that doesn't fit in the bottom bar.
+router.get('/more', requireAuth, (req, res) => res.render('member/more', { title: 'More' }));
+
 // ---------- Events ----------
 
 router.get('/events', requireAuth, (req, res) => {
@@ -81,7 +113,9 @@ router.get('/events', requireAuth, (req, res) => {
     LEFT JOIN rsvps r ON r.event_id = e.id AND r.user_id = ? AND r.status != 'cancelled'
     WHERE e.status != 'draft' AND e.starts_at >= ? ORDER BY e.starts_at
   `).all(req.user.id, nowLocal().slice(0, 10));
-  res.render('member/events', { title: 'Events', events });
+  const past = db.prepare(`SELECT id, title, starts_at FROM events WHERE status = 'published' AND starts_at < ?
+                           ORDER BY starts_at DESC LIMIT 20`).all(nowLocal().slice(0, 10));
+  res.render('member/events', { title: 'Events', events, past });
 });
 
 router.get('/events/:id', requireAuth, (req, res) => {

@@ -177,3 +177,36 @@ tr.dim td { opacity: .55; }
 @media (prefers-color-scheme: dark) { .tile.primary, .tile.primary .icon, .tile.primary small { color: #1a1310; } }
 @media (max-width: 420px) { .brand span { font-size: .95rem; } }
 .demo-login { background: var(--brand-soft); border-radius: 10px; padding: 12px; margin: 14px 0; }
+.pills { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; scrollbar-width: none; }
+.pills a { white-space: nowrap; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); text-decoration: none; font-weight: 500; font-size: .95rem; }
+.pills a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.prose p { max-width: 75ch; }
+.prose h2 { margin-top: 24px; color: var(--brand); }
+.motto { font-size: 1.2rem; font-style: italic; color: var(--brand); margin: 0; }
+.people { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.person { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 12px; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 700;
+  background: var(--brand-soft); color: var(--brand); }
+.role { color: var(--ok); font-weight: 600; font-size: .9rem; }
+.tier { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .95rem; }
+.tier-platinum { background: linear-gradient(135deg, #e8e8e8, #b9b9b9); color: #333; }
+.tier-gold { background: linear-gradient(135deg, #ffe08a, #e0a800); color: #4a3500; }
+.sponsor-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.sponsor { padding: 18px 14px; border: 1px solid var(--border); border-radius: 12px; text-align: center; font-weight: 600; }
+.menu-list { display: grid; gap: 0; }
+.menu-list a, .menu-list button { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border: 0; border-bottom: 1px solid var(--border);
+  background: none; color: var(--text); text-decoration: none; font: inherit; font-weight: 500; width: 100%; cursor: pointer; text-align: left; }
+.menu-list a .icon, .menu-list button .icon { color: var(--brand); }
+.menu-list a::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 1.3rem; }
+.footer-info { text-align: center; color: var(--muted); font-size: .85rem; line-height: 1.6; }
+.footer-info a { color: var(--muted); }
+.nav a { padding: 8px 10px; }
+@media (max-width: 1100px) { .topbar .nav a { padding: 8px 7px; font-size: .92rem; } }
+
+.brand-short { display: none; }
+/* Signed-in desktop nav is long: use "GSA" beside the logo until there's room for the full name. */
+@media (min-width: 821px) and (max-width: 1320px) {
+  body.signed-in .brand-full { display: none; }
+  body.signed-in .brand-short { display: inline; }
+}

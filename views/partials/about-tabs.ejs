@@ -1,0 +1,5 @@
+<nav class="pills" aria-label="About GSA">
+  <% for (const [href, label] of [['/about', 'About Us'], ['/committee', 'Committee'], ['/sponsors', 'Sponsors'], ['/contact', 'Contact']]) { %>
+    <a href="<%= href %>" class="<%= path === href ? 'active' : '' %>"><%= label %></a>
+  <% } %>
+</nav>

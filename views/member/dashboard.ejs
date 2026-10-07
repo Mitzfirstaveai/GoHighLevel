@@ -6,6 +6,13 @@
   <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %><%= membership.active ? 'Membership' : 'Pay dues' %><small><%= membership.active ? `Active until ${fmtDate(membership.current.end_date)}` : 'Not active' %></small></a>
   <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %>My family<small>Update your details</small></a>
 </div>
+<% if (latestNews) { %>
+<a class="card" href="/news" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--green)">
+  <div class="small muted">📢 Latest news · <%= fmtDate(latestNews.created_at.slice(0, 10)) %></div>
+  <strong><%= latestNews.title %></strong>
+  <div class="muted small" style="margin-top:4px"><%= latestNews.body.length > 140 ? latestNews.body.slice(0, 140) + '…' : latestNews.body %></div>
+</a>
+<% } %>
 <div class="grid grid-2">
   <div class="card">
     <h2>Membership</h2>
@@ -55,5 +62,11 @@
     </a>
   <% } %>
   </div>
+</div>
+<div class="tiles">
+  <a class="tile" href="/directory"><%- include('../partials/icon', { name: 'book' }) %>Member directory<small>Find community members</small></a>
+  <a class="tile" href="/news"><%- include('../partials/icon', { name: 'news' }) %>News<small>Announcements</small></a>
+  <a class="tile" href="/committee"><%- include('../partials/icon', { name: 'users' }) %>Committee<small>Trustees &amp; executive</small></a>
+  <a class="tile" href="/contact"><%- include('../partials/icon', { name: 'phone' }) %>Contact GSA<small><%= org.phone %></small></a>
 </div>
 <%- include('../partials/foot') %>

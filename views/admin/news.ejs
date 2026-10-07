@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>News &amp; announcements</h1></div>
+<div class="card">
+  <h2>Post an announcement</h2>
+  <form method="post" action="/admin/news" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Title <input name="title" required placeholder="e.g. Navratri volunteers needed"></label>
+    <label>Message <textarea name="body" required rows="6"></textarea></label>
+    <div><button class="btn">Post</button></div>
+  </form>
+</div>
+<% for (const p of posts) { %>
+  <div class="card">
+    <div class="actions" style="justify-content:space-between">
+      <div><strong><%= p.title %></strong> <span class="muted small">· <%= fmtDate(p.created_at.slice(0, 10)) %></span></div>
+      <form method="post" action="/admin/news/<%= p.id %>/delete" onsubmit="return confirm('Delete this announcement?')"><%- include('../partials/csrf') %><button class="btn secondary small">Delete</button></form>
+    </div>
+    <div class="muted" style="white-space:pre-line;margin-top:8px"><%= p.body %></div>
+  </div>
+<% } %>
+<%- include('../partials/foot') %>

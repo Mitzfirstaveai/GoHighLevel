@@ -45,6 +45,16 @@
   </form>
 </div>
 
+<div class="card" id="privacy">
+  <h2>Directory settings</h2>
+  <form method="post" action="/profile/privacy" class="stack">
+    <%- include('../partials/csrf') %>
+    <label class="check"><input type="checkbox" name="directory_listed" value="1" <%= profile.directory_listed ? 'checked' : '' %>> List me in the member directory (name, city and native place)</label>
+    <label class="check"><input type="checkbox" name="directory_contact" value="1" <%= profile.directory_contact ? 'checked' : '' %>> Also show my phone number and email to other members</label>
+    <div><button class="btn secondary">Save directory settings</button></div>
+  </form>
+</div>
+
 <div class="card">
   <h2>Change password</h2>
   <form method="post" action="/profile/password" class="stack">

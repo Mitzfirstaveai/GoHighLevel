@@ -41,11 +41,12 @@ test('demo mode fills an empty database and offers one-tap sign-in', async () =>
   assert.match(text, /Reset demo data/);
 
   // Change something, then reset brings the sample data back.
+  const eventCount = db.prepare('SELECT COUNT(*) AS n FROM events').get().n;
   db.prepare(`DELETE FROM events`).run();
   const token = text.match(/name="_csrf" value="([^"]+)"/)[1];
   const { res } = await fetchWithCookie('/admin/demo/reset', { cookie, form: { _csrf: token } });
   assert.equal(res.status, 302);
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM events').get().n, 5);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM events').get().n, eventCount);
   ({ text } = await fetchWithCookie('/admin', { cookie }));
   assert.match(text, /Demo data has been reset/);
 });

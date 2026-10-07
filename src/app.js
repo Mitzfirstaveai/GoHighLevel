@@ -10,6 +10,7 @@ const { loadUser, csrf, flash } = require('./middleware');
 const { UserError } = require('./services');
 const { seedDemo, isEmpty, DEMO_ACCOUNTS, DEMO_PASSWORD } = require('./demo');
 const util = require('./util');
+const { ORG } = require('./content');
 
 function createApp(config) {
   const db = openDb(config.databaseFile);
@@ -27,6 +28,7 @@ function createApp(config) {
   Object.assign(app.locals, {
     orgName: config.orgName,
     paymentMode: gateway.mode,
+    org: ORG,
     demoMode: config.demoMode,
     demoAccounts: config.demoMode ? DEMO_ACCOUNTS : [],
     demoPassword: DEMO_PASSWORD,
@@ -71,6 +73,7 @@ function createApp(config) {
   app.use(csrf);
 
   app.use(require('./routes/auth'));
+  app.use(require('./routes/public'));
   app.use(require('./routes/member'));
   app.use('/pay', require('./routes/pay'));
   app.use('/admin', require('./routes/admin'));

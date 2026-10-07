@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
   date_of_birth TEXT,
   occupation TEXT,
   notes TEXT,
+  -- Member directory privacy: listed by name/city/vatan, and optionally with phone & email.
+  directory_listed INTEGER NOT NULL DEFAULT 1,
+  directory_contact INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -117,6 +120,14 @@ CREATE TABLE IF NOT EXISTS retired_qr_tokens (
   retired_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS news_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   sid TEXT PRIMARY KEY,
   sess TEXT NOT NULL,
@@ -152,6 +163,9 @@ function migrate(db) {
   for (const [column, type] of Object.entries(added)) {
     if (!planColumns.includes(column)) db.exec(`ALTER TABLE membership_plans ADD COLUMN ${column} ${type}`);
   }
+  const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!userColumns.includes('directory_listed')) db.exec('ALTER TABLE users ADD COLUMN directory_listed INTEGER NOT NULL DEFAULT 1');
+  if (!userColumns.includes('directory_contact')) db.exec('ALTER TABLE users ADD COLUMN directory_contact INTEGER NOT NULL DEFAULT 0');
 }
 
 // Runs fn inside a transaction; rolls back if it throws.

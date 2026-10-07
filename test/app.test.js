@@ -497,3 +497,51 @@ test('paid event: reducing guests gives no refund; paid amount stays as credit',
   assert.equal(rsvpFor(eventId, 'norefund@test.org').status, 'confirmed');
   assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE reference_id = ? AND status = 'pending'`).get(rsvp.id).n, 0);
 });
+
+test('About, Committee, Sponsors and Contact pages are public', async () => {
+  const anon = new Client();
+  let res = await anon.get('/about');
+  assert.equal(res.status, 200);
+  assert.match(res.text, /founded in 1989 by 35 Gujarati families/);
+  assert.match(res.text, /Together, We Serve Better/);
+  res = await anon.get('/committee');
+  assert.match(res.text, /Board of Trustees/);
+  assert.match(res.text, /Executive Committee/);
+  res = await anon.get('/contact');
+  assert.match(res.text, /1 GSA Circle/);
+  assert.match(res.text, /\(501\) 916-2416/);
+  assert.equal((await anon.get('/sponsors')).status, 200);
+  // Member-only pages still need sign-in.
+  assert.equal((await anon.get('/directory')).location, '/login');
+  assert.equal((await anon.get('/news')).location, '/login');
+});
+
+test('member directory respects privacy settings', async () => {
+  const shown = await register('listed@test.org', 'Listed');
+  await shown.post('/profile', { first_name: 'Listed', last_name: 'Person', phone: '501-555-7777', city: 'Cabot' });
+  await shown.post('/profile/privacy', { directory_listed: '1', directory_contact: '1' });
+  const hidden = await register('hidden@test.org', 'Hidden');
+  await hidden.post('/profile', { first_name: 'Hidden', last_name: 'Person' });
+  await hidden.post('/profile/privacy', {});
+  const quiet = await register('quiet@test.org', 'Quiet');
+  await quiet.post('/profile', { first_name: 'Quiet', last_name: 'Person', phone: '501-555-8888' });
+
+  const res = await quiet.get('/directory?q=Person');
+  assert.match(res.text, /Listed Person/);
+  assert.match(res.text, /501-555-7777/);
+  assert.match(res.text, /Quiet Person/);
+  assert.doesNotMatch(res.text, /501-555-8888/); // contact details are opt-in
+  assert.doesNotMatch(res.text, /Hidden Person/);
+});
+
+test('admin posts news that members see', async () => {
+  const admin = await login('admin@test.org', 'adminpass1');
+  const member = await register('reader@test.org');
+  assert.equal((await member.post('/admin/news', { title: 'x', body: 'y' })).status, 403);
+  await admin.post('/admin/news', { title: 'Garba volunteers needed', body: 'Please sign up at the front desk.' });
+  let res = await member.get('/news');
+  assert.match(res.text, /Garba volunteers needed/);
+  res = await member.get('/dashboard');
+  assert.match(res.text, /Latest news/);
+  assert.match(res.text, /Garba volunteers needed/);
+});

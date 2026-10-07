@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { requireAdmin } = require('../middleware');
+const { ORG } = require('../content');
 const svc = require('../services');
 const { parseMoney, parseIntInRange, nowLocal, toCsv } = require('../util');
 
@@ -197,7 +198,7 @@ router.get('/events', (req, res) => {
 });
 
 router.get('/events/new', (req, res) => {
-  res.render('admin/event_form', { title: 'New event', event: { max_party_size: 10, status: 'published' } });
+  res.render('admin/event_form', { title: 'New event', event: { max_party_size: 10, status: 'published', location: ORG.venue } });
 });
 
 router.post('/events', (req, res) => {
@@ -324,6 +325,28 @@ router.post('/checkin/:token', (req, res) => {
   req.session.justCheckedIn = req.params.token;
   req.flash('success', `Checked in ${rsvp.first_name} ${rsvp.last_name} — ${guests} ${guests === 1 ? 'person' : 'people'}.`);
   res.redirect(`/admin/checkin/${encodeURIComponent(req.params.token)}`);
+});
+
+// ---------- News ----------
+
+router.get('/news', (req, res) => {
+  const posts = req.app.locals.db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC').all();
+  res.render('admin/news', { title: 'News', posts });
+});
+
+router.post('/news', (req, res) => {
+  const title = String(req.body.title || '').trim().slice(0, 200);
+  const body = String(req.body.body || '').trim().slice(0, 10000);
+  if (!title || !body) throw new svc.UserError('Please enter a title and the announcement text.');
+  req.app.locals.db.prepare('INSERT INTO news_posts (title, body, author_id) VALUES (?, ?, ?)').run(title, body, req.user.id);
+  req.flash('success', 'Announcement posted. Members see it under News and on their home page.');
+  res.redirect('/admin/news');
+});
+
+router.post('/news/:id/delete', (req, res) => {
+  req.app.locals.db.prepare('DELETE FROM news_posts WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Announcement deleted.');
+  res.redirect('/admin/news');
 });
 
 // ---------- Payments & plans ----------
