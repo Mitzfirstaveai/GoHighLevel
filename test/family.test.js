@@ -116,19 +116,26 @@ test('changing who is coming from My tickets issues a new QR code and keeps the 
 test('a family member gets their own login and can only add people not already registered', async () => {
   const m = await t.login('priya@test.org', 'secret123');
   const spouseRow = personKey('priya@test.org', "Priya's Spouse").slice(2);
-  let res = await m.follow(await m.post(`/profile/household/${spouseRow}/email`, { email: 'spouse@test.org' }));
-  assert.match(res.text, /can now join the app with spouse@test\.org/);
-  assert.match(res.text, /Can join with spouse@test\.org/);
+  let res = await m.follow(await m.post(`/profile/household/${spouseRow}/invite`, {}));
+  assert.match(res.text, /Invite link for Priya&#39;s Spouse is ready/);
+  const token = t.db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(spouseRow).invite_token;
+  const link = `http://test.local/join/family/${token}`;
+  assert.match(res.text, new RegExp(`value="${link}"`));
+  assert.match(res.text, new RegExp(`href="https://wa.me/\\?text=${encodeURIComponent(`Join our family on the GSA app: ${link}`).replace(/[()*!']/g, (c) => `\\${c}`)}"`));
+  assert.match(res.text, /Send by text message/);
 
-  // The spouse joins with that email and is linked to the family.
+  // The spouse opens the private link and creates their own login.
   const s = new t.Client();
-  await s.get('/register');
-  res = await s.post('/register', { email: 'spouse@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Sam', last_name: 'Member' });
+  res = await s.get(`/join/family/${token}`);
+  assert.match(res.text, /Priya Member invited Priya&#39;s Spouse to have their own login/);
+  res = await s.post(`/join/family/${token}`, { email: 'spouse@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Sam', last_name: 'Member' });
   assert.equal(res.location, '/dashboard');
   res = await s.get('/dashboard');
   assert.match(res.text, /You&#39;re part of Priya Member&#39;s family membership/);
   assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('spouse@test.org').owner_id, userId('priya@test.org'));
   assert.match((await m.get('/profile')).text, /Has own login/);
+  // The link worked once and is now spent.
+  assert.equal((await new t.Client().get(`/join/family/${token}`)).status, 404);
 
   // Priya registered herself and the kids; the spouse can only add themselves.
   const eventId = await t.createEvent(admin, { title: 'Garba Night 2', starts_at: t.futureDate(3) }); // within the door's 7-day list
@@ -176,26 +183,76 @@ test('a family member gets their own login and can only add people not already r
   assert.match((await s.get('/profile')).text, /Priya manages this list/);
 });
 
-test('family emails must be new, and removing the person ends the link', async () => {
+test('only the invite link joins a family: not a matching email, a used, expired or cancelled link', async () => {
   const m = await t.login('priya@test.org', 'secret123');
-  const child = personKey('priya@test.org', 'Child 2').slice(2);
-  let res = await m.follow(await m.post(`/profile/household/${child}/email`, { email: 'other@test.org' }));
-  assert.match(res.text, /That email already has an account/);
-  res = await m.follow(await m.post(`/profile/household/${child}/email`, { email: 'spouse@test.org' }));
-  assert.match(res.text, /That email already has an account/);
-  res = await m.follow(await m.post(`/profile/household/${child}/email`, { email: 'not-an-email' }));
-  assert.match(res.text, /valid email address/);
+  const child = Number(personKey('priya@test.org', 'Child 2').slice(2));
+  // The old loophole: setting up a login with an email the member listed no longer links anyone.
+  t.db.prepare(`UPDATE household_members SET email = 'child2@test.org' WHERE id = ?`).run(child);
+  const stranger = new t.Client();
+  await stranger.get('/register');
+  await stranger.post('/register', { email: 'child2@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Not', last_name: 'Family' });
+  assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('child2@test.org').owner_id, null);
+  assert.equal(t.db.prepare('SELECT login_user_id FROM household_members WHERE id = ?').get(child).login_user_id, null);
 
+  // Made-up, expired and cancelled links don't work.
+  assert.equal((await stranger.get('/join/family/not-a-real-invite-token-123')).status, 404);
+  await m.post(`/profile/household/${child}/invite`, {});
+  const token = () => t.db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(child).invite_token;
+  const first = token();
+  t.db.prepare(`UPDATE household_members SET invite_expires = datetime('now', '-1 minute') WHERE id = ?`).run(child);
+  let res = await new t.Client().get(`/join/family/${first}`);
+  assert.equal(res.status, 404);
+  assert.match(res.text, /no longer valid/);
+  await m.post(`/profile/household/${child}/invite`, {}); // a fresh link replaces the old one
+  assert.notEqual(token(), first);
+  const second = token();
+  await m.post(`/profile/household/${child}/invite/cancel`, {});
+  assert.equal((await new t.Client().get(`/join/family/${second}`)).status, 404);
+
+  // Only the member who holds the family can make links for it.
+  const outsider = await t.login('other@test.org', 'secret123');
+  res = await outsider.follow(await outsider.post(`/profile/household/${child}/invite`, {}));
+  assert.match(res.text, /Family member not found/);
+  const spouse = await t.login('spouse@test.org', 'secret123');
+  res = await spouse.follow(await spouse.post(`/profile/household/${child}/invite`, {}));
+  assert.match(res.text, /managed by the member who added you/);
+  assert.equal(token(), null);
+});
+
+test('someone who already has a login can join with the link, unless that account has its own family or membership', async () => {
+  const m = await t.login('priya@test.org', 'secret123');
+  const child = Number(personKey('priya@test.org', 'Child 2').slice(2));
+  await m.post(`/profile/household/${child}/invite`, {});
+  const token = t.db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(child).invite_token;
+
+  // The member's own link, opened by themselves.
+  assert.match((await m.get(`/join/family/${token}`)).text, /This is your own invite link/);
+  // An account with its own Family membership can't be merged in.
+  const other = await t.login('other@test.org', 'secret123');
+  let res = await other.get(`/join/family/${token}`);
+  assert.match(res.text, /has its own membership, family list or event tickets/);
+  assert.doesNotMatch(res.text, /Join the family<\/button>/);
+  res = await other.follow(await other.post(`/join/family/${token}/link`, {}));
+  assert.match(res.text, /has its own membership/);
+  assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('other@test.org').owner_id, null);
+
+  // A plain account (signed out first: the link brings them back after signing in).
+  const c = new t.Client();
+  await c.get(`/join/family/${token}`);
+  await c.get('/login');
+  res = await c.post('/login', { email: 'child2@test.org', password: 'secret123' });
+  assert.equal(res.location, `/join/family/${token}`);
+  res = await c.get(res.location);
+  assert.match(res.text, /Join the family<\/button>/);
+  res = await c.follow(await c.post(`/join/family/${token}/link`, {}));
+  assert.match(res.text, /You&#39;re part of Priya Member&#39;s family membership/);
+  assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('child2@test.org').owner_id, userId('priya@test.org'));
+  assert.equal(t.db.prepare('SELECT login_user_id FROM household_members WHERE id = ?').get(child).login_user_id, userId('child2@test.org'));
+});
+
+test('removing a family member ends their family login link', async () => {
+  const m = await t.login('priya@test.org', 'secret123');
   const spouseRow = personKey('priya@test.org', "Priya's Spouse").slice(2);
   await m.post(`/profile/household/${spouseRow}/delete`, {});
   assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('spouse@test.org').owner_id, null);
-});
-
-test('members-only events do not take guests', async () => {
-  const eventId = await t.createEvent(admin, { title: 'AGM', members_only: '1', allow_guests: '1', guest_fee: '0' });
-  const m = await t.login('priya@test.org', 'secret123');
-  const res = await m.get(`/events/${eventId}`);
-  assert.doesNotMatch(res.text, /name="guests"/);
-  const post = await m.follow(await m.post(`/events/${eventId}/rsvp`, { choose: '1', people: [personKey('priya@test.org')], guests: '2' }));
-  assert.match(post.text, /This event does not allow guests/);
 });

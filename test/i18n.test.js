@@ -124,8 +124,22 @@ test('family-login screens are fully translated', async () => {
   const res = await c.follow(await c.post(`/events/${garba}/rsvp`, { choose: '1', people: `h:${amit}` }));
   assert.match(res.text, /આ ટિકિટ આમના માટે છે/);
   await c.get('/tickets');
+  // Priya makes an invite link for Diya; Diya opens it (signed out), and Amit (signed in) opens it too.
+  const priya = await signIn('member@example.com');
+  await priya.get('/prefs?lang=gu&back=/');
+  const diya = db.prepare(`SELECT h.id FROM household_members h JOIN users u ON u.id = h.user_id WHERE u.email = 'member@example.com' AND h.name = 'Diya Shah'`).get().id;
+  assert.match((await priya.follow(await priya.post(`/profile/household/${diya}/invite`, {}))).text, /WhatsApp/);
+  const token = db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(diya).invite_token;
+  const anon = new t.Client();
+  await anon.get('/prefs?lang=gu&back=/');
+  assert.equal((await anon.get(`/join/family/${token}`)).status, 200);
+  assert.equal((await anon.get('/join/family/not-a-real-invite-token-123')).status, 404);
+  await c.get(`/join/family/${token}`);
+  await priya.get(`/join/family/${token}`);
+  await priya.post(`/profile/household/${diya}/invite/cancel`, {});
   assert.deepEqual([...missing], [], `Untranslated text: ${[...missing].join(' | ')}`);
   await c.get('/prefs?lang=en&back=/');
+  await priya.get('/prefs?lang=en&back=/');
 });
 
 test('dictionary placeholders match the English text', () => {

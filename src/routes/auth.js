@@ -1,6 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { cleanProfile, UserError, pendingFamilyLogin, linkFamilyLogin } = require('../services');
+const {
+  cleanProfile, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
+} = require('../services');
 
 const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -94,45 +96,107 @@ router.get('/register', (req, res) => {
   res.render('auth/register', { title: 'Join', form: {} });
 });
 
+// Creates a member account from a sign-up form. Returns the new user's id.
+function createAccount(req, form) {
+  const { db, config } = req.app.locals;
+  const email = String(form.email || '').trim().toLowerCase();
+  const password = String(form.password || '');
+  if (!EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
+  if (password.length < 8) throw new UserError('Password must be at least 8 characters.');
+  if (password !== form.password_confirm) throw new UserError('Passwords do not match.');
+  const existing = db.prepare('SELECT password_hash FROM users WHERE email = ?').get(email);
+  if (existing && !existing.password_hash) {
+    // Imported from WildApricot or added by the committee: an admin issues the first login.
+    throw new UserError('You are already in our member records. Please ask a committee member to set up your login.');
+  }
+  if (existing) throw new UserError('An account with that email already exists. Try signing in.');
+  const profile = cleanProfile(form);
+  // With no ADMIN_EMAIL configured, the very first account becomes the administrator.
+  const noAdmin = !config.adminEmail && !db.prepare(`SELECT 1 FROM users WHERE role = 'admin'`).get();
+  return Number(db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, phone, city, native_place)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', profile.first_name,
+      profile.last_name, profile.phone, profile.city, profile.native_place).lastInsertRowid);
+}
+
+function startSession(req, res, next, userId, flash, to) {
+  req.session.regenerate((err) => {
+    if (err) return next(err);
+    req.session.userId = userId;
+    req.session.flash = [flash];
+    res.redirect(to);
+  });
+}
+
+const familyWelcome = (invite) => ({
+  type: 'success',
+  message: "Welcome! You're part of {owner}'s family membership. You can register yourself for events and see your family's tickets.",
+  vars: { owner: `${invite.owner_first} ${invite.owner_last}` },
+});
+
 router.post('/register', (req, res, next) => {
-  const { db } = req.app.locals;
-  const form = req.body;
   try {
-    const email = String(form.email || '').trim().toLowerCase();
-    const password = String(form.password || '');
-    if (!EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
-    if (password.length < 8) throw new UserError('Password must be at least 8 characters.');
-    if (password !== form.password_confirm) throw new UserError('Passwords do not match.');
-    const existing = db.prepare('SELECT password_hash FROM users WHERE email = ?').get(email);
-    if (existing && !existing.password_hash) {
-      // Imported from WildApricot or added by the committee: an admin issues the first login.
-      throw new UserError('You are already in our member records. Please ask a committee member to set up your login.');
-    }
-    if (existing) throw new UserError('An account with that email already exists. Try signing in.');
-    const profile = cleanProfile(form);
-    // With no ADMIN_EMAIL configured, the very first account becomes the administrator.
-    const noAdmin = !req.app.locals.config.adminEmail
-      && !db.prepare(`SELECT 1 FROM users WHERE role = 'admin'`).get();
-    const id = db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, phone, city, native_place)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', profile.first_name,
-        profile.last_name, profile.phone, profile.city, profile.native_place).lastInsertRowid;
-    // A member listed this email for someone in their family: link the new login to that family.
-    const family = pendingFamilyLogin(db, email);
-    if (family) linkFamilyLogin(db, { householdId: family.id, userId: Number(id) });
-    req.session.regenerate((err) => {
-      if (err) return next(err);
-      req.session.userId = Number(id);
-      req.session.flash = [family
-        ? { type: 'success', message: "Welcome! You're part of {owner}'s family membership. You can register yourself for events and see your family's tickets.", vars: { owner: `${family.owner_first} ${family.owner_last}` } }
-        : { type: 'success', message: 'Welcome! Please complete your profile.' }];
-      res.redirect(family ? '/dashboard' : '/profile');
-    });
+    const id = createAccount(req, req.body);
+    startSession(req, res, next, id, { type: 'success', message: 'Welcome! Please complete your profile.' }, '/profile');
   } catch (err) {
     if (!(err instanceof UserError)) throw err;
-    res.locals.flash = [{ type: 'error', message: err.message }];
-    res.status(400).render('auth/register', { title: 'Join', form });
+    res.locals.flash = [{ type: 'error', message: req.t(err.template, err.vars) }];
+    res.status(400).render('auth/register', { title: 'Join', form: req.body });
   }
+});
+
+// ---------- Family invite links ----------
+// A member shares a private link so someone on their family list gets their own login: either a
+// new account, or (signed in) an existing account that has no membership or family of its own.
+
+function renderInvite(req, res, invite, form = {}, status = 200) {
+  const [first, ...rest] = invite.name.split(' ');
+  res.status(status).render('auth/family_join', {
+    title: 'Join your family', invite, token: req.params.token,
+    form: { first_name: first, last_name: rest.join(' ') || invite.owner_last, ...form },
+    problem: req.user ? familyJoinProblem(req.app.locals.db, req.user, invite) : null,
+  });
+}
+
+function loadInvite(req, res) {
+  const invite = findFamilyInvite(req.app.locals.db, req.params.token);
+  if (!invite) {
+    res.status(404).render('error', { title: 'Invite link not valid', message: 'This invite link is no longer valid. Please ask your family member for a new one.' });
+  }
+  return invite;
+}
+
+router.get('/join/family/:token', (req, res) => {
+  const invite = loadInvite(req, res);
+  if (!invite) return;
+  if (!req.user) req.session.returnTo = req.originalUrl; // "already have a login": sign in, come back here
+  renderInvite(req, res, invite);
+});
+
+router.post('/join/family/:token', (req, res, next) => {
+  const invite = loadInvite(req, res);
+  if (!invite) return;
+  try {
+    const id = createAccount(req, req.body);
+    acceptFamilyInvite(req.app.locals.db, { token: req.params.token, userId: id });
+    startSession(req, res, next, id, familyWelcome(invite), '/dashboard');
+  } catch (err) {
+    if (!(err instanceof UserError)) throw err;
+    res.locals.flash = [{ type: 'error', message: req.t(err.template, err.vars) }];
+    renderInvite(req, res, invite, req.body, 400);
+  }
+});
+
+// Already has an account: join the family with it.
+router.post('/join/family/:token/link', (req, res) => {
+  if (!req.user) return res.redirect(`/join/family/${encodeURIComponent(req.params.token)}`);
+  const invite = loadInvite(req, res);
+  if (!invite) return;
+  const problem = familyJoinProblem(req.app.locals.db, req.user, invite);
+  if (problem) throw new UserError(problem, { name: invite.name });
+  acceptFamilyInvite(req.app.locals.db, { token: req.params.token, userId: req.user.id });
+  req.flash(familyWelcome(invite).type, familyWelcome(invite).message, familyWelcome(invite).vars);
+  res.redirect('/dashboard');
 });
 
 router.post('/logout', (req, res) => {

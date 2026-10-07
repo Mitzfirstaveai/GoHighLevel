@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const { transaction } = require('./db');
 const { newToken, nowLocal, today, addMonths, formatDateTime } = require('./util');
 const { interpolate } = require('./i18n');
@@ -231,36 +232,58 @@ function coveredFamily(db, userId) {
 
 // ---------- Family logins ----------
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const INVITE_DAYS = 14;
 
-// A member lets someone in their family have their own login by adding that person's email.
-// The person then joins with that email and is linked to the family (see linkFamilyLogin).
-function setFamilyEmail(db, { ownerId, householdId, email }) {
+/**
+ * A member invites someone on their family list to have their own login. The member shares the
+ * private link themselves (WhatsApp, text…); whoever opens it joins as that family member, so the
+ * link is unguessable, single-use and expires after INVITE_DAYS. Making a new one replaces the old.
+ */
+function createFamilyInvite(db, { ownerId, householdId }) {
   const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
   if (!h) throw new UserError('Family member not found.');
   if (h.login_user_id) throw new UserError('{name} already has their own login.', { name: h.name });
-  email = String(email || '').trim().toLowerCase();
-  if (email && !EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
-  if (email && db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
-    throw new UserError('That email already has an account. Please ask a committee member to link it to your family.');
-  }
-  if (email && db.prepare('SELECT 1 FROM household_members WHERE email = ? AND id != ?').get(email, h.id)) {
-    throw new UserError('That email is already used for another family member.');
-  }
-  db.prepare('UPDATE household_members SET email = ? WHERE id = ?').run(email || null, h.id);
-  return { name: h.name, email };
+  const token = crypto.randomBytes(24).toString('base64url');
+  db.prepare(`UPDATE household_members SET invite_token = ?, invite_expires = datetime('now', '+${INVITE_DAYS} days') WHERE id = ?`)
+    .run(token, h.id);
+  return { name: h.name, token };
 }
 
-// The family member waiting to join with this email (null if none).
-function pendingFamilyLogin(db, email) {
+function cancelFamilyInvite(db, { ownerId, householdId }) {
+  db.prepare('UPDATE household_members SET invite_token = NULL, invite_expires = NULL WHERE id = ? AND user_id = ?').run(householdId, ownerId);
+}
+
+// The family member an invite link is for (null if the link is unknown, used or expired).
+function findFamilyInvite(db, token) {
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(String(token || ''))) return null;
   return db.prepare(`SELECT h.*, u.first_name AS owner_first, u.last_name AS owner_last FROM household_members h
-    JOIN users u ON u.id = h.user_id WHERE h.email = ? AND h.login_user_id IS NULL`).get(String(email || '').trim()) || null;
+    JOIN users u ON u.id = h.user_id
+    WHERE h.invite_token = ? AND h.invite_expires > datetime('now') AND h.login_user_id IS NULL`).get(token) || null;
 }
 
-function linkFamilyLogin(db, { householdId, userId }) {
-  const h = db.prepare('SELECT * FROM household_members WHERE id = ?').get(householdId);
-  db.prepare('UPDATE users SET owner_id = ? WHERE id = ?').run(h.user_id, userId);
-  db.prepare('UPDATE household_members SET login_user_id = ? WHERE id = ?').run(userId, householdId);
+// Why an existing account can't join a family through an invite (null = it can).
+function familyJoinProblem(db, user, invite) {
+  if (user.id === invite.user_id) return 'This is your own invite link. Share it with {name} so they can join.';
+  if (user.owner_id) return 'Your account is already part of a family.';
+  const ownFamily = db.prepare('SELECT 1 FROM household_members WHERE user_id = ?').get(user.id);
+  const ownMembership = db.prepare('SELECT 1 FROM memberships WHERE user_id = ?').get(user.id);
+  const ownTickets = db.prepare(`SELECT 1 FROM rsvps r JOIN events e ON e.id = r.event_id
+    WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ?`).get(user.id, today());
+  if (ownFamily || ownMembership || ownTickets) {
+    return 'Your account has its own membership, family list or event tickets, so it can’t be joined to another family here. Please ask a committee member.';
+  }
+  return null;
+}
+
+// Uses an invite: links the account to the family and retires the link.
+function acceptFamilyInvite(db, { token, userId }) {
+  return transaction(db, () => {
+    const invite = findFamilyInvite(db, token);
+    if (!invite) throw new UserError('This invite link is no longer valid. Please ask your family member for a new one.');
+    db.prepare('UPDATE users SET owner_id = ? WHERE id = ?').run(invite.user_id, userId);
+    db.prepare('UPDATE household_members SET login_user_id = ?, invite_token = NULL, invite_expires = NULL WHERE id = ?').run(userId, invite.id);
+    return invite;
+  });
 }
 
 // Removing someone from the family also ends their family login's link (their account stays).
@@ -843,7 +866,7 @@ module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,
-  setFamilyEmail, pendingFamilyLogin, linkFamilyLogin, removeHouseholdMember,
+  createFamilyInvite, cancelFamilyInvite, findFamilyInvite, familyJoinProblem, acceptFamilyInvite, removeHouseholdMember,
   eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,

@@ -29,29 +29,40 @@
     <p class="muted"><%= t('List the family members your membership will cover (spouse, unmarried children, parents), then choose your membership level.') %> <a href="/membership"><%= t('Membership levels') %></a></p>
   <% } %>
   <% if (household.length) { %>
-  <div class="table-wrap"><table>
-    <thead><tr><th><%= t('Name') %></th><th><%= t('Relationship') %></th><th><%= t('Birth year') %></th><th><%= t('Own login') %></th><th></th></tr></thead>
-    <tbody>
+  <div class="family-rows">
     <% for (const h of household) { %>
-      <tr><td><%= h.name %></td><td><%= t.data(h.relationship) || '' %></td><td><%= h.birth_year || '' %></td>
-        <td>
+      <% const inviteOpen = !h.login_user_id && h.invite_token && h.invite_expires > now; %>
+      <div class="family-row">
+        <div class="family-head">
+          <div><strong><%= h.name %></strong>
+            <div class="muted small"><%= t.data(h.relationship) || '' %><%= h.birth_year ? ` · ${t('Birth year')} ${h.birth_year}` : '' %></div></div>
+          <form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form>
+        </div>
+        <div class="small" style="margin-top:6px">
           <% if (h.login_user_id) { %><span class="badge ok"><%= t('Has own login') %></span>
-          <% } else if (h.email) { %>
-            <span class="small"><%= t('Can join with {email}', { email: h.email }) %></span>
-            <form method="post" action="/profile/household/<%= h.id %>/email" class="inline"><%- include('../partials/csrf') %><input type="hidden" name="email" value=""><button class="linkish small" title="<%= t('Remove') %>">✕</button></form>
-          <% } else { %>
-            <details class="small"><summary><%= t('Give them their own login') %></summary>
-              <form method="post" action="/profile/household/<%= h.id %>/email" class="actions" style="margin-top:6px"><%- include('../partials/csrf') %>
-                <input type="email" name="email" placeholder="<%= t('Their email') %>" aria-label="<%= t('Their email') %>" required style="min-width:180px">
-                <button class="btn secondary small"><%= t('Save') %></button></form>
-              <span class="muted"><%= t('They then tap Join and sign up with this email. They can register themselves for events and see the family tickets.') %></span>
-            </details>
+          <% } else if (!inviteOpen) { %>
+            <form method="post" action="/profile/household/<%= h.id %>/invite" class="inline"><%- include('../partials/csrf') %>
+              <button class="btn secondary small"><%= t('Create invite link') %></button></form>
+            <span class="muted"><%= t('Give them their own login') %></span>
           <% } %>
-        </td>
-        <td class="num"><form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form></td></tr>
+        </div>
+        <% if (inviteOpen) { %>
+          <% const link = `${baseUrl}/join/family/${h.invite_token}`; const msg = t('Join our family on the GSA app: {url}', { url: link }); %>
+          <div class="invite-panel" id="invite-<%= h.id %>">
+            <strong><%= t('Invite link for {name}', { name: h.name }) %></strong>
+            <p class="small muted" style="margin:2px 0 8px"><%= t('Send this private link only to {name}. It works once and expires on {date}.', { name: h.name, date: fmtDay(h.invite_expires) }) %></p>
+            <input class="invite-link" value="<%= link %>" readonly aria-label="<%= t('Invite link for {name}', { name: h.name }) %>" onclick="this.select()">
+            <div class="actions" style="margin-top:8px">
+              <a class="btn small" href="https://wa.me/?text=<%= encodeURIComponent(msg) %>" target="_blank" rel="noopener"><%= t('Send by WhatsApp') %></a>
+              <a class="btn secondary small" href="sms:?&body=<%= encodeURIComponent(msg) %>"><%= t('Send by text message') %></a>
+              <button type="button" class="btn secondary small" data-copy="<%= link %>" data-copied="<%= t('Copied!') %>"><%= t('Copy link') %></button>
+              <form method="post" action="/profile/household/<%= h.id %>/invite/cancel" class="inline"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Cancel invite') %></button></form>
+            </div>
+          </div>
+        <% } %>
+      </div>
     <% } %>
-    </tbody>
-  </table></div>
+  </div>
   <% } %>
   <form method="post" action="/profile/household" class="stack" style="margin-top:12px">
     <%- include('../partials/csrf') %>
@@ -91,4 +102,11 @@
     <div><button class="btn secondary"><%= t('Change password') %></button></div>
   </form>
 </div>
+<script>
+  // Copy an invite link (older phones: the link box is selected so it can be copied by hand).
+  document.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = btn.dataset.copied; }
+    catch { btn.closest('.invite-panel').querySelector('.invite-link').select(); }
+  }));
+</script>
 <%- include('../partials/foot') %>

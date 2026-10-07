@@ -47,6 +47,7 @@ router.get('/profile', requireAuth, (req, res) => {
   const owner = req.user.owner_id ? db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   res.render('member/profile', {
     title: 'My profile', profile: req.user, household: svc.getHousehold(db, owner?.id ?? req.user.id), membership, owner,
+    baseUrl: req.app.locals.config.baseUrl, now: db.prepare(`SELECT datetime('now') AS n`).get().n,
     coverageParts: membership.active && membership.plan ? svc.planCoverageParts(membership.plan) : null,
     relationships: Object.keys(svc.RELATIONSHIPS),
   });
@@ -79,11 +80,16 @@ router.post('/profile/household/:id/delete', requireAuth, requireFamilyManager, 
   res.redirect('/profile#family');
 });
 
-// Give a family member their own login: they then tap Join and sign up with this email.
-router.post('/profile/household/:id/email', requireAuth, requireFamilyManager, (req, res) => {
-  const { name, email } = svc.setFamilyEmail(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id), email: req.body.email });
-  if (email) req.flash('success', '{name} can now join the app with {email} (tap Join on the sign-in page). Their login will be linked to your family.', { name, email });
-  else req.flash('success', 'Saved.');
+// Give a family member their own login: a private, single-use invite link the member shares.
+router.post('/profile/household/:id/invite', requireAuth, requireFamilyManager, (req, res) => {
+  const { name } = svc.createFamilyInvite(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id) });
+  req.flash('success', 'Invite link for {name} is ready. Share it with them — it works once and expires in 14 days.', { name });
+  res.redirect(`/profile#invite-${req.params.id}`);
+});
+
+router.post('/profile/household/:id/invite/cancel', requireAuth, requireFamilyManager, (req, res) => {
+  svc.cancelFamilyInvite(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id) });
+  req.flash('success', 'Invite link cancelled.');
   res.redirect('/profile#family');
 });
 

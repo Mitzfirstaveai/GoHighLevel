@@ -76,8 +76,9 @@ Other sample members use the password `demo1234`.
    ticked, and nobody can be on two tickets for the same event.
 7. *Family login*: sign out and tap **Spouse (family login)** (Amit, Priya's husband). He's covered by Priya's
    membership; on Navratri Garba #1 the kids show "Already registered on Priya Shah's ticket", so he can only add himself,
-   and he gets his own QR ticket. Members give family their own login under *Profile → Family members → Give them their
-   own login* (enter their email; they then tap **Join** with that email).
+   and he gets his own QR ticket. Members give family their own login under *Profile → Family members → Create invite
+   link*, then send it by **WhatsApp**, text message or copy/paste. The private link works once and expires in 14 days;
+   the family member opens it and creates their login (or, if they already have one, signs in and joins).
 8. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
 9. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
 10. *Photos* (in the top menu, or *More → Photos* on a phone): albums grouped by type of event — Navratri & Garba,

@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS household_members (
   relationship TEXT,
   birth_year INTEGER,
   email TEXT COLLATE NOCASE,                                         -- set by the member so this person can get their own login
-  login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL      -- their login, once they've joined
+  login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,     -- their login, once they've joined
+  invite_token TEXT,                 -- private single-use link the member shares so this person can join
+  invite_expires TEXT
 );
 
 CREATE TABLE IF NOT EXISTS membership_plans (
@@ -235,12 +237,13 @@ CREATE INDEX IF NOT EXISTS idx_attendees_rsvp ON rsvp_attendees(rsvp_id);
 CREATE INDEX IF NOT EXISTS idx_photos_album ON photos(album_id, status);
 CREATE INDEX IF NOT EXISTS idx_attendees_event ON rsvp_attendees(event_id, person);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_household_email ON household_members(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_household_invite ON household_members(invite_token) WHERE invite_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 7; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at
+const SCHEMA_VERSION = 8; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
@@ -252,6 +255,10 @@ const MIGRATIONS = {
     'ALTER TABLE household_members ADD COLUMN login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
   ],
   7: ['ALTER TABLE payments ADD COLUMN refunded_at TEXT'],
+  8: [
+    'ALTER TABLE household_members ADD COLUMN invite_token TEXT',
+    'ALTER TABLE household_members ADD COLUMN invite_expires TEXT',
+  ],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',

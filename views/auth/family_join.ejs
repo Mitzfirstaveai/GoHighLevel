@@ -1,0 +1,32 @@
+<%- include('../partials/head') %>
+<div class="card" style="max-width:560px;margin:20px auto">
+  <img src="/logo.png" alt="" width="80" height="80" style="display:block;margin:0 auto 8px;border-radius:50%">
+  <h1 style="text-align:center"><%= t('Join your family on the {org} app', { org: t.data(orgName) }) %></h1>
+  <p style="text-align:center"><%= t('{owner} invited {name} to have their own login, covered by the family membership.', { owner: `${invite.owner_first} ${invite.owner_last}`, name: invite.name }) %></p>
+
+  <% if (user) { %>
+    <% if (problem) { %>
+      <p class="flash info"><%= t(problem, { name: invite.name }) %></p>
+    <% } else { %>
+      <p><%= t("You're signed in as {name}. Join {owner}'s family with this account?", { name: `${user.first_name} ${user.last_name}`, owner: invite.owner_first }) %></p>
+      <form method="post" action="/join/family/<%= token %>/link"><%- include('../partials/csrf') %>
+        <button class="btn big"><%= t('Join the family') %></button></form>
+    <% } %>
+  <% } else { %>
+    <p class="muted small"><%= t('Create your login below. Use your own email and a password only you know.') %></p>
+    <form method="post" action="/join/family/<%= token %>" class="stack">
+      <%- include('../partials/csrf') %>
+      <div class="fields">
+        <label><%= t('First name') %> <input name="first_name" value="<%= form.first_name || '' %>" required autocomplete="given-name"></label>
+        <label><%= t('Last name') %> <input name="last_name" value="<%= form.last_name || '' %>" required autocomplete="family-name"></label>
+        <label><%= t('Email') %> <input type="email" name="email" value="<%= form.email || '' %>" required autocomplete="email"></label>
+        <label><%= t('Phone') %> <input type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></label>
+        <label><%= t('Password (at least 8 characters)') %> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+        <label><%= t('Confirm password') %> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
+      </div>
+      <button class="btn big"><%= t('Create my login') %></button>
+    </form>
+    <p class="muted small"><%= t('Already have a GSA login?') %> <a href="/login"><%= t('Sign in') %></a> — <%= t("you'll come back to this page.") %></p>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>
