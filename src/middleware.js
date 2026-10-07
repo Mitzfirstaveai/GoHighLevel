@@ -7,9 +7,13 @@ function loadUser(db) {
       : null;
     if (req.session.userId && !req.user) delete req.session.userId;
     res.locals.user = req.user;
-    // Door mode: a volunteer who signed in at the committee & volunteer sign-in.
+    // Staff modes come from the committee & volunteer sign-in: admin mode (admin pages only) for
+    // administrators, door mode (check-in only) for door volunteers. The same people signing in at
+    // the member sign-in get the ordinary member app.
     if (req.session.doorMode && (!req.user || req.user.role === 'admin' || !req.user.checkin_access)) delete req.session.doorMode;
+    if (req.session.adminMode && req.user?.role !== 'admin') delete req.session.adminMode;
     res.locals.doorMode = Boolean(req.session.doorMode);
+    res.locals.adminMode = Boolean(req.session.adminMode);
     next();
   };
 }
@@ -20,16 +24,20 @@ function requireAuth(req, res, next) {
   res.redirect('/login');
 }
 
+// Admin pages need an administrator signed in at the committee & volunteer sign-in (admin mode).
 function requireAdmin(req, res, next) {
-  if (!req.user) return requireAuth(req, res, next);
-  if (req.user.role !== 'admin') return res.status(403).render('error', { title: 'Not allowed', message: 'Only administrators can view this page.' });
-  next();
+  if (req.user?.role === 'admin' && req.session.adminMode) return next();
+  if (!req.user || req.user.role === 'admin') {
+    req.session.returnTo = req.originalUrl;
+    return res.redirect('/admin/login');
+  }
+  res.status(403).render('error', { title: 'Not allowed', message: 'Only administrators can view this page.' });
 }
 
-// Admins can always check people in. Door volunteers can once they have signed in at the
-// committee & volunteer sign-in (door mode); in their member app they're ordinary members.
+// Check-in is for admins and door volunteers, each signed in at the committee & volunteer
+// sign-in; in their member app they're ordinary members.
 function canCheckIn(user, session) {
-  return Boolean(user && (user.role === 'admin' || (user.checkin_access && session?.doorMode)));
+  return Boolean(user && ((user.role === 'admin' && session?.adminMode) || (user.checkin_access && session?.doorMode)));
 }
 
 function requireCheckin(req, res, next) {
@@ -38,19 +46,25 @@ function requireCheckin(req, res, next) {
     return res.redirect('/admin/login');
   }
   if (canCheckIn(req.user, req.session)) return next();
-  if (req.user.checkin_access) {
+  if (req.user.checkin_access || req.user.role === 'admin') {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/admin/login');
   }
   res.status(403).render('error', { title: 'Not allowed', message: 'Only committee members and door volunteers can check people in.' });
 }
 
-// In door mode the device only shows check-in, so a phone handed around at the door never
-// opens the volunteer's own member pages.
+// Staff modes show only their own pages: door mode only check-in (a phone handed around at the
+// door never opens the volunteer's own member pages), admin mode only the admin area (plus the
+// photo files and receipts the admin pages show).
 const DOOR_PATHS = ['/admin/checkin', '/logout', '/prefs', '/admin/login'];
+// The admin area has no member pages (no profile, dues or tickets), only the public information
+// pages it edits, plus the photo files and receipts it links to.
+const ADMIN_PATHS = ['/admin', '/logout', '/prefs', '/photos/file', '/receipts', '/about', '/committee', '/sponsors', '/contact'];
+const allowed = (paths, path) => paths.some((p) => path === p || path.startsWith(`${p}/`));
 function doorModeOnly(req, res, next) {
-  if (!req.session.doorMode || DOOR_PATHS.some((p) => req.path === p || req.path.startsWith(`${p}/`))) return next();
-  res.redirect('/admin/checkin');
+  if (req.session.doorMode && !allowed(DOOR_PATHS, req.path)) return res.redirect('/admin/checkin');
+  if (req.session.adminMode && !allowed(ADMIN_PATHS, req.path)) return res.redirect('/admin');
+  next();
 }
 
 function csrf(req, res, next) {

@@ -59,8 +59,8 @@ about a minute to wake up), and every restart reloads fresh demo data. Open the 
 
 ## Demo walkthrough
 
-On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — no typing needed. The **Door volunteer** button is on
-**Committee & volunteer sign-in** (link under the sign-in form and at the bottom of every page).
+On the sign-in page, tap **Member (Family level)** — no typing needed. The **Admin (committee)** and **Door volunteer**
+buttons are on **Committee & volunteer sign-in** (link under the sign-in form and at the bottom of every page).
 Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
@@ -86,7 +86,12 @@ Other sample members use the password `demo1234`.
    The demo albums use illustrated stand-ins; upload real event photos to replace them.
 11. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
 
-**As an admin**
+**As an admin** (open **Committee & volunteer sign-in** and tap **Admin (committee)**)
+
+The admin area is only for admin work: there is no profile, dues or tickets in it, and **Sign out** returns to the
+committee sign-in. A committee member who is also a member uses the normal member sign-in for their own membership and
+tickets; that member app has no Admin link and no access to other families' tickets or receipts.
+
 1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.
 2. *Events → Diwali*: headcount incl. guests, answers to questions, coupon usage; download CSV.
 3. *Check-in*: scan a member's QR (or click **Check in**) → choose how many arrived. Scan again → **Already used**.
@@ -142,7 +147,7 @@ production unless `ALLOW_DEMO_PAYMENTS=true`).
 3. Payments: create a Stripe account, set `STRIPE_SECRET_KEY`, and add a webhook endpoint
    `https://YOUR-SITE/pay/webhook` for `checkout.session.completed` and
    `checkout.session.async_payment_succeeded`; put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-4. Sign in as the admin, add membership plans under **Admin → Dues plans**, and promote other committee members
+4. Sign in as the admin (Committee & volunteer sign-in), add membership plans under **Admin → Dues plans**, and promote other committee members
    to admin from their member page.
 
 If `ADMIN_EMAIL` isn't set, the first account registered becomes the administrator.

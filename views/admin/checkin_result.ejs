@@ -49,7 +49,7 @@
     <% } %>
 
     <% if (rsvp.status === 'pending_payment') { %>
-      <% if (user.role === 'admin') { %>
+      <% if (adminMode) { %>
         <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack" lang="en">
           <%- include('../partials/csrf') %>
           <input type="hidden" name="return_to" value="/admin/checkin/<%= token %>">

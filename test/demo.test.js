@@ -16,11 +16,13 @@ test('demo mode fills an empty database and offers one-tap sign-in', async () =>
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM membership_plans').get().n, 5);
   const c = new t.Client();
   let res = await c.get('/login');
-  assert.match(res.text, /Admin \(committee\)/);
+  assert.doesNotMatch(res.text, /Admin \(committee\)/, 'the admin demo button is only on the committee sign-in');
   assert.match(res.text, /Member \(Family level\)/);
+  res = await c.get('/admin/login');
+  assert.match(res.text, /Admin \(committee\)/);
 
   // The demo button signs the admin in.
-  res = await c.post('/login', { email: 'admin@example.com', password: 'demo1234' });
+  res = await c.post('/admin/login', { email: 'admin@example.com', password: 'demo1234' });
   assert.equal(res.status, 302);
   res = await c.get('/admin');
   assert.match(res.text, /Reset demo data/);

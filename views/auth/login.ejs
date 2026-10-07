@@ -12,7 +12,7 @@
   <div class="staff-signin">
     <a class="btn big secondary" href="/admin/login"><%- include('../partials/icon', { name: 'shield' }) %> <%= t('Committee & volunteer sign-in') %></a>
   </div>
-  <% const memberDemo = demoAccounts.filter((a) => !a.door); %>
+  <% const memberDemo = demoAccounts.filter((a) => !a.staff); %>
   <% if (memberDemo.length) { %>
     <div class="demo-login">
       <p class="small" style="margin:0 0 8px"><strong><%= t('Demo site') %></strong> — <%= t('tap to sign in as:') %></p>

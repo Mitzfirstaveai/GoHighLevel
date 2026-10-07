@@ -89,6 +89,7 @@ function createApp(config) {
     res.locals.url = req.originalUrl;
     res.locals.user = null;
     res.locals.doorMode = false;
+    res.locals.adminMode = false;
     res.locals.org = getContent(db, 'org');
     next();
   });

@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
   const q = String(req.query.q || '').slice(0, 60);
   const results = selected && q ? searchRsvps(db, selected.id, q) : null;
   // Admins see who has door access, so they can add or remove volunteers.
-  const volunteers = req.user.role === 'admin'
+  const volunteers = req.session.adminMode
     ? db.prepare(`SELECT id, first_name, last_name FROM users WHERE checkin_access = 1 AND role != 'admin' ORDER BY first_name, last_name`).all()
     : [];
   res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers });

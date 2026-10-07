@@ -8,7 +8,7 @@ const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.get('/', (req, res) => {
-  if (req.user) return res.redirect(req.user.role === 'admin' ? '/admin' : '/dashboard');
+  if (req.user) return res.redirect('/dashboard'); // admin and door modes are sent to their own pages first
   res.render('home', { title: 'Welcome' });
 });
 
@@ -58,14 +58,17 @@ function authenticate(req, res, view) {
   return user;
 }
 
-function signIn(req, res, next, user, { doorMode = false, fallback = '/' } = {}) {
+function signIn(req, res, next, user, { doorMode = false, adminMode = false, fallback = '/' } = {}) {
   const returnTo = req.session.returnTo;
   req.session.regenerate((err) => {
     if (err) return next(err);
     req.session.userId = user.id;
     if (doorMode) req.session.doorMode = true;
+    if (adminMode) req.session.adminMode = true;
     const safe = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
-    res.redirect(safe && (!doorMode || safe.startsWith('/admin/checkin')) ? safe : fallback);
+    // Go back where they were heading, if that page belongs to the mode they signed in to.
+    const fits = !safe ? false : doorMode ? safe.startsWith('/admin/checkin') : adminMode ? safe.startsWith('/admin') : !safe.startsWith('/admin');
+    res.redirect(fits ? safe : fallback);
   });
 }
 
@@ -77,7 +80,7 @@ router.post('/login', (req, res, next) => {
 // Committee & door volunteer sign-in. Volunteers land in door check-in mode: a check-in-only
 // screen, kept separate from their member app. Ordinary members are turned away here.
 router.get('/admin/login', (req, res) => {
-  if (req.user?.role === 'admin') return res.redirect('/admin');
+  if (req.session.adminMode) return res.redirect('/admin');
   if (req.session.doorMode) return res.redirect('/admin/checkin');
   res.render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: '' });
 });
@@ -85,7 +88,7 @@ router.get('/admin/login', (req, res) => {
 router.post('/admin/login', (req, res, next) => {
   const user = authenticate(req, res, 'auth/staff_login');
   if (!user) return;
-  if (user.role === 'admin') return signIn(req, res, next, user, { fallback: '/admin' });
+  if (user.role === 'admin') return signIn(req, res, next, user, { adminMode: true, fallback: '/admin' });
   if (user.checkin_access) return signIn(req, res, next, user, { doorMode: true, fallback: '/admin/checkin' });
   res.locals.flash = [{ type: 'error', message: 'This sign-in is only for the committee and door volunteers. Please use the member sign-in.' }];
   res.status(403).render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: user.email });
@@ -207,8 +210,8 @@ router.post('/join/family/:token/link', (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  // A door volunteer signing out leaves the sign-in screen ready for the next volunteer.
-  const next = req.session.doorMode ? '/admin/login' : '/';
+  // Signing out of a staff mode leaves the committee & volunteer sign-in ready for the next person.
+  const next = req.session.doorMode || req.session.adminMode ? '/admin/login' : '/';
   req.session.destroy(() => res.redirect(next));
 });
 

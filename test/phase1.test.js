@@ -8,7 +8,7 @@ let admin;
 
 before(async () => {
   t = await startTestApp();
-  admin = await t.login('admin@test.org', 'adminpass1');
+  admin = await t.adminLogin();
 });
 
 after(() => t.close());

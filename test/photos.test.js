@@ -18,7 +18,7 @@ const phonePhoto = (color) => sharp({ create: { width: 3000, height: 2000, chann
 
 before(async () => {
   t = await startTestApp();
-  admin = await t.login('admin@test.org', 'adminpass1');
+  admin = await t.adminLogin();
   member = await t.register('photos@test.org', 'Mira');
   jpeg = await phonePhoto('#e85d04');
   assert.ok((await sharp(jpeg).metadata()).exif, 'test photo carries EXIF/GPS');

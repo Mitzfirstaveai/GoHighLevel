@@ -66,7 +66,7 @@ router.get('/photos/view/:id', requireAuth, (req, res) => {
 router.get('/photos/file/:id/:size', requireAuth, (req, res) => {
   const { db, config } = req.app.locals;
   const photo = db.prepare('SELECT p.*, a.title FROM photos p JOIN photo_albums a ON a.id = p.album_id WHERE p.id = ?').get(req.params.id);
-  if (!photo || (photo.status !== 'approved' && req.user.role !== 'admin')) return res.sendStatus(404);
+  if (!photo || (photo.status !== 'approved' && !req.session.adminMode)) return res.sendStatus(404);
   const file = photoPath(config, photo.file, req.params.size === 'thumb' ? 'thumb' : 'full');
   if (!file || !fs.existsSync(file)) return res.sendStatus(404);
   res.set('Cache-Control', 'private, max-age=604800');

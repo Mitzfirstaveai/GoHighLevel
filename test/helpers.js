@@ -84,6 +84,16 @@ async function startTestApp(overrides = {}) {
     return c;
   }
 
+  // Admins work in the admin area, which they enter through the committee sign-in.
+  async function adminLogin(email = 'admin@test.org', password = 'adminpass1') {
+    const c = new Client();
+    await c.get('/admin/login');
+    const res = await c.post('/admin/login', { email, password });
+    assert.equal(res.status, 302, 'admin login should redirect');
+    await c.get('/admin'); // refresh CSRF token for the new session
+    return c;
+  }
+
   const planId = (name) => db.prepare('SELECT id FROM membership_plans WHERE name = ?').get(name).id;
 
   async function register(email, first = 'Test', familyMembers = 0) {
@@ -124,7 +134,7 @@ async function startTestApp(overrides = {}) {
   }
 
   return {
-    db, base, Client, login, register, planId, futureDate, createEvent, rsvpFor, config: () => app.locals.config, close: () => server.close(),
+    db, base, Client, login, adminLogin, register, planId, futureDate, createEvent, rsvpFor, config: () => app.locals.config, close: () => server.close(),
   };
 }
 

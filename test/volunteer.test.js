@@ -25,7 +25,7 @@ async function doorLogin(email, password = 'secret123') {
 
 before(async () => {
   t = await startTestApp();
-  admin = await t.login('admin@test.org', 'adminpass1');
+  admin = await t.adminLogin();
   await t.register('door@test.org', 'Dhruv');
   const res = await admin.follow(await admin.post(`/admin/members/${userId('door@test.org')}/checkin-access`, { access: '1' }));
   assert.match(res.text, /Door check-in turned on/);

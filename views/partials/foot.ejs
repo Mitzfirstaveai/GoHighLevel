@@ -1,5 +1,5 @@
 </main>
-<% if (user && !doorMode) { %>
+<% if (user && !doorMode && !adminMode) { %>
 <%
   const tabs = [
     ['/dashboard', 'Home', 'home', true],
@@ -9,7 +9,6 @@
     ['/more', 'More', 'more'],
   ];
   const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/photos', '/about', '/committee', '/sponsors', '/contact', '/donate'];
-  if (user.role === 'admin') tabs.push(['/admin', 'Admin', 'shield']);
   const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
 %>
 <nav class="tabbar mobile-only" aria-label="<%= t('Main menu') %>">

@@ -65,7 +65,7 @@
   <p class="muted small"><%= t("Tip: members' QR codes are links — you can also scan them with your phone's regular camera app while signed in here.") %></p>
 </details>
 
-<% if (user.role === 'admin') { %>
+<% if (adminMode) { %>
 <div class="card" lang="en">
   <h2>Door volunteers</h2>
   <p class="muted small">Volunteers sign in at <a href="/admin/login">Committee &amp; volunteer sign-in</a> (linked from the sign-in page) and see only this page.

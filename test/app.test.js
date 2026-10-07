@@ -14,7 +14,7 @@ let rsvpFor;
 
 before(async () => {
   t = await startTestApp();
-  ({ db, Client, login, register, planId, futureDate, createEvent, rsvpFor } = t);
+  ({ db, Client, login, adminLogin, register, planId, futureDate, createEvent, rsvpFor } = t);
 });
 
 after(() => t.close());
@@ -46,7 +46,7 @@ test('member edits profile and family; admin sees the details', async () => {
   assert.equal(res.status, 302);
   await member.post('/profile/household', { name: 'Diya Shah', relationship: 'Daughter', birth_year: '2014' });
 
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   res = await admin.get('/admin/members?q=Surat');
   assert.match(res.text, /Shah, Priya/);
   const id = db.prepare(`SELECT id FROM users WHERE email = 'priya@test.org'`).get().id;
@@ -60,7 +60,7 @@ test('member edits profile and family; admin sees the details', async () => {
 });
 
 test('free event: RSVP gives a QR ticket, admin sees headcount, QR checks in only once', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Diwali Sneh Milan' });
 
   const member = await register('raj@test.org', 'Raj', 3);
@@ -107,7 +107,7 @@ test('free event: RSVP gives a QR ticket, admin sees headcount, QR checks in onl
 });
 
 test('cannot check in more guests than registered, or an unknown code', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Picnic' });
   const member = await register('guestcap@test.org', 'Test', 1);
   await member.post(`/events/${eventId}/rsvp`, { party_size: '2' });
@@ -118,7 +118,7 @@ test('cannot check in more guests than registered, or an unknown code', async ()
 });
 
 test('paid event: RSVP requires payment before a QR is issued', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Navratri', fee: '15' });
   const member = await register('meena@test.org', 'Meena', 3);
 
@@ -164,7 +164,7 @@ test('paid event: RSVP requires payment before a QR is issued', async () => {
 });
 
 test('capacity and max party size are enforced', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Small Event', capacity: '5', max_party_size: '4' });
   const a = await register('cap-a@test.org', 'Test', 3);
   const b = await register('cap-b@test.org', 'Test', 5);
@@ -177,7 +177,7 @@ test('capacity and max party size are enforced', async () => {
 });
 
 test('cancelled RSVP frees capacity and invalidates the old QR code', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Bhajan Sandhya' });
   const m = await register('cancel@test.org', 'Test', 1);
   await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
@@ -194,7 +194,7 @@ test('cancelled RSVP frees capacity and invalidates the old QR code', async () =
 });
 
 test('membership levels: join, members-only events, renewal extends to next year', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'AGM', members_only: '1' });
 
   const m = await register('dues@test.org');
@@ -242,7 +242,7 @@ test('age-restricted level needs a qualifying date of birth', async () => {
 });
 
 test('membership level limits who can be on the profile; upgrade pays the difference', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const m = await register('couple@test.org');
   await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
   await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' });
@@ -296,7 +296,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
 });
 
 test('without an active membership a member can only RSVP for themselves', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Open Event' });
   const m = await register('nomember@test.org');
   await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
@@ -306,7 +306,7 @@ test('without an active membership a member can only RSVP for themselves', async
 });
 
 test('admin records an offline payment and payments ledger shows it', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const m = await register('offline@test.org');
   const id = db.prepare(`SELECT id FROM users WHERE email = 'offline@test.org'`).get().id;
   await admin.post(`/admin/members/${id}/payments`, { kind: 'other', amount: '101', description: 'Temple donation', method: 'check', reference: '1042' });
@@ -322,7 +322,7 @@ test('CSV export neutralises spreadsheet formulas', async () => {
 });
 
 test('guest limit is the member plus family members on their profile', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Family Limit', max_party_size: '10' });
   const m = await register('family@test.org', 'Test', 2); // member + 2 children = 3
   let res = await m.get(`/events/${eventId}`);
@@ -339,7 +339,7 @@ test('guest limit is the member plus family members on their profile', async () 
 });
 
 test('changing 4 → 2 guests on a free event: old QR stops working, new QR issued everywhere', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Free Garba' });
   const m = await register('change@test.org', 'Asha', 3);
 
@@ -387,7 +387,7 @@ test('changing 4 → 2 guests on a free event: old QR stops working, new QR issu
 });
 
 test('paid event: reducing guests gives no refund; paid amount stays as credit', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Paid Dinner', fee: '15' });
   const m = await register('norefund@test.org', 'Test', 3);
 
@@ -450,7 +450,7 @@ test('member directory respects privacy settings', async () => {
 });
 
 test('admin posts news that members see', async () => {
-  const admin = await login('admin@test.org', 'adminpass1');
+  const admin = await adminLogin();
   const member = await register('reader@test.org');
   assert.equal((await member.post('/admin/news', { title: 'x', body: 'y' })).status, 403);
   await admin.post('/admin/news', { title: 'Garba volunteers needed', body: 'Please sign up at the front desk.' });

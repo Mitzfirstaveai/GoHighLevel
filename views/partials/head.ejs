@@ -18,8 +18,6 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <%
-  const isAdmin = user && user.role === 'admin';
-  const inAdmin = path.startsWith('/admin');
   const active = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
   const memberTabs = [
     ['/dashboard', 'Home', 'home', true],
@@ -51,16 +49,18 @@
   const back = encodeURIComponent(url);
   const sizeLabels = { normal: 'Text size: normal', large: 'Text size: large', xlarge: 'Text size: extra large' };
 %>
-<body class="<%= user ? 'signed-in' : '' %><%= doorMode ? ' door-mode' : '' %>">
+<body class="<%= user ? 'signed-in' : '' %><%= doorMode ? ' staff-mode door-mode' : adminMode ? ' staff-mode admin-mode' : '' %>">
 <a class="skip" href="#main"><%= t('Skip to content') %></a>
 <header class="topbar">
   <div class="inner">
-    <a class="brand" href="<%= doorMode ? '/admin/checkin' : '/' %>">
+    <a class="brand" href="<%= doorMode ? '/admin/checkin' : adminMode ? '/admin' : '/' %>">
       <img src="/logo.png" alt="" width="44" height="44">
       <span class="brand-full"><%= t.data(orgName) %></span><span class="brand-short"><%= org.shortName %></span>
     </a>
     <% if (doorMode) { %>
       <span class="door-label"><%- include('icon', { name: 'scan' }) %> <%= t('Door check-in') %></span>
+    <% } else if (adminMode) { %>
+      <span class="door-label" lang="en"><%- include('icon', { name: 'shield' }) %> Admin</span>
     <% } else if (!user) { %>
       <nav class="nav"><a href="/login"><%= t('Sign in') %></a><a href="/register" class="btn small"><%= t('Join') %></a></nav>
     <% } %>
@@ -68,7 +68,7 @@
       <a class="pref-btn lang-btn" href="/prefs?lang=<%= lang === 'gu' ? 'en' : 'gu' %>&back=<%= back %>" lang="<%= lang === 'gu' ? 'en' : 'gu' %>"
          title="<%= lang === 'gu' ? 'Read in English' : 'ગુજરાતીમાં વાંચો' %>"><%= lang === 'gu' ? 'English' : 'ગુજરાતી' %></a>
       <a class="pref-btn size-btn" href="/prefs?size=next&back=<%= back %>" title="<%= t(sizeLabels[textSize]) %>" aria-label="<%= t(sizeLabels[textSize]) %> — <%= t('tap to change') %>">A<span class="size-plus"><%= textSize === 'normal' ? '+' : textSize === 'large' ? '++' : '−' %></span></a>
-      <% if (doorMode) { %>
+      <% if (doorMode || adminMode) { %>
         <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pref-btn"><%= t('Sign out') %></button></form>
       <% } else if (user) { %>
         <form method="post" action="/logout" class="desktop-only"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="linkish" title="<%= t('Sign out') %>"><%- include('icon', { name: 'logout' }) %><span class="sr-only"><%= t('Sign out') %></span></button></form>
@@ -83,21 +83,20 @@
         <% } %>
       </div>
     </nav>
-  <% } else if (!doorMode) { %>
+  <% } else if (!doorMode && !adminMode) { %>
     <%# The menu gets its own row, so it never runs into the logo, whatever the language or text size. %>
     <nav class="nav mainnav desktop-only" aria-label="<%= t('Main menu') %>">
       <div class="inner">
         <% for (const [href, label, icon, exact] of memberTabs) { %>
           <a href="<%= href %>" class="<%= active(href, exact) || (href === '/about' && aboutPaths.includes(path)) ? 'active' : '' %>"><%= t(label) %></a>
         <% } %>
-        <% if (isAdmin) { %><a href="/admin" class="admin-link <%= inAdmin ? 'active' : '' %>"><%- include('icon', { name: 'shield' }) %> <%= t('Admin') %></a><% } %>
       </div>
     </nav>
   <% } %>
   <div class="stripe" aria-hidden="true"></div>
 </header>
 
-<% if (isAdmin && inAdmin) { %>
+<% if (adminMode) { %>
   <nav class="subnav" aria-label="Admin" lang="en">
     <div class="inner">
       <% for (const [href, label, icon, exact] of adminTabs) { %>

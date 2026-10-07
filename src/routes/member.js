@@ -289,8 +289,8 @@ function loadTicket(req) {
     FROM rsvps r JOIN events e ON e.id = r.event_id JOIN users u ON u.id = r.user_id
     WHERE r.id = ?
   `).get(req.params.id);
-  // Members see their family's tickets; admins can view anyone's (e.g. to resend).
-  if (!rsvp || (!svc.familyUserIds(db, req.user.id).includes(rsvp.user_id) && req.user.role !== 'admin')) return null;
+  // Members see only their own family's tickets (admins included, when using the member app).
+  if (!rsvp || !svc.familyUserIds(db, req.user.id).includes(rsvp.user_id)) return null;
   return rsvp;
 }
 
@@ -377,10 +377,10 @@ const PAYMENT_DETAILS_SQL = `
   LEFT JOIN events e ON e.id = r.event_id
   LEFT JOIN campaigns c ON p.kind = 'donation' AND c.id = p.reference_id`;
 
-// Printable receipt for any paid payment (members see their own; admins see all).
+// Printable receipt for any paid payment (members see their own; the admin area sees all).
 router.get('/receipts/:id', requireAuth, (req, res) => {
   const payment = req.app.locals.db.prepare(`${PAYMENT_DETAILS_SQL} WHERE p.id = ? AND p.status = 'paid'`).get(req.params.id);
-  if (!payment || (payment.user_id !== req.user.id && req.user.role !== 'admin')) {
+  if (!payment || (payment.user_id !== req.user.id && !req.session.adminMode)) {
     return res.status(404).render('error', { title: 'Not found', message: 'Receipt not found.' });
   }
   res.render('member/receipt', { title: `Receipt ${receiptNumber(payment.id)}`, payment, number: receiptNumber(payment.id) });
