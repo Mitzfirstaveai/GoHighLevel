@@ -1,19 +1,21 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>More</h1></div>
+<div class="page-head"><h1><%= t('More') %></h1></div>
+<%- include('../partials/display-settings') %>
 <div class="card menu-list">
-  <a href="/profile"><%- include('../partials/icon', { name: 'user' }) %>My profile &amp; family</a>
-  <a href="/payments"><%- include('../partials/icon', { name: 'dollar' }) %>My payments</a>
-  <a href="/directory"><%- include('../partials/icon', { name: 'book' }) %>Member directory</a>
-  <a href="/news"><%- include('../partials/icon', { name: 'news' }) %>News</a>
+  <a href="/profile"><%- include('../partials/icon', { name: 'user' }) %><%= t('My profile & family') %></a>
+  <a href="/payments"><%- include('../partials/icon', { name: 'dollar' }) %><%= t('My payments') %></a>
+  <a href="/donate"><%- include('../partials/icon', { name: 'heart' }) %><%= t('Donate') %></a>
+  <a href="/directory"><%- include('../partials/icon', { name: 'book' }) %><%= t('Member directory') %></a>
+  <a href="/news"><%- include('../partials/icon', { name: 'news' }) %><%= t('News') %></a>
 </div>
-<h2>About GSA</h2>
+<h2><%= t('About GSA') %></h2>
 <div class="card menu-list">
-  <a href="/about"><%- include('../partials/icon', { name: 'info' }) %>About us, mission &amp; vision</a>
-  <a href="/committee"><%- include('../partials/icon', { name: 'users' }) %>Committee members</a>
-  <a href="/sponsors"><%- include('../partials/icon', { name: 'star' }) %>Sponsors</a>
-  <a href="/contact"><%- include('../partials/icon', { name: 'phone' }) %>Contact us</a>
+  <a href="/about"><%- include('../partials/icon', { name: 'info' }) %><%= t('About us, mission & vision') %></a>
+  <a href="/committee"><%- include('../partials/icon', { name: 'users' }) %><%= t('Committee members') %></a>
+  <a href="/sponsors"><%- include('../partials/icon', { name: 'star' }) %><%= t('Sponsors') %></a>
+  <a href="/contact"><%- include('../partials/icon', { name: 'phone' }) %><%= t('Contact us') %></a>
 </div>
 <form method="post" action="/logout" class="card menu-list"><%- include('../partials/csrf') %>
-  <button><%- include('../partials/icon', { name: 'logout' }) %>Sign out</button>
+  <button><%- include('../partials/icon', { name: 'logout' }) %><%= t('Sign out') %></button>
 </form>
 <%- include('../partials/foot') %>

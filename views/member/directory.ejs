@@ -1,8 +1,8 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Member directory</h1><span class="muted"><%= members.length %> listed</span></div>
+<div class="page-head"><h1><%= t('Member directory') %></h1><span class="muted"><%= t('{n} listed', { n: members.length }) %></span></div>
 <form method="get" class="card actions">
-  <input name="q" value="<%= q %>" placeholder="Search name, city or native place…" style="flex:1;min-width:200px">
-  <button class="btn">Search</button><% if (q) { %><a href="/directory">Clear</a><% } %>
+  <input name="q" value="<%= q %>" placeholder="<%= t('Search name, city or native place…') %>" style="flex:1;min-width:200px">
+  <button class="btn"><%= t('Search') %></button><% if (q) { %><a href="/directory"><%= t('Clear') %></a><% } %>
 </form>
 <div class="people">
   <% for (const m of members) { %>
@@ -10,7 +10,7 @@
       <div class="avatar" aria-hidden="true"><%= (m.first_name[0] || '') + (m.last_name[0] || '') %></div>
       <div style="min-width:0">
         <strong><%= m.first_name %> <%= m.last_name %></strong>
-        <div class="muted small"><%= [m.city, m.native_place && `Vatan: ${m.native_place}`].filter(Boolean).join(' · ') %></div>
+        <div class="muted small"><%= [m.city, m.native_place && `${t('Vatan')}: ${m.native_place}`].filter(Boolean).join(' · ') %></div>
         <% if (m.directory_contact) { %>
           <div class="small" style="overflow-wrap:anywhere">
             <% if (m.phone) { %><a href="tel:<%= m.phone.replace(/[^\d+]/g, '') %>"><%= m.phone %></a><br><% } %>
@@ -21,6 +21,6 @@
     </div>
   <% } %>
 </div>
-<% if (!members.length) { %><div class="card"><p class="muted">No members found.</p></div><% } %>
-<p class="muted small" style="margin-top:16px">You control how you appear here in <a href="/profile#privacy">Profile → Directory settings</a>.</p>
+<% if (!members.length) { %><div class="card"><p class="muted"><%= t('No members found.') %></p></div><% } %>
+<p class="muted small" style="margin-top:16px"><%= t('You control how you appear here in your profile, under Directory settings.') %> <a href="/profile#privacy"><%= t('Directory settings') %></a></p>
 <%- include('../partials/foot') %>

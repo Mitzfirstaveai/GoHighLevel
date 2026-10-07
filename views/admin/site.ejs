@@ -9,6 +9,7 @@
     <div class="fields">
       <label>Short name <input name="shortName" value="<%= o.shortName %>"></label>
       <label>Motto <input name="motto" value="<%= o.motto %>"></label>
+      <label>Motto in Gujarati <input name="motto_gu" value="<%= o.motto_gu || '' %>" lang="gu"></label>
       <label>Founded (year) <input name="founded" inputmode="numeric" value="<%= o.founded || '' %>"></label>
       <label>Address line 1 <input name="address1" value="<%= o.address[0] || '' %>"></label>
       <label>Address line 2 <input name="address2" value="<%= o.address[1] || '' %>"></label>
@@ -31,6 +32,20 @@
     <label>Nonprofit status <textarea name="nonprofit" rows="3"><%= about.nonprofit %></textarea></label>
     <label>Membership <textarea name="membership" rows="2"><%= about.membership %></textarea></label>
     <div><button class="btn">Save About Us</button></div>
+  </form>
+</div>
+
+<div class="card" id="about_gu" lang="gu">
+  <h2>About Us — Gujarati (ગુજરાતી)</h2>
+  <p class="muted small" lang="en">Shown to members who read the app in Gujarati.</p>
+  <form method="post" action="/admin/site/about_gu" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>અમારા વિશે <textarea name="history" rows="8"><%= historyGuText %></textarea></label>
+    <label>ધ્યેય (Mission) <textarea name="mission" rows="5"><%= aboutGu.mission %></textarea></label>
+    <label>સ્વપ્ન (Vision) <textarea name="vision" rows="3"><%= aboutGu.vision %></textarea></label>
+    <label>બિનનફાકારક દરજ્જો <textarea name="nonprofit" rows="3"><%= aboutGu.nonprofit %></textarea></label>
+    <label>સભ્યપદ <textarea name="membership" rows="2"><%= aboutGu.membership %></textarea></label>
+    <div><button class="btn">Save Gujarati About Us</button></div>
   </form>
 </div>
 

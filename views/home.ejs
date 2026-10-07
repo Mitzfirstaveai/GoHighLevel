@@ -1,26 +1,25 @@
 <%- include('partials/head') %>
 <section class="hero">
-  <img src="/logo.png" alt="<%= orgName %> logo">
-  <h1>Welcome to <%= orgName %></h1>
-  <p class="motto">“<%= org.motto %>”</p>
-  <p class="muted" style="max-width:640px;margin:12px auto">Founded in <%= org.founded %> by 35 Gujarati families, GSA now represents more than 300 families across Arkansas —
-    preserving and celebrating Gujarati culture, language and the Gujarati Hindu religious tradition for present and future generations.</p>
+  <img src="/logo.png" alt="">
+  <h1><%= t('Welcome to {org}', { org: t.data(orgName) }) %></h1>
+  <p class="motto">“<%= loc(org, 'motto') %>”</p>
+  <p class="muted" style="max-width:640px;margin:12px auto"><%= t('Founded in {year} by 35 Gujarati families, GSA now represents more than 300 families across Arkansas — preserving and celebrating Gujarati culture, language and the Gujarati Hindu religious tradition for present and future generations.', { year: org.founded }) %></p>
   <div class="actions" style="justify-content:center">
-    <a class="btn" href="/register">Become a member</a>
-    <a class="btn secondary" href="/login">Member sign in</a>
+    <a class="btn big-touch" href="/register"><%= t('Become a member') %></a>
+    <a class="btn secondary big-touch" href="/login"><%= t('Member sign in') %></a>
   </div>
-  <% if (demoMode) { %><p class="small muted" style="margin-top:12px">This is a demo site with sample data — tap <strong>Member sign in</strong> to try it as an admin or a member.</p><% } %>
+  <% if (demoMode) { %><p class="small muted" style="margin-top:12px"><%= t('This is a demo site with sample data. Tap "Member sign in" to try it as an admin or a member.') %></p><% } %>
 </section>
 <div class="grid grid-2">
-  <div class="card"><h2>📇 Your family profile</h2><p class="muted">Contact details, address, native place and family members in one place.</p></div>
-  <div class="card"><h2>🪔 Events &amp; RSVPs</h2><p class="muted">Garba, Diwali, bhajans, picnics and more — RSVP for your family in seconds.</p></div>
-  <div class="card"><h2>🎟️ QR check-in</h2><p class="muted">Show your QR code at the door — no paper lists, no waiting.</p></div>
-  <div class="card"><h2>💳 Membership dues</h2><p class="muted">Pay or renew your membership securely online.</p></div>
+  <div class="card"><h2>📇 <%= t('Your family profile') %></h2><p class="muted"><%= t('Contact details, address, native place and family members in one place.') %></p></div>
+  <div class="card"><h2>🪔 <%= t('Events & RSVPs') %></h2><p class="muted"><%= t('Garba, Diwali, bhajans, picnics and more — RSVP for your family in seconds.') %></p></div>
+  <div class="card"><h2>🎟️ <%= t('QR check-in') %></h2><p class="muted"><%= t('Show your QR code at the door — no paper lists, no waiting.') %></p></div>
+  <div class="card"><h2>💳 <%= t('Membership dues') %></h2><p class="muted"><%= t('Pay or renew your membership securely online.') %></p></div>
 </div>
 <div class="actions" style="justify-content:center;margin-top:8px">
-  <a class="btn secondary small" href="/about">About us</a>
-  <a class="btn secondary small" href="/committee">Committee members</a>
-  <a class="btn secondary small" href="/sponsors">Sponsors</a>
-  <a class="btn secondary small" href="/contact">Contact</a>
+  <a class="btn secondary small" href="/about"><%= t('About us') %></a>
+  <a class="btn secondary small" href="/committee"><%= t('Committee members') %></a>
+  <a class="btn secondary small" href="/sponsors"><%= t('Sponsors') %></a>
+  <a class="btn secondary small" href="/contact"><%= t('Contact') %></a>
 </div>
 <%- include('partials/foot') %>

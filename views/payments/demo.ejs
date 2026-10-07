@@ -1,11 +1,11 @@
 <%- include('../partials/head') %>
 <div class="card" style="max-width:460px;margin:20px auto;text-align:center">
-  <h1>Checkout</h1>
+  <h1><%= t('Checkout') %></h1>
   <p><%= payment.description %></p>
   <p style="font-size:2rem;font-weight:800;margin:8px 0"><%= money(payment.amount_cents) %></p>
-  <p class="flash info small">This is a demo checkout. Set <code>STRIPE_SECRET_KEY</code> to take real card payments via Stripe.</p>
+  <p class="flash info small"><%= t('This is a demo checkout — no real money is charged.') %></p>
   <form method="post" action="/pay/<%= payment.id %>/demo"><%- include('../partials/csrf') %>
-    <button class="btn big">Simulate successful payment</button></form>
-  <p><a href="/pay/<%= payment.id %>/cancelled">Cancel</a></p>
+    <button class="btn big"><%= t('Simulate successful payment') %></button></form>
+  <p><a href="/pay/<%= payment.id %>/cancelled"><%= t('Cancel') %></a></p>
 </div>
 <%- include('../partials/foot') %>

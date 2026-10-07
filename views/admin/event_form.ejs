@@ -6,6 +6,12 @@
     <h2>Details</h2>
     <label>Title <input name="title" value="<%= event.title || '' %>" required placeholder="e.g. Navratri Garba #1"></label>
     <label>Description <textarea name="description"><%= event.description || '' %></textarea></label>
+    <details class="gu-fields" <%= event.title_gu ? 'open' : '' %>><summary>Gujarati version (optional) — shown to members reading in Gujarati</summary>
+      <div class="stack" lang="gu" style="margin-top:8px">
+        <label>શીર્ષક (Title in Gujarati) <input name="title_gu" value="<%= event.title_gu || '' %>" placeholder="દા.ત. નવરાત્રી ગરબા"></label>
+        <label>વિગત (Description in Gujarati) <textarea name="description_gu"><%= event.description_gu || '' %></textarea></label>
+      </div>
+    </details>
     <div class="fields">
       <label>Location <input name="location" value="<%= event.location || '' %>"></label>
       <label>Starts <input type="datetime-local" name="starts_at" value="<%= event.starts_at || '' %>" required></label>

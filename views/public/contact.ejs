@@ -2,13 +2,13 @@
 <%- include('../partials/about-tabs') %>
 <div class="card" style="text-align:center;max-width:560px;margin:0 auto 16px">
   <img src="/logo.png" alt="" width="96" height="96" style="border-radius:50%">
-  <h1>Contact Us</h1>
-  <p><strong><%= orgName %></strong></p>
+  <h1><%= t('Contact Us') %></h1>
+  <p><strong><%= t.data(orgName) %></strong></p>
   <p><%= org.address[0] %><br><%= org.address[1] %></p>
   <div class="actions" style="justify-content:center">
-    <a class="btn" href="tel:<%= org.phone.replace(/\D/g, '') %>">Call <%= org.phone %></a>
-    <a class="btn secondary" href="mailto:<%= org.email %>">Email us</a>
-    <a class="btn secondary" href="https://maps.google.com/?q=<%= encodeURIComponent(org.address.join(', ')) %>" target="_blank" rel="noopener">Directions</a>
+    <a class="btn big-touch" href="tel:<%= org.phone.replace(/\D/g, '') %>">📞 <%= t('Call {phone}', { phone: org.phone }) %></a>
+    <a class="btn secondary big-touch" href="mailto:<%= org.email %>">✉️ <%= t('Email us') %></a>
+    <a class="btn secondary big-touch" href="https://maps.google.com/?q=<%= encodeURIComponent(org.address.join(', ')) %>" target="_blank" rel="noopener">📍 <%= t('Directions') %></a>
   </div>
   <p class="muted small" style="margin-top:14px"><%= org.email %></p>
 </div>

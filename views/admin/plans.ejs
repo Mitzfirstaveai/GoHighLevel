@@ -4,7 +4,7 @@
   <table>
     <thead><tr><th>Level</th><th>Covers</th><th class="num">Price</th><th>Period</th><th>Status</th><th></th></tr></thead>
     <tbody><% for (const p of plans) { %>
-      <tr class="<%= p.active ? '' : 'dim' %>"><td><%= p.name %><div class="muted small"><%= p.description || '' %></div></td>
+      <tr class="<%= p.active ? '' : 'dim' %>"><td><%= p.name %><% if (p.name_gu) { %> <span class="muted" lang="gu">· <%= p.name_gu %></span><% } %><div class="muted small"><%= p.description || '' %></div></td>
         <td><%= p.coverage %><%= p.min_age ? ` · age ${p.min_age}+` : '' %></td>
         <td class="num"><%= money(p.amount_cents) %></td><td><%= p.calendar_year ? 'Jan 1 – Dec 31' : `${p.duration_months} months` %></td>
         <td><%= p.active ? 'Available' : 'Hidden' %></td>
@@ -19,6 +19,7 @@
     <%- include('../partials/csrf') %>
     <div class="fields">
       <label>Name <input name="name" required placeholder="Family"></label>
+      <label>Name in Gujarati (optional) <input name="name_gu" placeholder="પરિવાર" lang="gu"></label>
       <label>Price <input name="amount" inputmode="decimal" required placeholder="330.00"></label>
       <label>Period <select name="period"><option value="calendar">Calendar year (Jan 1 – Dec 31)</option><option value="months">Fixed number of months</option></select></label>
       <label>Months (if fixed) <input name="duration_months" type="number" min="1" value="12"></label>

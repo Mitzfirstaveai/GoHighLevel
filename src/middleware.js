@@ -37,14 +37,17 @@ function csrf(req, res, next) {
 }
 
 // Flash messages survive redirects and are only cleared once a page actually renders them.
+// They're stored as English text (+ placeholder values) and translated when shown.
 function flash(req, res, next) {
-  req.flash = (type, message) => {
-    req.session.flash = [...(req.session.flash || []), { type, message }];
+  req.flash = (type, message, vars) => {
+    req.session.flash = [...(req.session.flash || []), { type, message, vars }];
   };
   res.locals.flash = [];
   const render = res.render.bind(res);
   res.render = (view, locals, cb) => {
-    res.locals.flash = [...(req.session.flash || []), ...res.locals.flash];
+    const t = res.locals.t || ((m) => m);
+    res.locals.flash = [...(req.session.flash || []), ...res.locals.flash]
+      .map((f) => ({ type: f.type, message: t(f.message, f.vars) }));
     delete req.session.flash;
     return render(view, locals, cb);
   };

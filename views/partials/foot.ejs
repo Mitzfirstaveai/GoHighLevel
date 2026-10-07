@@ -8,23 +8,23 @@
     ['/membership', 'Dues', 'card'],
     ['/more', 'More', 'more'],
   ];
-  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/about', '/committee', '/sponsors', '/contact'];
+  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/about', '/committee', '/sponsors', '/contact', '/donate'];
   if (user.role === 'admin') tabs.push(['/admin', 'Admin', 'shield']);
   const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
 %>
-<nav class="tabbar mobile-only" aria-label="Main">
+<nav class="tabbar mobile-only" aria-label="<%= t('Main menu') %>">
   <% for (const [href, label, icon, exact] of tabs) { %>
-    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.includes(path)) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= label %></span></a>
+    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.includes(path)) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label) %></span></a>
   <% } %>
 </nav>
 <% } %>
 <footer class="site-footer">
   <div class="footer-info">
     <img src="/logo.png" alt="" width="36" height="36" style="border-radius:50%"><br>
-    <strong><%= orgName %></strong> · “<%= org.motto %>”<br>
+    <strong><%= t.data(orgName) %></strong> · “<%= loc(org, 'motto') %>”<br>
     <%= org.address.join(', ') %> · <a href="tel:<%= org.phone.replace(/\D/g, '') %>"><%= org.phone %></a> · <a href="mailto:<%= org.email %>"><%= org.email %></a><br>
-    <a href="/about">About</a> · <a href="/committee">Committee</a> · <a href="/sponsors">Sponsors</a> · <a href="/contact">Contact</a><br>
-    <span class="small">A 501(c)(3) nonprofit organization · Est. <%= org.founded %></span>
+    <a href="/about"><%= t('About') %></a> · <a href="/committee"><%= t('Committee') %></a> · <a href="/sponsors"><%= t('Sponsors') %></a> · <a href="/contact"><%= t('Contact') %></a><br>
+    <span class="small"><%= t('A 501(c)(3) nonprofit organization · Est. {year}', { year: org.founded }) %></span>
   </div>
 </footer>
 <script src="/app.js" defer></script>

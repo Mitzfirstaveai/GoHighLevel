@@ -1,17 +1,17 @@
 <%- include('../partials/head') %>
 <%- include('../partials/about-tabs') %>
-<h1>Our Sponsors</h1>
-<p class="muted">Thank you to the businesses who support the Gujarati Samaj of Arkansas.</p>
+<h1><%= t('Our Sponsors') %></h1>
+<p class="muted"><%= t('Thank you to the businesses who support the {org}.', { org: t.data(orgName) }) %></p>
 <% for (const s of sponsors) { %>
   <div class="card">
-    <h2><span class="tier tier-<%= s.tier.toLowerCase() %>"><%= s.tier %></span> Level</h2>
+    <h2><span class="tier tier-<%= s.tier.toLowerCase() %>"><%= t.data(s.tier) %></span> <%= t('Level') %></h2>
     <div class="sponsor-grid">
       <% for (const name of s.names) { %><div class="sponsor"><%= name %></div><% } %>
     </div>
   </div>
 <% } %>
 <div class="card">
-  <h2>Become a sponsor</h2>
-  <p class="muted">Interested in supporting GSA? Contact us at <a href="mailto:<%= org.email %>"><%= org.email %></a> or <a href="tel:<%= org.phone.replace(/\D/g, '') %>"><%= org.phone %></a>.</p>
+  <h2><%= t('Become a sponsor') %></h2>
+  <p class="muted"><%= t('Interested in supporting GSA? Contact us:') %> <a href="mailto:<%= org.email %>"><%= org.email %></a> · <a href="tel:<%= org.phone.replace(/\D/g, '') %>"><%= org.phone %></a></p>
 </div>
 <%- include('../partials/foot') %>

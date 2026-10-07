@@ -251,6 +251,8 @@ function parseEventForm(body) {
   return {
     title,
     description: String(body.description || '').trim().slice(0, 5000) || null,
+    title_gu: String(body.title_gu || '').trim().slice(0, 200) || null,
+    description_gu: String(body.description_gu || '').trim().slice(0, 5000) || null,
     location: String(body.location || '').trim().slice(0, 300) || null,
     starts_at: startsAt,
     ends_at: body.ends_at || null,
@@ -268,7 +270,7 @@ function parseEventForm(body) {
   };
 }
 
-const EVENT_COLUMNS = ['title', 'description', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
+const EVENT_COLUMNS = ['title', 'description', 'title_gu', 'description_gu', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
   'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'max_guests', 'early_fee_cents', 'early_until', 'questions'];
 
 router.get('/events', (req, res) => {
@@ -456,8 +458,9 @@ router.post('/news', eventImage, (req, res) => {
   const title = String(req.body.title || '').trim().slice(0, 200);
   const body = String(req.body.body || '').trim().slice(0, 10000);
   if (!title || !body) throw new svc.UserError('Please enter a title and the announcement text.');
-  req.app.locals.db.prepare('INSERT INTO news_posts (title, body, author_id, image_path) VALUES (?, ?, ?, ?)')
-    .run(title, body, req.user.id, req.file ? `/uploads/${req.file.filename}` : null);
+  req.app.locals.db.prepare('INSERT INTO news_posts (title, body, title_gu, body_gu, author_id, image_path) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(title, body, String(req.body.title_gu || '').trim().slice(0, 200) || null, String(req.body.body_gu || '').trim().slice(0, 10000) || null,
+      req.user.id, req.file ? `/uploads/${req.file.filename}` : null);
   req.flash('success', 'Announcement posted. Members see it under News and on their home page.');
   res.redirect('/admin/news');
 });
@@ -510,9 +513,9 @@ router.post('/plans', (req, res) => {
   if (!name || Number.isNaN(amount) || !months || maxParents === null || minAge === null) {
     throw new svc.UserError('Enter a name, price and length for the membership level.');
   }
-  req.app.locals.db.prepare(`INSERT INTO membership_plans (name, description, amount_cents, duration_months, calendar_year,
-                               spouse_allowed, children_allowed, max_parents, min_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(name, String(req.body.description || '').trim().slice(0, 500) || null, amount, months, calendarYear,
+  req.app.locals.db.prepare(`INSERT INTO membership_plans (name, name_gu, description, amount_cents, duration_months, calendar_year,
+                               spouse_allowed, children_allowed, max_parents, min_age) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(name, String(req.body.name_gu || '').trim().slice(0, 100) || null, String(req.body.description || '').trim().slice(0, 500) || null, amount, months, calendarYear,
       req.body.spouse_allowed ? 1 : 0, req.body.children_allowed ? 1 : 0, maxParents, minAge);
   req.flash('success', 'Membership level added.');
   res.redirect('/admin/plans');

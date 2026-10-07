@@ -5,6 +5,12 @@
   <form method="post" action="/admin/news?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">
     <label>Title <input name="title" required placeholder="e.g. Navratri volunteers needed"></label>
     <label>Message <textarea name="body" required rows="6"></textarea></label>
+    <details class="gu-fields"><summary>Gujarati version (optional)</summary>
+      <div class="stack" lang="gu" style="margin-top:8px">
+        <label>શીર્ષક (Title in Gujarati) <input name="title_gu"></label>
+        <label>સંદેશ (Message in Gujarati) <textarea name="body_gu" rows="5"></textarea></label>
+      </div>
+    </details>
     <label>Photo (optional) <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"></label>
     <div><button class="btn">Post</button></div>
   </form>

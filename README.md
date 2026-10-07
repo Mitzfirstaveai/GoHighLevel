@@ -4,6 +4,16 @@ A simple, mobile-friendly web app for the samaj's members and committee:
 
 Organization details (About, Committee, Sponsors, Contact) live in `src/content.js`.
 
+**Easy for every member**
+- **ગુજરાતી / English** button on every page (also before signing in). The choice is saved to the member's profile,
+  so the app opens in their language on any phone. Membership levels, family relationships, About Us, mission and
+  vision, event names and descriptions, and news can all be shown in Gujarati.
+- **Text size button (A+)** with Normal / Large / Extra large, also saved per member. Larger default text, darker grey
+  text for contrast, and large buttons and tap targets throughout — designed with older members in mind.
+- Gujarati dictionary: `src/locales/gu.js` (please have a native speaker on the committee review it). Gujarati event
+  and news text is entered by admins in the optional "Gujarati version" fields; the Gujarati About page is edited in
+  **Admin → Website**. The admin area itself stays in English.
+
 **Members can**
 - Keep their profile and family up to date; family members allowed depend on their membership level
 - Pay or renew membership dues (Senior Citizen, Individual, Married Couple, Family, Family with Parents) — upgrades pay the difference
@@ -53,15 +63,17 @@ On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — 
 Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
-1. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
-2. *Tickets*: the Navratri Garba #1 QR ticket for 4 people.
-3. *Events → Diwali Dinner & Cultural Program*: choose 3 family + 2 guests, pick a dietary preference, enter coupon
+1. Tap **ગુજરાતી** at the top — the whole member app switches to Gujarati. Tap **A+** to make the text bigger.
+   (Also under *More → Language and text size*.)
+2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
+3. *Tickets*: the Navratri Garba #1 QR ticket for 4 people.
+4. *Events → Diwali Dinner & Cultural Program*: choose 3 family + 2 guests, pick a dietary preference, enter coupon
    `DIWALI10` → the estimate updates → pay (simulated) → QR ticket. Early-bird member price applies.
-4. *Events → Garba Dance Workshop for Kids*: it's full — **Join waitlist**. Try the **Calendar** view and **Add to my calendar**.
-5. Change an RSVP from 4 to 2 → a new QR code is issued and the old one stops working.
-6. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
-7. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
-8. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
+5. *Events → Garba Dance Workshop for Kids*: it's full — **Join waitlist**. Try the **Calendar** view and **Add to my calendar**.
+6. Change an RSVP from 4 to 2 → a new QR code is issued and the old one stops working.
+7. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
+8. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
+9. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
 
 **As an admin**
 1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.
@@ -114,7 +126,8 @@ If `ADMIN_EMAIL` isn't set, the first account registered becomes the administrat
 ## Development
 
 ```bash
-npm test        # end-to-end tests (RSVPs, guests, waitlist, coupons, QR check-in, dues, contacts/import, donations, reports)
+npm test        # end-to-end tests (RSVPs, guests, waitlist, coupons, QR check-in, dues, contacts/import, donations, reports,
+                #   and a check that every member page is fully translated into Gujarati)
 npm run dev     # restart on file changes
 ```
 

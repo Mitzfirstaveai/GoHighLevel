@@ -5,6 +5,7 @@ const defaults = require('./content');
 const KEYS = {
   org: defaults.ORG,
   about: defaults.ABOUT,
+  about_gu: defaults.ABOUT_GU,
   committee: defaults.COMMITTEE,
   sponsors: defaults.SPONSORS,
 };

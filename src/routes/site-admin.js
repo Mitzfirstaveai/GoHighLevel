@@ -44,11 +44,14 @@ function parseSponsors(text) {
 router.get('/site', (req, res) => {
   const { db } = req.app.locals;
   const about = getContent(db, 'about');
+  const aboutGu = getContent(db, 'about_gu');
   res.render('admin/site', {
     title: 'Website content',
     o: getContent(db, 'org'),
     about,
     historyText: about.history.join('\n\n'),
+    aboutGu,
+    historyGuText: aboutGu.history.join('\n\n'),
     committeeText: committeeToText(getContent(db, 'committee')),
     sponsorsText: sponsorsToText(getContent(db, 'sponsors')),
   });
@@ -62,6 +65,7 @@ router.post('/site/org', (req, res) => {
     ...getContent(db, 'org'),
     shortName: clean(b.shortName, 20) || 'GSA',
     motto: clean(b.motto, 120),
+    motto_gu: clean(b.motto_gu, 120),
     founded: Number(b.founded) || null,
     address: [clean(b.address1, 120), clean(b.address2, 120)].filter(Boolean),
     phone: clean(b.phone, 40),
@@ -73,16 +77,19 @@ router.post('/site/org', (req, res) => {
   res.redirect('/admin/site');
 });
 
-router.post('/site/about', (req, res) => {
+// English (key 'about') and Gujarati ('about_gu') versions of the About page.
+const saveAbout = (key) => (req, res) => {
   const b = req.body;
   const history = clean(b.history, 8000).split(/\r?\n\s*\r?\n/).map((p) => p.trim()).filter(Boolean);
   if (!history.length) throw new UserError('The About text cannot be empty.');
-  setContent(req.app.locals.db, 'about', {
+  setContent(req.app.locals.db, key, {
     history, mission: clean(b.mission), vision: clean(b.vision), nonprofit: clean(b.nonprofit), membership: clean(b.membership),
   });
-  req.flash('success', 'About Us page saved.');
-  res.redirect('/admin/site#about');
-});
+  req.flash('success', key === 'about' ? 'About Us page saved.' : 'Gujarati About Us page saved.');
+  res.redirect(`/admin/site#${key}`);
+};
+router.post('/site/about', saveAbout('about'));
+router.post('/site/about_gu', saveAbout('about_gu'));
 
 router.post('/site/committee', (req, res) => {
   const groups = parseCommittee(req.body.committee);

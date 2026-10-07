@@ -1,16 +1,16 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>My tickets</h1></div>
+<div class="page-head"><h1><%= t('My tickets') %></h1></div>
 <% if (!tickets.length) { %>
-  <div class="card"><p class="muted">You don't have any upcoming tickets.</p><a class="btn" href="/events">Browse events</a></div>
+  <div class="card"><p class="muted"><%= t("You don't have any upcoming tickets.") %></p><a class="btn" href="/events"><%= t('Browse events') %></a></div>
 <% } %>
 <div class="event-list">
-<% for (const t of tickets) { %>
-  <a class="card event-item" style="margin:0" href="<%= t.status === 'confirmed' ? `/tickets/${t.id}` : `/events/${t.event_id}` %>">
-    <%- include('../partials/date-chip', { when: t.starts_at }) %>
+<% for (const tk of tickets) { %>
+  <a class="card event-item" style="margin:0" href="<%= tk.status === 'confirmed' ? `/tickets/${tk.id}` : `/events/${tk.event_id}` %>">
+    <%- include('../partials/date-chip', { when: tk.starts_at }) %>
     <div style="flex:1">
-      <strong><%= t.title %></strong> <%- include('../partials/rsvp-badge', { status: t.status }) %>
-      <div class="muted small"><%= fmtDate(t.starts_at) %><%= t.location ? ` · ${t.location}` : '' %></div>
-      <div class="small"><%= t.party_size %> <%= t.party_size === 1 ? 'person' : 'people' %> · <strong><%= t.checked_in_at ? 'Checked in' : t.status === 'confirmed' ? 'Tap to show QR code →' : 'Complete payment to get your QR →' %></strong></div>
+      <strong><%= loc(tk, 'title') %></strong> <%- include('../partials/rsvp-badge', { status: tk.status }) %>
+      <div class="muted small"><%= fmtDate(tk.starts_at) %><%= tk.location ? ` · ${tk.location}` : '' %></div>
+      <div class="small"><%= plural(tk.party_size, '1 person', '{n} people') %> · <strong><%= tk.checked_in_at ? t('Checked in') : tk.status === 'confirmed' ? t('Tap to show QR code') + ' →' : tk.status === 'waitlisted' ? t('On the waitlist') : t('Complete payment to get your QR code') + ' →' %></strong></div>
     </div>
   </a>
 <% } %>

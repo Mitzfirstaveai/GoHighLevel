@@ -17,7 +17,7 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const membership = svc.membershipStatus(db, req.user.id);
   const myRsvps = db.prepare(`
-    SELECT r.*, e.title, e.starts_at, e.location, e.fee_cents FROM rsvps r
+    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.fee_cents FROM rsvps r
     JOIN events e ON e.id = r.event_id
     WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ?
     ORDER BY e.starts_at
@@ -38,7 +38,7 @@ router.get('/profile', requireAuth, (req, res) => {
   const membership = svc.membershipStatus(db, req.user.id);
   res.render('member/profile', {
     title: 'My profile', profile: req.user, household: svc.getHousehold(db, req.user.id), membership,
-    coverage: membership.active && membership.plan ? svc.planCoverage(membership.plan) : null,
+    coverageParts: membership.active && membership.plan ? svc.planCoverageParts(membership.plan) : null,
     relationships: Object.keys(svc.RELATIONSHIPS),
   });
 });
@@ -55,7 +55,7 @@ router.post('/profile/household', requireAuth, (req, res) => {
   const { name } = svc.addHouseholdMember(req.app.locals.db, {
     userId: req.user.id, name: req.body.name, relationship: req.body.relationship, birthYear,
   });
-  req.flash('success', `${name} added to your family.`);
+  req.flash('success', '{name} added to your family.', { name });
   res.redirect('/profile#family');
 });
 
@@ -116,7 +116,7 @@ router.get('/events', requireAuth, (req, res) => {
     LEFT JOIN rsvps r ON r.event_id = e.id AND r.user_id = ? AND r.status != 'cancelled'
     WHERE e.status != 'draft' AND e.starts_at >= ? ORDER BY e.starts_at
   `).all(req.user.id, nowLocal().slice(0, 10));
-  const past = db.prepare(`SELECT id, title, starts_at FROM events WHERE status = 'published' AND starts_at < ?
+  const past = db.prepare(`SELECT id, title, title_gu, starts_at FROM events WHERE status = 'published' AND starts_at < ?
                            ORDER BY starts_at DESC LIMIT 20`).all(nowLocal().slice(0, 10));
   res.render('member/events', { title: 'Events', events, past });
 });
@@ -128,17 +128,20 @@ function renderCalendar(req, res) {
   const [y, m] = month.split('-').map(Number);
   const first = new Date(Date.UTC(y, m - 1, 1));
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const events = db.prepare(`SELECT e.id, e.title, e.starts_at, e.status, r.status AS my_status FROM events e
+  const events = db.prepare(`SELECT e.id, e.title, e.title_gu, e.starts_at, e.status, r.status AS my_status FROM events e
     LEFT JOIN rsvps r ON r.event_id = e.id AND r.user_id = ? AND r.status != 'cancelled'
     WHERE e.status != 'draft' AND substr(e.starts_at, 1, 7) = ? ORDER BY e.starts_at`).all(req.user.id, month);
   const byDay = Map.groupBy(events, (e) => Number(e.starts_at.slice(8, 10)));
+  const locale = req.lang === 'gu' ? 'gu-IN' : 'en-US';
   const shift = (delta) => {
     const d = new Date(Date.UTC(y, m - 1 + delta, 1));
     return d.toISOString().slice(0, 7);
   };
   res.render('member/calendar', {
     title: 'Events calendar', month, byDay, daysInMonth, leadingBlanks: first.getUTCDay(),
-    monthLabel: first.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    monthLabel: first.toLocaleString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    // Week starting Sunday: Jan 4 2026 was a Sunday.
+    weekdays: [...Array(7)].map((_, i) => new Date(Date.UTC(2026, 0, 4 + i)).toLocaleString(locale, { weekday: 'short', timeZone: 'UTC' })),
     prev: shift(-1), next: shift(1), todayKey: nowLocal().slice(0, 10),
   });
 }
@@ -195,14 +198,19 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
     body: req.body,
     joinWaitlist: Boolean(req.body.waitlist),
   });
+  const n = rsvp.party_size;
   if (waitlisted) {
-    req.flash('info', `The event is full, so you're on the waitlist for ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}. If seats open up you'll be moved in automatically${rsvp.total_cents ? ' and can then pay' : ''}.`);
+    req.flash('info', n === 1
+      ? "The event is full, so you're on the waitlist for 1 person. If seats open up you'll be moved in automatically."
+      : "The event is full, so you're on the waitlist for {n} people. If seats open up you'll be moved in automatically.", { n });
     return res.redirect(`/events/${req.params.id}`);
   }
   if (qrReplaced) {
-    req.flash('info', `Your RSVP is now for ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}. A new QR code was issued — your old QR code no longer works.`);
+    req.flash('info', n === 1
+      ? 'Your RSVP is now for 1 person. A new QR code was issued — your old QR code no longer works.'
+      : 'Your RSVP is now for {n} people. A new QR code was issued — your old QR code no longer works.', { n });
   }
-  if (rsvp.discount_cents) req.flash('success', `Coupon ${rsvp.coupon_code} applied: ${req.app.locals.money(rsvp.discount_cents)} off.`);
+  if (rsvp.discount_cents) req.flash('success', 'Coupon {code} applied: {amount} off.', { code: rsvp.coupon_code, amount: req.app.locals.money(rsvp.discount_cents) });
   if (amountDue === 0) {
     if (!qrReplaced) req.flash('success', 'You are registered! Show this QR code at the entrance.');
     return res.redirect(`/tickets/${rsvp.id}`);
@@ -236,7 +244,7 @@ router.post('/events/:id/cancel', requireAuth, (req, res) => {
 
 function loadTicket(req) {
   const rsvp = req.app.locals.db.prepare(`
-    SELECT r.*, e.title, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
+    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
     WHERE r.id = ?
   `).get(req.params.id);
   // Members see their own tickets; admins can view anyone's (e.g. to resend).
@@ -246,7 +254,7 @@ function loadTicket(req) {
 
 router.get('/tickets', requireAuth, (req, res) => {
   const tickets = req.app.locals.db.prepare(`
-    SELECT r.*, e.title, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
+    SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
     WHERE r.user_id = ? AND r.status != 'cancelled' AND e.starts_at >= ? ORDER BY e.starts_at
   `).all(req.user.id, nowLocal().slice(0, 10));
   res.render('member/tickets', { title: 'My tickets', tickets });
@@ -277,12 +285,12 @@ router.get('/membership', requireAuth, (req, res) => {
   res.render('member/membership', {
     title: 'Membership',
     membership,
-    coverage: membership.plan ? svc.planCoverage(membership.plan) : null,
+    coverageParts: membership.plan ? svc.planCoverageParts(membership.plan) : null,
     history: db.prepare(`SELECT m.*, p.name AS plan_name FROM memberships m LEFT JOIN membership_plans p ON p.id = m.plan_id
                          WHERE m.user_id = ? ORDER BY m.end_date DESC, m.id DESC`).all(req.user.id),
     plans: db.prepare('SELECT * FROM membership_plans WHERE active = 1 ORDER BY sort_order, amount_cents').all().map((plan) => ({
       ...plan,
-      coverage: svc.planCoverage(plan),
+      coverageParts: svc.planCoverageParts(plan),
       quote: svc.membershipQuote(db, plan, req.user.id),
       blocked: svc.planIneligibility(db, plan, req.user),
     })),
@@ -301,12 +309,20 @@ router.post('/membership/pay', requireAuth, async (req, res) => {
   res.redirect(303, url);
 });
 
+// A payment plus what it was for (level / event / fund) so it can be described in either language.
+const PAYMENT_DETAILS_SQL = `
+  SELECT p.*, u.first_name, u.last_name, u.email, u.address_line1, u.address_line2, u.city, u.state, u.postal_code,
+         mp.name AS plan_name, mp.name_gu AS plan_name_gu, e.title AS event_title, e.title_gu AS event_title_gu,
+         r.party_size, c.title AS campaign_title
+  FROM payments p JOIN users u ON u.id = p.user_id
+  LEFT JOIN membership_plans mp ON p.kind IN ('membership', 'membership_upgrade') AND mp.id = p.reference_id
+  LEFT JOIN rsvps r ON p.kind = 'event' AND r.id = p.reference_id
+  LEFT JOIN events e ON e.id = r.event_id
+  LEFT JOIN campaigns c ON p.kind = 'donation' AND c.id = p.reference_id`;
+
 // Printable receipt for any paid payment (members see their own; admins see all).
 router.get('/receipts/:id', requireAuth, (req, res) => {
-  const payment = req.app.locals.db.prepare(`SELECT p.*, u.first_name, u.last_name, u.email, u.address_line1, u.address_line2,
-      u.city, u.state, u.postal_code, c.title AS campaign_title
-    FROM payments p JOIN users u ON u.id = p.user_id LEFT JOIN campaigns c ON p.kind = 'donation' AND c.id = p.reference_id
-    WHERE p.id = ? AND p.status = 'paid'`).get(req.params.id);
+  const payment = req.app.locals.db.prepare(`${PAYMENT_DETAILS_SQL} WHERE p.id = ? AND p.status = 'paid'`).get(req.params.id);
   if (!payment || (payment.user_id !== req.user.id && req.user.role !== 'admin')) {
     return res.status(404).render('error', { title: 'Not found', message: 'Receipt not found.' });
   }
@@ -314,7 +330,7 @@ router.get('/receipts/:id', requireAuth, (req, res) => {
 });
 
 router.get('/payments', requireAuth, (req, res) => {
-  const payments = req.app.locals.db.prepare(`SELECT * FROM payments WHERE user_id = ? AND status = 'paid' ORDER BY paid_at DESC`)
+  const payments = req.app.locals.db.prepare(`${PAYMENT_DETAILS_SQL} WHERE p.user_id = ? AND p.status = 'paid' ORDER BY p.paid_at DESC`)
     .all(req.user.id);
   res.render('member/payments', { title: 'My payments', payments });
 });

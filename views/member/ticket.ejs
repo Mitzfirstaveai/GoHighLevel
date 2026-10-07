@@ -1,24 +1,25 @@
 <%- include('../partials/head') %>
-<a class="back no-print" href="/tickets">← My tickets</a>
+<a class="back no-print" href="/tickets">← <%= t('My tickets') %></a>
 <div class="card ticket">
-  <h1><%= rsvp.title %></h1>
+  <h1><%= loc(rsvp, 'title') %></h1>
   <p class="muted"><%= fmtDate(rsvp.starts_at) %><%= rsvp.location ? ` · ${rsvp.location}` : '' %></p>
   <% if (qrDataUrl) { %>
     <% if (rsvp.checked_in_at) { %>
-      <div class="big-status ok" style="padding:10px;border-radius:10px">Already checked in (<%= rsvp.checked_in_count %>)</div>
+      <div class="big-status ok" style="padding:10px;border-radius:10px"><%= t('Already checked in ({n})', { n: rsvp.checked_in_count }) %></div>
     <% } %>
-    <img src="<%= qrDataUrl %>" alt="QR code ticket">
+    <img src="<%= qrDataUrl %>" alt="<%= t('QR code ticket') %>">
     <p class="party-count" style="margin:8px 0 0"><%= rsvp.party_size %></p>
-    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered<%= rsvp.guest_count ? ` (incl. ${rsvp.guest_count} guest${rsvp.guest_count === 1 ? '' : 's'})` : '' %></p>
-    <p class="small muted">Show this code at the entrance. It can only be scanned once.</p>
+    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered') : t('people registered') %><%= rsvp.guest_count ? ` (${plural(rsvp.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : '' %></p>
+    <p class="small"><%= t('Show this code at the entrance. It can only be scanned once.') %></p>
+    <p class="small muted"><%= t('Tip: turn your screen brightness up so the code scans quickly.') %></p>
     <div class="actions no-print" style="justify-content:center">
-      <a class="btn secondary small" href="/tickets/<%= rsvp.id %>/qr.png" download>Download QR</a>
-      <button class="btn secondary small" onclick="window.print()">Print</button>
+      <a class="btn secondary small" href="/tickets/<%= rsvp.id %>/qr.png" download><%= t('Download QR') %></a>
+      <button class="btn secondary small" onclick="window.print()"><%= t('Print') %></button>
     </div>
   <% } else { %>
     <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %></p>
-    <p>Your QR ticket will appear here once your RSVP is confirmed.</p>
-    <a class="btn" href="/events/<%= rsvp.event_id %>">Go to event</a>
+    <p><%= t('Your QR ticket will appear here once your RSVP is confirmed.') %></p>
+    <a class="btn" href="/events/<%= rsvp.event_id %>"><%= t('Go to event') %></a>
   <% } %>
 </div>
 <%- include('../partials/foot') %>

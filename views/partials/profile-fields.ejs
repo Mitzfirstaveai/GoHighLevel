@@ -1,13 +1,13 @@
 <div class="fields">
-  <label>First name <input name="first_name" value="<%= p.first_name || '' %>" required></label>
-  <label>Last name <input name="last_name" value="<%= p.last_name || '' %>" required></label>
-  <label>Phone <input type="tel" name="phone" value="<%= p.phone || '' %>"></label>
-  <label>Date of birth <input type="date" name="date_of_birth" value="<%= p.date_of_birth || '' %>"></label>
-  <label>Occupation <input name="occupation" value="<%= p.occupation || '' %>"></label>
-  <label>Native place (Vatan) <input name="native_place" value="<%= p.native_place || '' %>"></label>
-  <label>Address line 1 <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1"></label>
-  <label>Address line 2 <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2"></label>
-  <label>City <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2"></label>
-  <label>State <input name="state" value="<%= p.state || '' %>" autocomplete="address-level1"></label>
-  <label>ZIP / Postal code <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code"></label>
+  <label><%= t('First name') %> <input name="first_name" value="<%= p.first_name || '' %>" required></label>
+  <label><%= t('Last name') %> <input name="last_name" value="<%= p.last_name || '' %>" required></label>
+  <label><%= t('Phone') %> <input type="tel" name="phone" value="<%= p.phone || '' %>"></label>
+  <label><%= t('Date of birth') %> <input type="date" name="date_of_birth" value="<%= p.date_of_birth || '' %>"></label>
+  <label><%= t('Occupation') %> <input name="occupation" value="<%= p.occupation || '' %>"></label>
+  <label><%= t('Native place (Vatan)') %> <input name="native_place" value="<%= p.native_place || '' %>"></label>
+  <label><%= t('Address line 1') %> <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1"></label>
+  <label><%= t('Address line 2') %> <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2"></label>
+  <label><%= t('City') %> <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2"></label>
+  <label><%= t('State') %> <input name="state" value="<%= p.state || '' %>" autocomplete="address-level1"></label>
+  <label><%= t('ZIP / Postal code') %> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code"></label>
 </div>

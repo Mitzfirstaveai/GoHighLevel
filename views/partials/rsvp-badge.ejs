@@ -1,5 +1,5 @@
-<% if (status === 'confirmed') { %><span class="badge ok">Confirmed</span>
-<% } else if (status === 'pending_payment') { %><span class="badge warn">Payment due</span>
-<% } else if (status === 'waitlisted') { %><span class="badge tag">Waitlist</span>
-<% } else if (status === 'cancelled') { %><span class="badge neutral">Cancelled</span>
+<% if (status === 'confirmed') { %><span class="badge ok"><%= t('Confirmed') %></span>
+<% } else if (status === 'pending_payment') { %><span class="badge warn"><%= t('Payment due') %></span>
+<% } else if (status === 'waitlisted') { %><span class="badge tag"><%= t('Waitlist') %></span>
+<% } else if (status === 'cancelled') { %><span class="badge neutral"><%= t('Cancelled') %></span>
 <% } %>

@@ -1,0 +1,9 @@
+<%
+  // Builds the description in the reader's language from the payment's details.
+  const people = p.party_size ? plural(p.party_size, '1 person', '{n} people') : '';
+  let text = p.description;
+  if (p.kind === 'membership' && p.plan_name) text = t('Membership — {level}', { level: p.plan_name_gu && lang === 'gu' ? p.plan_name_gu : p.plan_name });
+  else if (p.kind === 'membership_upgrade' && p.plan_name) text = t('Membership upgrade — {level}', { level: p.plan_name_gu && lang === 'gu' ? p.plan_name_gu : p.plan_name });
+  else if (p.kind === 'event' && p.event_title) text = `${lang === 'gu' && p.event_title_gu ? p.event_title_gu : p.event_title}${people ? ` — ${people}` : ''}`;
+  else if (p.kind === 'donation') text = t('Donation — {fund}', { fund: p.campaign_title || t('General fund') });
+%><%= text %>

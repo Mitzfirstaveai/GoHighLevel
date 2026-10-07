@@ -1,31 +1,33 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>My profile</h1>
-  <form method="post" action="/logout"><%- include('../partials/csrf') %><button class="btn secondary small"><%- include('../partials/icon', { name: 'logout' }) %> Sign out</button></form>
+<div class="page-head"><h1><%= t('My profile') %></h1>
+  <form method="post" action="/logout"><%- include('../partials/csrf') %><button class="btn secondary small"><%- include('../partials/icon', { name: 'logout' }) %> <%= t('Sign out') %></button></form>
 </div>
+<%- include('../partials/display-settings') %>
 <div class="card">
-  <h2>Personal &amp; contact details</h2>
+  <h2><%= t('Personal & contact details') %></h2>
   <form method="post" action="/profile" class="stack">
     <%- include('../partials/csrf') %>
     <%- include('../partials/profile-fields', { p: profile }) %>
-    <p class="muted small">Email: <strong><%= user.email %></strong> (contact an admin to change your email)</p>
-    <div><button class="btn">Save profile</button></div>
+    <p class="muted small"><%= t('Email') %>: <strong><%= user.email %></strong> (<%= t('contact an admin to change your email') %>)</p>
+    <div><button class="btn"><%= t('Save profile') %></button></div>
   </form>
 </div>
 
 <div class="card" id="family">
-  <h2>Family members</h2>
-  <% if (coverage) { %>
-    <p>Your <strong><%= membership.plan.name %></strong> membership covers <strong><%= coverage %></strong>. Family listed here can come with you to events. <a href="/membership">Change level</a></p>
+  <h2><%= t('Family members') %></h2>
+  <% if (coverageParts) { %>
+    <p><%= t('Your {plan} membership covers {coverage}.', { plan: loc(membership.plan, 'name'), coverage: { list: coverageParts } }) %>
+      <%= t('Family listed here can come with you to events.') %> <a href="/membership"><%= t('Change level') %></a></p>
   <% } else { %>
-    <p class="muted">List the family members your membership will cover (spouse, unmarried children, parents), then <a href="/membership">choose your membership level</a>.</p>
+    <p class="muted"><%= t('List the family members your membership will cover (spouse, unmarried children, parents), then choose your membership level.') %> <a href="/membership"><%= t('Membership levels') %></a></p>
   <% } %>
   <% if (household.length) { %>
   <div class="table-wrap"><table>
-    <thead><tr><th>Name</th><th>Relationship</th><th>Birth year</th><th></th></tr></thead>
+    <thead><tr><th><%= t('Name') %></th><th><%= t('Relationship') %></th><th><%= t('Birth year') %></th><th></th></tr></thead>
     <tbody>
     <% for (const h of household) { %>
-      <tr><td><%= h.name %></td><td><%= h.relationship || '' %></td><td><%= h.birth_year || '' %></td>
-        <td class="num"><form method="post" action="/profile/household/<%= h.id %>/delete" class="inline"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form></td></tr>
+      <tr><td><%= h.name %></td><td><%= t.data(h.relationship) || '' %></td><td><%= h.birth_year || '' %></td>
+        <td class="num"><form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form></td></tr>
     <% } %>
     </tbody>
   </table></div>
@@ -33,38 +35,38 @@
   <form method="post" action="/profile/household" class="stack" style="margin-top:12px">
     <%- include('../partials/csrf') %>
     <div class="fields">
-      <label>Name <input name="name" required></label>
-      <label>Relationship
+      <label><%= t('Name') %> <input name="name" required></label>
+      <label><%= t('Relationship') %>
         <select name="relationship">
-          <% for (const r of relationships) { %><option><%= r %></option><% } %>
+          <% for (const r of relationships) { %><option value="<%= r %>"><%= t.data(r) %></option><% } %>
         </select>
       </label>
-      <label>Birth year (optional) <input name="birth_year" inputmode="numeric" pattern="\d{4}"></label>
+      <label><%= t('Birth year (optional)') %> <input name="birth_year" inputmode="numeric" pattern="\d{4}"></label>
     </div>
-    <div><button class="btn secondary">Add family member</button></div>
+    <div><button class="btn secondary"><%= t('Add family member') %></button></div>
   </form>
 </div>
 
 <div class="card" id="privacy">
-  <h2>Directory settings</h2>
+  <h2><%= t('Directory settings') %></h2>
   <form method="post" action="/profile/privacy" class="stack">
     <%- include('../partials/csrf') %>
-    <label class="check"><input type="checkbox" name="directory_listed" value="1" <%= profile.directory_listed ? 'checked' : '' %>> List me in the member directory (name, city and native place)</label>
-    <label class="check"><input type="checkbox" name="directory_contact" value="1" <%= profile.directory_contact ? 'checked' : '' %>> Also show my phone number and email to other members</label>
-    <div><button class="btn secondary">Save directory settings</button></div>
+    <label class="check"><input type="checkbox" name="directory_listed" value="1" <%= profile.directory_listed ? 'checked' : '' %>> <%= t('List me in the member directory (name, city and native place)') %></label>
+    <label class="check"><input type="checkbox" name="directory_contact" value="1" <%= profile.directory_contact ? 'checked' : '' %>> <%= t('Also show my phone number and email to other members') %></label>
+    <div><button class="btn secondary"><%= t('Save directory settings') %></button></div>
   </form>
 </div>
 
 <div class="card">
-  <h2>Change password</h2>
+  <h2><%= t('Change password') %></h2>
   <form method="post" action="/profile/password" class="stack">
     <%- include('../partials/csrf') %>
     <div class="fields">
-      <label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
-      <label>New password <input type="password" name="new_password" minlength="8" required autocomplete="new-password"></label>
-      <label>Confirm new password <input type="password" name="new_password_confirm" minlength="8" required autocomplete="new-password"></label>
+      <label><%= t('Current password') %> <input type="password" name="current_password" required autocomplete="current-password"></label>
+      <label><%= t('New password') %> <input type="password" name="new_password" minlength="8" required autocomplete="new-password"></label>
+      <label><%= t('Confirm new password') %> <input type="password" name="new_password_confirm" minlength="8" required autocomplete="new-password"></label>
     </div>
-    <div><button class="btn secondary">Change password</button></div>
+    <div><button class="btn secondary"><%= t('Change password') %></button></div>
   </form>
 </div>
 <%- include('../partials/foot') %>

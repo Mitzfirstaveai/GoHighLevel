@@ -12,6 +12,7 @@ const { seedDemo, isEmpty, DEMO_ACCOUNTS, DEMO_PASSWORD } = require('./demo');
 const util = require('./util');
 const { getContent } = require('./site');
 const { imageUpload } = require('./uploads');
+const { i18nMiddleware, prefsRoute } = require('./i18n');
 
 function createApp(config) {
   const db = openDb(config.databaseFile);
@@ -71,13 +72,16 @@ function createApp(config) {
   }));
   app.use((req, res, next) => {
     res.locals.path = req.path;
+    res.locals.url = req.originalUrl;
     res.locals.user = null;
     res.locals.org = getContent(db, 'org');
     next();
   });
   app.use(flash);
   app.use(loadUser(db));
+  app.use(i18nMiddleware);
   app.use(csrf);
+  app.get('/prefs', prefsRoute(db));
 
   app.use(require('./routes/auth'));
   app.use(require('./routes/public'));
@@ -95,9 +99,11 @@ function createApp(config) {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     if (err instanceof UserError || err.name === 'MulterError') {
-      req.flash('error', err.name === 'MulterError'
-        ? (err.code === 'LIMIT_FILE_SIZE' ? 'That file is too large (5 MB maximum).' : 'That file could not be uploaded.')
-        : err.message);
+      if (err.name === 'MulterError') {
+        req.flash('error', err.code === 'LIMIT_FILE_SIZE' ? 'That file is too large (5 MB maximum).' : 'That file could not be uploaded.');
+      } else {
+        req.flash('error', err.template ?? err.message, err.vars);
+      }
       return res.redirect(safeBack(req));
     }
     console.error(err);

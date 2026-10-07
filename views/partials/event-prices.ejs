@@ -1,2 +1,9 @@
-<% if (!event.fee_cents && !event.guest_fee_cents) { %>Free<% if (event.guest_fee_cents === 0) { %> · guests welcome<% } %>
-<% } else { %>Members <%= money(event.fee_cents) %>/person<% if (event.early_fee_cents != null && event.early_until) { %> · early bird <%= money(event.early_fee_cents) %> until <%= fmtDate(event.early_until) %><% } %><% if (event.guest_fee_cents != null) { %> · guests <%= event.guest_fee_cents ? money(event.guest_fee_cents) : 'free' %><% } %><% } %>
+<% const parts = []; %>
+<% if (!event.fee_cents && !event.guest_fee_cents) {
+     parts.push(t('Free'));
+     if (event.guest_fee_cents === 0) parts.push(t('guests welcome'));
+   } else {
+     parts.push(event.fee_cents ? t('Members {price}/person', { price: money(event.fee_cents) }) : t('Free for members'));
+     if (event.early_fee_cents != null && event.early_until) parts.push(t('early bird {price} until {date}', { price: money(event.early_fee_cents), date: fmtDate(event.early_until) }));
+     if (event.guest_fee_cents != null) parts.push(event.guest_fee_cents ? t('guests {price}', { price: money(event.guest_fee_cents) }) : t('guests free'));
+   } %><%= parts.join(' · ') %>

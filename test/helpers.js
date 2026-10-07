@@ -10,19 +10,22 @@ const PLANS_SQL = `INSERT INTO membership_plans (name, amount_cents, duration_mo
          ('Married Couple', 27500, 12, 1, 1, 0, 0, 0), ('Family', 33000, 12, 1, 1, 1, 0, 0),
          ('Family with Parents', 38500, 12, 1, 1, 1, 2, 0)`;
 
-async function startTestApp() {
+async function startTestApp(overrides = {}) {
   const app = createApp(loadConfig({
     databaseFile: ':memory:', adminEmail: 'admin@test.org', adminPassword: 'adminpass1',
     stripeSecretKey: '', allowDemoPayments: true, baseUrl: 'http://test.local', orgName: 'Test Samaj', demoMode: false,
+    ...overrides,
   }));
   const db = app.locals.db;
-  db.exec(PLANS_SQL);
+  if (!overrides.demoMode) db.exec(PLANS_SQL); // demo mode brings its own levels
   let server;
   await new Promise((resolve) => { server = app.listen(0, resolve); });
   const base = `http://127.0.0.1:${server.address().port}`;
 
   class Client {
-    constructor() { this.cookie = ''; this.csrf = ''; }
+    constructor() { this.jar = {}; this.csrf = ''; }
+
+    get cookie() { return Object.entries(this.jar).map(([k, v]) => `${k}=${v}`).join('; '); }
 
     async request(method, path, form, extraHeaders = {}) {
       const headers = { cookie: this.cookie, ...extraHeaders };
@@ -36,8 +39,11 @@ async function startTestApp() {
         body = params.toString();
       }
       const res = await fetch(base + path, { method, headers, body, redirect: 'manual' });
-      const setCookie = res.headers.get('set-cookie');
-      if (setCookie) this.cookie = setCookie.split(';')[0];
+      for (const c of res.headers.getSetCookie()) {
+        const [pair] = c.split(';');
+        const i = pair.indexOf('=');
+        this.jar[pair.slice(0, i)] = pair.slice(i + 1);
+      }
       const text = await res.text();
       const m = text.match(/name="_csrf" value="([^"]+)"/);
       if (m) this.csrf = m[1];

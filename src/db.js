@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   directory_contact INTEGER NOT NULL DEFAULT 0,
   tags TEXT NOT NULL DEFAULT '',          -- comma-separated: Donor, Sponsor, Vendor, Volunteer, …
   source TEXT NOT NULL DEFAULT 'signup',  -- signup | admin | import
+  language TEXT,                          -- 'en' | 'gu' (display preference)
+  text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -41,6 +43,7 @@ CREATE TABLE IF NOT EXISTS household_members (
 CREATE TABLE IF NOT EXISTS membership_plans (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  name_gu TEXT,
   description TEXT,
   amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
   duration_months INTEGER NOT NULL CHECK (duration_months > 0),
@@ -70,6 +73,8 @@ CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   description TEXT,
+  title_gu TEXT,        -- optional Gujarati versions shown to Gujarati readers
+  description_gu TEXT,
   location TEXT,
   starts_at TEXT NOT NULL,
   ends_at TEXT,
@@ -139,6 +144,8 @@ CREATE TABLE IF NOT EXISTS news_posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
+  title_gu TEXT,
+  body_gu TEXT,
   image_path TEXT,
   author_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -184,7 +191,20 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+
+// Upgrades for databases created by an earlier version (keyed by the version they produce).
+const MIGRATIONS = {
+  3: [
+    'ALTER TABLE users ADD COLUMN language TEXT',
+    'ALTER TABLE users ADD COLUMN text_size TEXT',
+    'ALTER TABLE events ADD COLUMN title_gu TEXT',
+    'ALTER TABLE events ADD COLUMN description_gu TEXT',
+    'ALTER TABLE news_posts ADD COLUMN title_gu TEXT',
+    'ALTER TABLE news_posts ADD COLUMN body_gu TEXT',
+    'ALTER TABLE membership_plans ADD COLUMN name_gu TEXT',
+  ],
+};
 
 function openDb(file) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -193,9 +213,14 @@ function openDb(file) {
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL;');
   const version = db.prepare('PRAGMA user_version').get().user_version;
   const hasTables = db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get();
-  if (hasTables && version < SCHEMA_VERSION) {
-    throw new Error(`The database at ${file} was created by an earlier preview of this app. `
+  if (hasTables && version < 2) {
+    throw new Error(`The database at ${file} was created by an early preview of this app. `
       + 'It only holds demo data, so delete the file (and its -wal/-shm files) and start again.');
+  }
+  if (hasTables) {
+    for (let v = version + 1; v <= SCHEMA_VERSION; v++) {
+      transaction(db, () => (MIGRATIONS[v] || []).forEach((sql) => db.exec(sql)));
+    }
   }
   db.exec(SCHEMA);
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);

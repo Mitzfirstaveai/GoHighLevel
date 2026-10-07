@@ -1,25 +1,25 @@
 <%- include('../partials/head') %>
 <%- include('../partials/about-tabs') %>
 <div class="card prose">
-  <h1>About Us</h1>
-  <p class="motto">“<%= org.motto %>”</p>
+  <h1><%= t('About Us') %></h1>
+  <p class="motto">“<%= loc(org, 'motto') %>”</p>
   <div class="stats" style="margin:16px 0">
-    <div class="stat"><div class="label">Founded</div><div class="value"><%= org.founded %></div></div>
-    <div class="stat"><div class="label">Founding families</div><div class="value">35</div></div>
-    <div class="stat"><div class="label">Families today</div><div class="value">300+</div></div>
+    <div class="stat"><div class="label"><%= t('Founded') %></div><div class="value"><%= org.founded %></div></div>
+    <div class="stat"><div class="label"><%= t('Founding families') %></div><div class="value">35</div></div>
+    <div class="stat"><div class="label"><%= t('Families today') %></div><div class="value">300+</div></div>
   </div>
   <% for (const p of about.history) { %><p><%= p %></p><% } %>
-  <h2>Mission</h2>
+  <h2><%= t('Mission') %></h2>
   <p><%= about.mission %></p>
-  <h2>Vision</h2>
+  <h2><%= t('Vision') %></h2>
   <p><%= about.vision %></p>
-  <h2>Nonprofit and Non-Political Status</h2>
+  <h2><%= t('Nonprofit and Non-Political Status') %></h2>
   <p><%= about.nonprofit %></p>
-  <h2>Membership</h2>
+  <h2><%= t('Membership') %></h2>
   <p><%= about.membership %></p>
   <div class="actions" style="margin-top:16px">
-    <% if (!user) { %><a class="btn" href="/register">Join Today</a><% } else { %><a class="btn" href="/membership">Membership levels</a><% } %>
-    <a class="btn secondary" href="/committee">Meet the committee</a>
+    <% if (!user) { %><a class="btn" href="/register"><%= t('Join Today') %></a><% } else { %><a class="btn" href="/membership"><%= t('Membership levels') %></a><% } %>
+    <a class="btn secondary" href="/committee"><%= t('Meet the committee') %></a>
   </div>
 </div>
 <%- include('../partials/foot') %>

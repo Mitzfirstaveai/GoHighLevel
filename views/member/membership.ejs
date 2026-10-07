@@ -1,50 +1,50 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Membership</h1></div>
+<div class="page-head"><h1><%= t('Membership') %></h1></div>
 <div class="card">
   <% if (membership.active) { %>
-    <p style="margin-top:0"><span class="badge ok">Active</span> <strong><%= membership.current.plan_name || 'Member' %></strong> — valid through <strong><%= fmtDate(membership.current.end_date) %></strong>
-      <% if (membership.validUntil > membership.current.end_date) { %><br><span class="muted small">Renewed through <%= fmtDate(membership.validUntil) %></span><% } %></p>
-    <% if (membership.plan) { %><p class="muted" style="margin-bottom:0">Covers <%= coverage %>. <a href="/profile#family">Manage family members</a></p><% } %>
+    <p style="margin-top:0"><span class="badge ok"><%= t('Active') %></span> <strong><%= membership.plan ? loc(membership.plan, 'name') : t('Member') %></strong> — <%= t('valid through') %> <strong><%= fmtDate(membership.current.end_date) %></strong>
+      <% if (membership.validUntil > membership.current.end_date) { %><br><span class="muted small"><%= t('Renewed through {date}', { date: fmtDate(membership.validUntil) }) %></span><% } %></p>
+    <% if (coverageParts) { %><p class="muted" style="margin-bottom:0"><%= t('Covers {coverage}.', { coverage: { list: coverageParts } }) %> <a href="/profile#family"><%= t('Manage family members') %></a></p><% } %>
   <% } else { %>
-    <p style="margin-top:0"><span class="badge warn"><%= membership.current ? `Expired on ${fmtDate(membership.current.end_date)}` : 'No active membership' %></span></p>
-    <p class="muted" style="margin-bottom:0">Choose the level that matches your household. First <a href="/profile#family">add your family members</a> to your profile — your membership covers the people listed there, and they can come with you to events.</p>
+    <p style="margin-top:0"><span class="badge warn"><%= membership.current ? t('Expired on {date}', { date: fmtDate(membership.current.end_date) }) : t('No active membership') %></span></p>
+    <p class="muted" style="margin-bottom:0"><%= t('Choose the level that matches your household. First add your family members to your profile — your membership covers the people listed there, and they can come with you to events.') %> <a href="/profile#family"><%= t('Add family members') %></a></p>
   <% } %>
 </div>
 
-<h2>Membership levels</h2>
+<h2><%= t('Membership levels') %></h2>
 <div class="grid grid-2">
 <% for (const p of plans) { %>
   <% const isCurrent = membership.active && membership.plan && membership.plan.id === p.id; %>
   <div class="card" style="<%= isCurrent ? 'border-color: var(--saffron); border-width: 2px' : '' %>">
-    <div class="actions" style="justify-content:space-between"><h2 style="margin:0"><%= p.name %></h2><% if (isCurrent) { %><span class="badge ok">Your level</span><% } %></div>
+    <div class="actions" style="justify-content:space-between"><h2 style="margin:0"><%= loc(p, 'name') %></h2><% if (isCurrent) { %><span class="badge ok"><%= t('Your level') %></span><% } %></div>
     <p style="font-size:1.5rem;font-weight:700;margin:6px 0 0"><%= money(p.amount_cents) %></p>
-    <p class="muted small" style="margin-top:0"><%= p.calendar_year ? 'per year · Jan 1 – Dec 31' : p.duration_months === 12 ? 'per year' : `for ${p.duration_months} months` %><%= p.min_age ? ` · age ${p.min_age}+` : '' %></p>
-    <p>Covers <strong><%= p.coverage %></strong>.</p>
-    <% if (p.description) { %><p class="muted small"><%= p.description %></p><% } %>
+    <p class="muted small" style="margin-top:0"><%= p.calendar_year ? t('per year · Jan 1 – Dec 31') : p.duration_months === 12 ? t('per year') : t('for {n} months', { n: p.duration_months }) %><%= p.min_age ? ` · ${t('age {age}+', { age: p.min_age })}` : '' %></p>
+    <p><%= t('Covers') %> <strong><%= t.list(p.coverageParts) %></strong>.</p>
+    <% if (p.description) { %><p class="muted small"><%= t.data(p.description) %></p><% } %>
     <% if (p.blocked) { %>
-      <p class="small" style="color:var(--err)"><%= p.blocked %></p>
+      <p class="small" style="color:var(--err)"><%= t(p.blocked.template, p.blocked.vars) %></p>
     <% } else if (paymentMode !== 'disabled' || p.quote.amountCents === 0) { %>
-      <% if (!membership.active && p.calendar_year) { %><p class="small muted">Memberships run Jan 1 – Dec 31. Joining now covers you through <strong>Dec 31, <%= new Date().getFullYear() %></strong>.</p><% } %>
+      <% if (!membership.active && p.calendar_year) { %><p class="small muted"><%= t('Memberships run Jan 1 – Dec 31.') %> <%= t('Joining now covers you through') %> <strong><%= t('Dec 31, {year}', { year: new Date().getFullYear() }) %></strong>.</p><% } %>
       <form method="post" action="/membership/pay"><%- include('../partials/csrf') %><input type="hidden" name="plan_id" value="<%= p.id %>">
         <button class="btn <%= isCurrent || !membership.active ? '' : 'secondary' %>">
-          <% if (p.quote.kind === 'membership_upgrade') { %>Upgrade — pay <%= money(p.quote.amountCents) %> difference
-          <% } else if (membership.active) { %>Renew for next year — <%= money(p.amount_cents) %>
-          <% } else { %>Join — <%= money(p.amount_cents) %><% } %>
+          <% if (p.quote.kind === 'membership_upgrade') { %><%= t('Upgrade — pay {amount} difference', { amount: money(p.quote.amountCents) }) %>
+          <% } else if (membership.active) { %><%= t('Renew for next year — {amount}', { amount: money(p.amount_cents) }) %>
+          <% } else { %><%= t('Join — {amount}', { amount: money(p.amount_cents) }) %><% } %>
         </button></form>
-    <% } else { %><p class="muted small">Online payment not available — please pay a committee member.</p><% } %>
+    <% } else { %><p class="muted small"><%= t('Online payment not available — please pay a committee member.') %></p><% } %>
   </div>
 <% } %>
-<% if (!plans.length) { %><div class="card"><p class="muted">Membership levels have not been set up yet.</p></div><% } %>
+<% if (!plans.length) { %><div class="card"><p class="muted"><%= t('Membership levels have not been set up yet.') %></p></div><% } %>
 </div>
 
 <% if (history.length) { %>
 <div class="card">
-  <h2>History</h2>
+  <h2><%= t('History') %></h2>
   <div class="table-wrap"><table>
-    <thead><tr><th>Level</th><th>From</th><th>Through</th></tr></thead>
-    <tbody><% for (const m of history) { %><tr><td><%= m.plan_name || '—' %></td><td><%= fmtDate(m.start_date) %></td><td><%= fmtDate(m.end_date) %></td></tr><% } %></tbody>
+    <thead><tr><th><%= t('Level') %></th><th><%= t('From') %></th><th><%= t('Through') %></th></tr></thead>
+    <tbody><% for (const m of history) { %><tr><td><%= t.data(m.plan_name) || '—' %></td><td><%= fmtDate(m.start_date) %></td><td><%= fmtDate(m.end_date) %></td></tr><% } %></tbody>
   </table></div>
-  <p><a href="/payments">View all my payments →</a></p>
+  <p><a href="/payments"><%= t('View all my payments') %> →</a></p>
 </div>
 <% } %>
 <%- include('../partials/foot') %>

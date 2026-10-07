@@ -1,25 +1,25 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Events</h1>
-  <nav class="pills" style="margin:0"><a href="/events">List</a><a href="/events?view=calendar" class="active">Calendar</a></nav>
+<div class="page-head"><h1><%= t('Events') %></h1>
+  <nav class="pills" style="margin:0"><a href="/events"><%= t('List') %></a><a href="/events?view=calendar" class="active"><%= t('Calendar') %></a></nav>
 </div>
 <div class="card">
   <div class="actions" style="justify-content:space-between;margin-bottom:10px">
-    <a class="btn secondary small" href="/events?view=calendar&month=<%= prev %>" aria-label="Previous month">‹</a>
+    <a class="btn secondary small" href="/events?view=calendar&month=<%= prev %>" aria-label="<%= t('Previous month') %>">‹</a>
     <h2 style="margin:0"><%= monthLabel %></h2>
-    <a class="btn secondary small" href="/events?view=calendar&month=<%= next %>" aria-label="Next month">›</a>
+    <a class="btn secondary small" href="/events?view=calendar&month=<%= next %>" aria-label="<%= t('Next month') %>">›</a>
   </div>
   <div class="calendar">
-    <% for (const d of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) { %><div class="dow"><%= d %></div><% } %>
+    <% for (const d of weekdays) { %><div class="dow"><%= d %></div><% } %>
     <% for (let i = 0; i < leadingBlanks; i++) { %><div class="day blank"></div><% } %>
     <% for (let d = 1; d <= daysInMonth; d++) { const key = `${month}-${String(d).padStart(2, '0')}`; %>
       <div class="day <%= key === todayKey ? 'today' : '' %>">
         <span class="num"><%= d %></span>
         <% for (const e of byDay.get(d) || []) { %>
-          <a href="/events/<%= e.id %>" class="cal-event <%= e.my_status ? 'mine' : '' %> <%= e.status === 'cancelled' ? 'cancelled' : '' %>" title="<%= e.title %>"><%= e.starts_at.slice(11, 16) %> <%= e.title %></a>
+          <a href="/events/<%= e.id %>" class="cal-event <%= e.my_status ? 'mine' : '' %> <%= e.status === 'cancelled' ? 'cancelled' : '' %>" title="<%= loc(e, 'title') %>"><%= e.starts_at.slice(11, 16) %> <%= loc(e, 'title') %></a>
         <% } %>
       </div>
     <% } %>
   </div>
-  <p class="muted small">Highlighted events are ones you've RSVP'd to.</p>
+  <p class="muted small"><%= t("Highlighted events are ones you've RSVP'd to.") %></p>
 </div>
 <%- include('../partials/foot') %>

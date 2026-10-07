@@ -1,7 +1,16 @@
 const { transaction } = require('./db');
 const { newToken, nowLocal, today, addMonths } = require('./util');
+const { interpolate } = require('./i18n');
 
-class UserError extends Error {}
+// A message for the person using the app. `message` is English text that may contain {placeholders};
+// it is translated when shown, with `vars` filled in.
+class UserError extends Error {
+  constructor(message, vars) {
+    super(interpolate(message, vars));
+    this.template = message;
+    this.vars = vars;
+  }
+}
 
 // ---------- Members ----------
 
@@ -58,13 +67,20 @@ function countByGroup(household) {
   return counts;
 }
 
-// Plain-language list of who a plan covers, e.g. "you, your spouse and your unmarried children".
-function planCoverage(plan) {
+// Who a plan covers, as list parts (translated and joined for display), e.g.
+// ['you', 'your spouse', 'your unmarried children'].
+function planCoverageParts(plan) {
   const parts = ['you'];
   if (plan.spouse_allowed) parts.push('your spouse');
   if (plan.children_allowed) parts.push('your unmarried children');
-  if (plan.max_parents) parts.push(plan.max_parents === 2 ? 'one set of parents' : `${plan.max_parents} parent${plan.max_parents === 1 ? '' : 's'}`);
-  return parts.length === 1 ? 'you only' : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+  if (plan.max_parents) parts.push(plan.max_parents === 2 ? 'one set of parents' : plan.max_parents === 1 ? 'one parent' : `${plan.max_parents} parents`);
+  return parts.length === 1 ? ['you only'] : parts;
+}
+
+// Plain-language English list, e.g. "you, your spouse and your unmarried children".
+function planCoverage(plan) {
+  const parts = planCoverageParts(plan);
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
 }
 
 // Returns the reasons a household doesn't fit a plan (empty array = fits).
@@ -73,7 +89,7 @@ function planProblems(plan, household) {
   const problems = [];
   if (c.spouse > (plan.spouse_allowed ? 1 : 0)) problems.push(plan.spouse_allowed ? 'only one spouse can be listed' : 'does not include a spouse');
   if (c.child && !plan.children_allowed) problems.push('does not include children');
-  if (c.parent > plan.max_parents) problems.push(plan.max_parents ? `includes at most ${plan.max_parents} parents` : 'does not include parents');
+  if (c.parent > plan.max_parents) problems.push(plan.max_parents === 1 ? 'includes at most 1 parent' : plan.max_parents ? 'includes at most 2 parents' : 'does not include parents');
   if (c.other) problems.push('family members must be a spouse, child or parent');
   return problems;
 }
@@ -84,14 +100,18 @@ function ageOn(dateOfBirth, onDate) {
   return ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
 }
 
-// Why this member can't choose this plan right now (null = eligible).
+// Why this member can't choose this plan right now (null = eligible), as a translatable
+// { template, vars } message.
 function planIneligibility(db, plan, user) {
+  const vars = { plan: plan.name, age: plan.min_age };
   if (plan.min_age) {
-    if (!user.date_of_birth) return `Add your date of birth to your profile to choose ${plan.name} (age ${plan.min_age}+).`;
-    if (ageOn(user.date_of_birth, today()) < plan.min_age) return `${plan.name} is for members aged ${plan.min_age} or older.`;
+    if (!user.date_of_birth) return { template: 'Add your date of birth to your profile to choose {plan} (age {age}+).', vars };
+    if (ageOn(user.date_of_birth, today()) < plan.min_age) return { template: '{plan} is for members aged {age} or older.', vars };
   }
   const problems = planProblems(plan, getHousehold(db, user.id));
-  if (problems.length) return `${plan.name} ${problems.join(', ')} — your profile lists family members it doesn't cover.`;
+  if (problems.length) {
+    return { template: "{plan} {problems} — your profile lists family members it doesn't cover.", vars: { ...vars, problems: { list: problems } } };
+  }
   return null;
 }
 
@@ -153,8 +173,10 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, overrid
     const problems = planProblems(plan, household);
     if (problems.length) {
       const better = suggestPlan(db, household);
-      throw new UserError(`Your ${plan.name} membership covers ${planCoverage(plan)}, so ${name} can't be added.`
-        + (better ? ` Upgrade to ${better.name} on the Membership page to add them.` : ''));
+      const vars = { plan: plan.name, coverage: { list: planCoverageParts(plan) }, name, better: better?.name };
+      throw new UserError(better
+        ? "Your {plan} membership covers {coverage}, so {name} can't be added. Upgrade to {better} on the Membership page to add them."
+        : "Your {plan} membership covers {coverage}, so {name} can't be added.", vars);
     }
   }
   db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (?, ?, ?, ?)')
@@ -290,8 +312,8 @@ function questionsToText(questions) {
 function collectAnswers(event, body) {
   return eventQuestions(event).map((q, i) => {
     const answer = String(body[`q_${i}`] ?? '').trim().slice(0, 300);
-    if (q.required && !answer) throw new UserError(`Please answer: ${q.label}`);
-    if (answer && q.options.length && !q.options.includes(answer)) throw new UserError(`Please choose an option for: ${q.label}`);
+    if (q.required && !answer) throw new UserError('Please answer: {question}', { question: q.label });
+    if (answer && q.options.length && !q.options.includes(answer)) throw new UserError('Please choose an option for: {question}', { question: q.label });
     return { label: q.label, answer };
   });
 }
@@ -343,12 +365,12 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
     if (!Number.isInteger(partySize) || partySize < 1 || partySize > maxParty) {
       throw new UserError(maxParty === 1
         ? 'You can register 1 person. Family members listed on your profile and covered by your membership level can come with you.'
-        : `Number of people must be between 1 and ${maxParty} (you plus the family members covered by your membership).`);
+        : 'Number of people must be between 1 and {n} (you plus the family members covered by your membership).', { n: maxParty });
     }
     guests = Number(guests) || 0;
     if (!Number.isInteger(guests) || guests < 0) throw new UserError('Number of guests looks incorrect.');
     if (guests > 0 && event.guest_fee_cents === null) throw new UserError('This event does not allow guests.');
-    if (guests > event.max_guests) throw new UserError(`You can bring up to ${event.max_guests} guest${event.max_guests === 1 ? '' : 's'} to this event.`);
+    if (guests > event.max_guests) throw new UserError(event.max_guests === 1 ? 'You can bring up to 1 guest to this event.' : 'You can bring up to {n} guests to this event.', { n: event.max_guests });
     const answers = JSON.stringify(collectAnswers(event, body));
     const total = partySize + guests;
 
@@ -365,7 +387,7 @@ function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '
       if (taken + total > event.capacity) {
         if (!joinWaitlist && existing?.status !== 'waitlisted') {
           const left = Math.max(0, event.capacity - taken);
-          throw new UserError(`Sorry, only ${left} spot${left === 1 ? '' : 's'} left for this event. You can join the waitlist instead.`);
+          throw new UserError(left === 1 ? 'Sorry, only 1 spot left for this event. You can join the waitlist instead.' : 'Sorry, only {n} spots left for this event. You can join the waitlist instead.', { n: left });
         }
         waitlisted = true;
       }
@@ -495,7 +517,7 @@ function checkIn(db, { token, guests, adminId }) {
   if (rsvp.status === 'cancelled') throw new UserError('This RSVP was cancelled.');
   if (rsvp.status === 'pending_payment') throw new UserError('Payment is still outstanding for this RSVP.');
   if (!Number.isInteger(guests) || guests < 1 || guests > rsvp.party_size) {
-    throw new UserError(`Guests arriving must be between 1 and ${rsvp.party_size}.`);
+    throw new UserError('Guests arriving must be between 1 and {n}.', { n: rsvp.party_size });
   }
   const result = db.prepare(`
     UPDATE rsvps SET checked_in_at = datetime('now'), checked_in_by = ?, checked_in_count = ?
@@ -542,7 +564,7 @@ function createMembershipPayment(db, { planId, user }) {
   const plan = db.prepare('SELECT * FROM membership_plans WHERE id = ? AND active = 1').get(planId);
   if (!plan) throw new UserError('Please choose a membership level.');
   const reason = planIneligibility(db, plan, user);
-  if (reason) throw new UserError(reason);
+  if (reason) throw new UserError(reason.template, reason.vars);
   const { kind, amountCents } = membershipQuote(db, plan, user.id);
   if (amountCents === 0) {
     (kind === 'membership_upgrade' ? upgradeMembership : grantMembership)(db, { userId: user.id, planId });
@@ -603,7 +625,7 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
 
 module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
-  RELATIONSHIPS, getHousehold, planCoverage, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
+  RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, periodEnd,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,

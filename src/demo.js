@@ -12,12 +12,12 @@ const DEMO_ACCOUNTS = [
 ];
 
 const LEVELS = [
-  // name, description, price, spouse, children, parents, min age
-  ['Senior Citizen', 'Per person, age 65 or older', 11000, 0, 0, 0, 65],
-  ['Individual Membership', 'One person aged 18 and over', 16500, 0, 0, 0, 18],
-  ['Married Couple', 'Married couple excluding children and parents', 27500, 1, 0, 0, 0],
-  ['Family', 'Married couple (or single parent) with their unmarried children', 33000, 1, 1, 0, 0],
-  ['Family with Parents', 'Married couple (or single parent) with their unmarried children, and one set of parents to be noted at renewal', 38500, 1, 1, 2, 0],
+  // name, description, price, spouse, children, parents, min age, Gujarati name
+  ['Senior Citizen', 'Per person, age 65 or older', 11000, 0, 0, 0, 65, 'વરિષ્ઠ નાગરિક'],
+  ['Individual Membership', 'One person aged 18 and over', 16500, 0, 0, 0, 18, 'વ્યક્તિગત સભ્યપદ'],
+  ['Married Couple', 'Married couple excluding children and parents', 27500, 1, 0, 0, 0, 'પરિણીત દંપતી'],
+  ['Family', 'Married couple (or single parent) with their unmarried children', 33000, 1, 1, 0, 0, 'પરિવાર'],
+  ['Family with Parents', 'Married couple (or single parent) with their unmarried children, and one set of parents to be noted at renewal', 38500, 1, 1, 2, 0, 'માતા-પિતા સાથે પરિવાર'],
 ];
 
 // email, first, last, phone, city, vatan, dob, level (null = none, 'expired:Level' = lapsed), family [name, relationship, birth year]
@@ -56,10 +56,10 @@ function seedDemo(db) {
     const hash = bcrypt.hashSync(DEMO_PASSWORD, 10);
 
     const levelId = {};
-    LEVELS.forEach(([name, description, cents, spouse, children, parents, minAge], i) => {
-      levelId[name] = Number(db.prepare(`INSERT INTO membership_plans (name, description, amount_cents, duration_months,
+    LEVELS.forEach(([name, description, cents, spouse, children, parents, minAge, nameGu], i) => {
+      levelId[name] = Number(db.prepare(`INSERT INTO membership_plans (name, name_gu, description, amount_cents, duration_months,
           calendar_year, spouse_allowed, children_allowed, max_parents, min_age, sort_order)
-        VALUES (?, ?, ?, 12, 1, ?, ?, ?, ?, ?)`).run(name, description, cents, spouse, children, parents, minAge, i + 1).lastInsertRowid);
+        VALUES (?, ?, ?, ?, 12, 1, ?, ?, ?, ?, ?)`).run(name, nameGu, description, cents, spouse, children, parents, minAge, i + 1).lastInsertRowid);
     });
 
     const userId = {};
@@ -102,6 +102,9 @@ function seedDemo(db) {
           max_party_size, members_only, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)`)
         .run(title, description, location, start, end, feeCents, capacity, maxParty, membersOnly, admin).lastInsertRowid);
 
+    const set = (id, fields) => db.prepare(`UPDATE events SET ${Object.keys(fields).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
+      .run(...Object.values(fields), id);
+
     // Past events (names from the GSA calendar); dates are relative to today so the demo never goes stale.
     const pastEvents = [
       ['Cook-Off', -3], ['Summer Picnic #2', -10], ['Ganesh Chaturthi Utsav', -18], ['Shravan Somwar Bhajan #3', -30],
@@ -109,22 +112,32 @@ function seedDemo(db) {
       ['Shravan Somwar Bhajan #1', -51], ['Youth Outing Event', -70], ['Yoga and Father’s Day', -108], ['Summer Picnic', -129],
     ];
     const pastIds = {};
+    const pastGu = {
+      'Cook-Off': 'રસોઈ સ્પર્ધા', 'Summer Picnic #2': 'સમર પિકનિક #2', 'Ganesh Chaturthi Utsav': 'ગણેશ ચતુર્થી ઉત્સવ',
+      'Shravan Somwar Bhajan #3': 'શ્રાવણ સોમવાર ભજન #3', 'Krishna Janmashtami Celebration': 'કૃષ્ણ જન્માષ્ટમી ઉજવણી',
+      'GSA Premier League Volleyball Tournament': 'GSA પ્રીમિયર લીગ વોલીબોલ ટુર્નામેન્ટ', 'Shravan Somwar Bhajan #2': 'શ્રાવણ સોમવાર ભજન #2',
+      'Shravan Somwar Bhajan #1': 'શ્રાવણ સોમવાર ભજન #1', 'Youth Outing Event': 'યુવા પ્રવાસ', 'Yoga and Father’s Day': 'યોગ અને ફાધર્સ ડે',
+      'Summer Picnic': 'સમર પિકનિક',
+    };
     for (const [title, days] of pastEvents) {
       pastIds[title] = addEvent(title, null, localDateTime(days, '18:00'), localDateTime(days, '21:00'), 0, null, 10);
+      set(pastIds[title], { title_gu: pastGu[title] });
     }
     const past = pastIds['Ganesh Chaturthi Utsav'];
 
-    const set = (id, fields) => db.prepare(`UPDATE events SET ${Object.keys(fields).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
-      .run(...Object.values(fields), id);
     const garba1 = addEvent('Navratri Garba #1', 'Garba and dandiya raas with live music. Wear your best chaniya choli and kediyu!',
       localDateTime(2, '19:30'), localDateTime(2, '23:30'), 0, 600, 10);
-    set(garba1, { guest_fee_cents: 1000, max_guests: 4 });
+    set(garba1, { guest_fee_cents: 1000, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #1',
+      description_gu: 'જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસ. તમારા સૌથી સુંદર ચણિયા ચોળી અને કેડિયું પહેરીને આવો!' });
     const garba2 = addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
       localDateTime(3, '19:30'), localDateTime(3, '23:30'), 0, 600, 10);
     const diwali = addEvent('Diwali Dinner & Cultural Program', 'Celebrate Diwali and the Gujarati new year with a cultural program and dinner. Dinner fee $15 per person.',
       localDateTime(24, '17:00'), localDateTime(24, '21:30'), 1500, 400, 10);
-    set(garba2, { guest_fee_cents: 1000, max_guests: 4 });
+    set(garba2, { guest_fee_cents: 1000, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #2',
+      description_gu: 'જીવંત સંગીત સાથે નવરાત્રી ગરબા અને દાંડિયા રાસની બીજી રાત.' });
     set(diwali, {
+      title_gu: 'દિવાળી ભોજન અને સાંસ્કૃતિક કાર્યક્રમ',
+      description_gu: 'સાંસ્કૃતિક કાર્યક્રમ અને ભોજન સાથે દિવાળી અને ગુજરાતી નવા વર્ષની ઉજવણી કરો. ભોજન ફી વ્યક્તિ દીઠ $15.',
       guest_fee_cents: 2000, max_guests: 4, early_fee_cents: 1200, early_until: localDateTime(7, '23:59'),
       questions: JSON.stringify([
         { label: 'Dietary preference', required: true, options: ['Regular', 'Jain', 'Swaminarayan'] },
@@ -134,10 +147,13 @@ function seedDemo(db) {
     db.prepare(`INSERT INTO coupons (code, event_id, percent_off, max_uses) VALUES ('DIWALI10', ?, 10, 50)`).run(diwali);
     const workshop = addEvent('Garba Dance Workshop for Kids', 'Learn garba steps before Navratri! Ages 6–14. Limited to 10 spots.',
       localDateTime(1, '16:00'), localDateTime(1, '17:30'), 0, 10, 4);
-    addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
-      localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1);
-    addEvent('Kite Flying Festival (Uttarayan)', 'Patang, chikki and undhiyu! Bring the whole family.',
-      localDateTime(100, '11:00'), null, 0, null, 10, 0, 'Two Rivers Park, Little Rock');
+    set(workshop, { title_gu: 'બાળકો માટે ગરબા વર્કશોપ', description_gu: 'નવરાત્રી પહેલાં ગરબાના સ્ટેપ્સ શીખો! ઉંમર 6–14. ફક્ત 10 જગ્યા.' });
+    set(addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
+      localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1),
+    { title_gu: 'વાર્ષિક સામાન્ય સભા', description_gu: 'સમિતિનો અહેવાલ, બજેટ અને ચૂંટણી. ફક્ત સભ્યો માટે.' });
+    set(addEvent('Kite Flying Festival (Uttarayan)', 'Patang, chikki and undhiyu! Bring the whole family.',
+      localDateTime(100, '11:00'), null, 0, null, 10, 0, 'Two Rivers Park, Little Rock'),
+    { title_gu: 'પતંગ મહોત્સવ (ઉત્તરાયણ)', description_gu: 'પતંગ, ચિક્કી અને ઊંધિયું! આખા પરિવારને સાથે લાવો.' });
 
     const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18, extra = {}) => {
       const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, answers, status,
@@ -186,10 +202,11 @@ function seedDemo(db) {
     rsvp(workshop, 'admin@example.com', 2, 'confirmed');
     rsvp(workshop, 'anjali.vyas@example.com', 2, 'waitlisted');
 
-    db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-1 day'))`)
-      .run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.', admin);
-    db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-14 days'))`)
-      .run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.', admin);
+    const news = db.prepare(`INSERT INTO news_posts (title, body, title_gu, body_gu, author_id, created_at) VALUES (?, ?, ?, ?, ?, datetime('now', ?))`);
+    news.run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.',
+      'આ સપ્તાહના અંતે નવરાત્રી ગરબા!', 'નવરાત્રી ગરબા #1 અને #2 GSA કોમ્યુનિટી સેન્ટર ખાતે છે. એપમાં આવનાર પરિવારના સભ્યોની સંખ્યા સાથે RSVP કરો, પછી ઝડપી પ્રવેશ માટે દરવાજે તમારી QR ટિકિટ બતાવો.', admin, '-1 day');
+    news.run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.',
+      'અમારી નવી સભ્ય એપમાં આપનું સ્વાગત છે', 'હવે તમે તમારા ફોનથી જ પરિવારની પ્રોફાઇલ અપડેટ કરી શકો છો, સભ્યપદ ફી ભરી શકો છો, કાર્યક્રમો માટે RSVP કરી શકો છો અને QR ટિકિટ મેળવી શકો છો. એક ટૅપમાં ખોલવા માટે તેને તમારી હોમ સ્ક્રીન પર ઉમેરો.', admin, '-14 days');
 
     // Donations: a Facility Fund with a goal, plus general-fund gifts.
     const facility = Number(db.prepare(`INSERT INTO campaigns (title, description, goal_cents) VALUES (?, ?, ?)`)

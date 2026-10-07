@@ -43,7 +43,7 @@ function addMonths(isoDate, months) {
   return date.toISOString().slice(0, 10);
 }
 
-function formatDateTime(value) {
+function formatDateTime(value, locale = 'en-US') {
   if (!value) return '';
   // SQLite's datetime('now') timestamps ("YYYY-MM-DD HH:MM:SS") are UTC.
   const isSqliteUtc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value);
@@ -52,7 +52,7 @@ function formatDateTime(value) {
   const opts = value.length === 10
     ? { dateStyle: 'medium' }
     : { dateStyle: 'medium', timeStyle: 'short' };
-  return new Intl.DateTimeFormat('en-US', opts).format(d);
+  return new Intl.DateTimeFormat(locale, opts).format(d);
 }
 
 function toCsv(rows) {

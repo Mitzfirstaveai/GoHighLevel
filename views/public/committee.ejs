@@ -1,17 +1,17 @@
 <%- include('../partials/head') %>
 <%- include('../partials/about-tabs') %>
-<h1>Committee Members</h1>
+<h1><%= t('Committee Members') %></h1>
 <% for (const group of committee) { %>
   <div class="card">
-    <h2><%= group.title %></h2>
+    <h2><%= t.data(group.title) %></h2>
     <div class="people">
       <% for (const [name, role, city, vatan] of group.members) { %>
         <div class="person">
           <div class="avatar" aria-hidden="true"><%= name.replace(/\(.*?\)/g, '').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') %></div>
           <div>
             <strong><%= name %></strong>
-            <% if (role) { %><div class="role"><%= role %></div><% } %>
-            <div class="muted small"><%= city %> · <%= vatan %></div>
+            <% if (role) { %><div class="role"><%= t.data(role) %></div><% } %>
+            <div class="muted small"><%= [city, vatan].filter(Boolean).join(' · ') %></div>
           </div>
         </div>
       <% } %>

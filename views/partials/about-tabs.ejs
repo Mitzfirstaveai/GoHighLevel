@@ -1,5 +1,5 @@
-<nav class="pills" aria-label="About GSA">
+<nav class="pills" aria-label="<%= t('About GSA') %>">
   <% for (const [href, label] of [['/about', 'About Us'], ['/committee', 'Committee'], ['/sponsors', 'Sponsors'], ['/contact', 'Contact']]) { %>
-    <a href="<%= href %>" class="<%= path === href ? 'active' : '' %>"><%= label %></a>
+    <a href="<%= href %>" class="<%= path === href ? 'active' : '' %>"><%= t(label) %></a>
   <% } %>
 </nav>

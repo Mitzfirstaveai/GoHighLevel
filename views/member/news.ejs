@@ -1,12 +1,12 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>News</h1></div>
-<% if (!posts.length) { %><div class="card"><p class="muted">No announcements yet.</p></div><% } %>
+<div class="page-head"><h1><%= t('News') %></h1></div>
+<% if (!posts.length) { %><div class="card"><p class="muted"><%= t('No announcements yet.') %></p></div><% } %>
 <% for (const p of posts) { %>
   <article class="card">
-    <h2 style="margin-bottom:4px"><%= p.title %></h2>
+    <h2 style="margin-bottom:4px"><%= loc(p, 'title') %></h2>
     <p class="muted small" style="margin-top:0"><%= p.first_name ? `${p.first_name} ${p.last_name} · ` : '' %><%= fmtDate(p.created_at.slice(0, 10)) %></p>
     <% if (p.image_path) { %><img src="<%= p.image_path %>" alt="" class="event-hero"><% } %>
-    <div style="white-space:pre-line"><%= p.body %></div>
+    <div style="white-space:pre-line"><%= loc(p, 'body') %></div>
   </article>
 <% } %>
 <%- include('../partials/foot') %>

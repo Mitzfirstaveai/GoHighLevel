@@ -1,26 +1,26 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Donate</h1></div>
-<p class="muted">Your gift supports GSA's cultural programs, festivals and community center. <%= orgName %> is a 501(c)(3) nonprofit — you'll get a tax receipt right away.</p>
+<div class="page-head"><h1><%= t('Donate') %></h1></div>
+<p class="muted"><%= t("Your gift supports GSA's cultural programs, festivals and community center. {org} is a 501(c)(3) nonprofit — you'll get a tax receipt right away.", { org: t.data(orgName) }) %></p>
 <% if (campaigns.length) { %>
 <div class="grid grid-2">
   <% for (const c of campaigns) { %>
-    <div class="card"><h2><%= c.title %></h2><% if (c.description) { %><p class="muted"><%= c.description %></p><% } %><%- include('../partials/thermometer', { c }) %></div>
+    <div class="card"><h2><%= t.data(c.title) %></h2><% if (c.description) { %><p class="muted"><%= t.data(c.description) %></p><% } %><%- include('../partials/thermometer', { c }) %></div>
   <% } %>
 </div>
 <% } %>
 <div class="card">
   <form method="post" action="/donate" class="stack">
     <%- include('../partials/csrf') %>
-    <label>Give to
-      <select name="campaign_id"><option value="">General fund</option>
-        <% for (const c of campaigns) { %><option value="<%= c.id %>" <%= selected === c.id ? 'selected' : '' %>><%= c.title %></option><% } %></select></label>
-    <fieldset class="amounts"><legend>Amount</legend>
+    <label><%= t('Give to') %>
+      <select name="campaign_id"><option value=""><%= t('General fund') %></option>
+        <% for (const c of campaigns) { %><option value="<%= c.id %>" <%= selected === c.id ? 'selected' : '' %>><%= t.data(c.title) %></option><% } %></select></label>
+    <fieldset class="amounts"><legend><%= t('Amount') %></legend>
       <% presets.forEach((p, i) => { %><label class="amount"><input type="radio" name="amount" value="<%= p %>" <%= i === 1 ? 'checked' : '' %>><span><%= money(p) %></span></label><% }) %>
-      <label class="amount"><input type="radio" name="amount" value="other"><span>Other</span></label>
+      <label class="amount"><input type="radio" name="amount" value="other"><span><%= t('Other') %></span></label>
     </fieldset>
-    <label>Other amount <input name="other_amount" inputmode="decimal" placeholder="e.g. 1001"></label>
-    <label>Note (optional) <input name="note" maxlength="300" placeholder="e.g. In memory of …"></label>
-    <% if (paymentMode !== 'disabled') { %><div><button class="btn">Donate</button></div><% } else { %><p class="muted">Online giving is coming soon — please give to a committee member.</p><% } %>
+    <label><%= t('Other amount') %> <input name="other_amount" inputmode="decimal" placeholder="<%= t('e.g. 1001') %>"></label>
+    <label><%= t('Note (optional)') %> <input name="note" maxlength="300" placeholder="<%= t('e.g. In memory of …') %>"></label>
+    <% if (paymentMode !== 'disabled') { %><div><button class="btn big"><%= t('Donate') %></button></div><% } else { %><p class="muted"><%= t('Online giving is coming soon — please give to a committee member.') %></p><% } %>
   </form>
 </div>
 <%- include('../partials/foot') %>
