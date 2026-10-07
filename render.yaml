@@ -27,3 +27,10 @@ services:
         value: "true"
       # Add later to take real card payments (Render dashboard → Environment):
       # STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+    # For real use: switch `plan` to starter (or higher), set DEMO_MODE to "false", and keep
+    # all data on a persistent disk (Render snapshots it daily):
+    # disk:
+    #   name: gsa-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # …and add an env var DATABASE_FILE=/var/data/samaj.db

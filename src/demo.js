@@ -87,6 +87,15 @@ function seedDemo(db) {
         .run(id, levelId[planName], paymentId, `${y}-01-01`, `${y}-12-31`);
     }
 
+    const contact = (email, first, last, phone, city, tags, notes) => {
+      userId[email] = Number(db.prepare(`INSERT INTO users (email, first_name, last_name, phone, city, state, tags, notes, source)
+        VALUES (?, ?, ?, ?, ?, 'AR', ?, ?, 'admin')`).run(email, first, last, phone, city, tags, notes).lastInsertRowid);
+    };
+    contact('events@stonebank.example.com', 'Laura', 'Mitchell', '501-555-0150', 'Little Rock', 'Sponsor', 'Stone Bank — Platinum sponsor contact');
+    contact('orders@shreejicatering.example.com', 'Bhavesh', 'Rana', '501-555-0151', 'Sherwood', 'Vendor', 'Caterer for Diwali dinner');
+    contact('dinesh.patel@example.com', 'Dinesh', 'Patel', '479-555-0152', 'Springdale', 'Donor', 'Lives out of town; supports the Facility Fund');
+    contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
+    db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
     const admin = userId['admin@example.com'];
     const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>
       Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,
@@ -105,27 +114,42 @@ function seedDemo(db) {
     }
     const past = pastIds['Ganesh Chaturthi Utsav'];
 
+    const set = (id, fields) => db.prepare(`UPDATE events SET ${Object.keys(fields).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
+      .run(...Object.values(fields), id);
     const garba1 = addEvent('Navratri Garba #1', 'Garba and dandiya raas with live music. Wear your best chaniya choli and kediyu!',
       localDateTime(2, '19:30'), localDateTime(2, '23:30'), 0, 600, 10);
-    addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
+    set(garba1, { guest_fee_cents: 1000, max_guests: 4 });
+    const garba2 = addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
       localDateTime(3, '19:30'), localDateTime(3, '23:30'), 0, 600, 10);
     const diwali = addEvent('Diwali Dinner & Cultural Program', 'Celebrate Diwali and the Gujarati new year with a cultural program and dinner. Dinner fee $15 per person.',
       localDateTime(24, '17:00'), localDateTime(24, '21:30'), 1500, 400, 10);
+    set(garba2, { guest_fee_cents: 1000, max_guests: 4 });
+    set(diwali, {
+      guest_fee_cents: 2000, max_guests: 4, early_fee_cents: 1200, early_until: localDateTime(7, '23:59'),
+      questions: JSON.stringify([
+        { label: 'Dietary preference', required: true, options: ['Regular', 'Jain', 'Swaminarayan'] },
+        { label: 'Will you perform in the cultural program?', required: false, options: ['Yes', 'No'] },
+      ]),
+    });
+    db.prepare(`INSERT INTO coupons (code, event_id, percent_off, max_uses) VALUES ('DIWALI10', ?, 10, 50)`).run(diwali);
+    const workshop = addEvent('Garba Dance Workshop for Kids', 'Learn garba steps before Navratri! Ages 6–14. Limited to 10 spots.',
+      localDateTime(1, '16:00'), localDateTime(1, '17:30'), 0, 10, 4);
     addEvent('Annual General Meeting', 'Committee report, budget and elections. Members only.',
       localDateTime(45, '14:00'), localDateTime(45, '16:00'), 0, null, 2, 1);
     addEvent('Kite Flying Festival (Uttarayan)', 'Patang, chikki and undhiyu! Bring the whole family.',
       localDateTime(100, '11:00'), null, 0, null, 10, 0, 'Two Rivers Park, Little Rock');
 
-    const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18) => {
-      const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, status, qr_token, checked_in_at,
-          checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(eventId, userId[email], partySize, status, newToken(),
+    const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18, extra = {}) => {
+      const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, answers, status,
+          qr_token, checked_in_at, checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId[email], partySize, extra.guests ?? 0, extra.total ?? 0, JSON.stringify(extra.answers ?? []), status, newToken(),
           checkedIn ? localDateTime(-daysAgo, '18:20').replace('T', ' ') + ':00' : null,
           checkedIn ? admin : null, checkedIn ? checkedIn : null).lastInsertRowid);
       return id;
     };
-    const paidRsvp = (eventId, email, partySize, title) => {
-      const id = rsvp(eventId, email, partySize, 'confirmed');
+    const diet = (choice) => [{ label: 'Dietary preference', answer: choice }, { label: 'Will you perform in the cultural program?', answer: 'No' }];
+    const paidRsvp = (eventId, email, partySize, title, answers) => {
+      const id = rsvp(eventId, email, partySize, 'confirmed', null, 0, { total: 1500 * partySize, answers });
       db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
                   VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-2 days'))`)
         .run(userId[email], id, `${title} — ${partySize} people`, 1500 * partySize, `demo_e${id}`);
@@ -144,29 +168,49 @@ function seedDemo(db) {
     // Navratri Garba #1 (free): the demo member already has a QR ticket.
     rsvp(garba1, 'member@example.com', 4, 'confirmed');
     rsvp(garba1, 'admin@example.com', 3, 'confirmed');
-    rsvp(garba1, 'nilesh.joshi@example.com', 5, 'confirmed');
+    rsvp(garba1, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, total: 2000 });
     rsvp(garba1, 'anjali.vyas@example.com', 2, 'confirmed');
     rsvp(garba1, 'hemant.thakkar@example.com', 1, 'confirmed');
     rsvp(garba1, 'dhruv.amin@example.com', 1, 'confirmed');
 
     // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & pay live.
-    paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program');
-    paidRsvp(diwali, 'vipul.bhatt@example.com', 4, 'Diwali Dinner & Cultural Program');
-    paidRsvp(diwali, 'raj.desai@example.com', 2, 'Diwali Dinner & Cultural Program');
-    rsvp(diwali, 'falguni.trivedi@example.com', 2, 'pending_payment');
+    paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program', diet('Jain'));
+    paidRsvp(diwali, 'vipul.bhatt@example.com', 4, 'Diwali Dinner & Cultural Program', diet('Regular'));
+    paidRsvp(diwali, 'raj.desai@example.com', 2, 'Diwali Dinner & Cultural Program', diet('Swaminarayan'));
+    rsvp(diwali, 'falguni.trivedi@example.com', 2, 'pending_payment', null, 0, { total: 2400, answers: diet('Regular') });
+
+    // Kids' garba workshop: full, with one family on the waitlist.
+    rsvp(workshop, 'nilesh.joshi@example.com', 3, 'confirmed');
+    rsvp(workshop, 'vipul.bhatt@example.com', 3, 'confirmed');
+    rsvp(workshop, 'falguni.trivedi@example.com', 2, 'confirmed');
+    rsvp(workshop, 'admin@example.com', 2, 'confirmed');
+    rsvp(workshop, 'anjali.vyas@example.com', 2, 'waitlisted');
 
     db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-1 day'))`)
       .run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.', admin);
     db.prepare(`INSERT INTO news_posts (title, body, author_id, created_at) VALUES (?, ?, ?, datetime('now', '-14 days'))`)
       .run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.', admin);
 
-    db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, provider_ref, recorded_by, paid_at)
-                VALUES (?, 'other', 'Temple building fund donation', 25100, 'paid', 'check', '2045', ?, datetime('now', '-9 days'))`)
-      .run(userId['hemant.thakkar@example.com'], admin);
+    // Donations: a Facility Fund with a goal, plus general-fund gifts.
+    const facility = Number(db.prepare(`INSERT INTO campaigns (title, description, goal_cents) VALUES (?, ?, ?)`)
+      .run('Facility Fund', 'Upgrades to the GSA Community Center — new kitchen and sound system.', 2500000).lastInsertRowid);
+    db.prepare(`INSERT INTO campaigns (title, description) VALUES (?, ?)`).run('Youth Programs', 'Gujarati classes, youth sports and scholarships.');
+    const donate = (email, cents, campaign, method, daysAgo, note = null) => db.prepare(`INSERT INTO payments (user_id, kind, reference_id,
+        description, amount_cents, status, method, provider_ref, recorded_by, note, paid_at)
+      VALUES (?, 'donation', ?, ?, ?, 'paid', ?, ?, ?, ?, datetime('now', ?))`)
+      .run(userId[email], campaign, `Donation — ${campaign ? 'Facility Fund' : 'General fund'}`, cents, method,
+        method === 'check' ? String(2000 + daysAgo) : `demo_d${daysAgo}`, method === 'demo' ? null : admin, note, `-${daysAgo} days`);
+    donate('hemant.thakkar@example.com', 25100, facility, 'check', 9);
+    donate('nilesh.joshi@example.com', 100100, facility, 'demo', 21, 'In memory of Ba');
+    donate('vipul.bhatt@example.com', 50100, facility, 'demo', 33);
+    donate('dinesh.patel@example.com', 250100, facility, 'check', 40);
+    donate('member@example.com', 10100, null, 'demo', 5);
+    donate('meena.mehta@example.com', 5100, null, 'cash', 12);
   });
 }
 
-const TABLES = ['news_posts', 'retired_qr_tokens', 'rsvps', 'memberships', 'payments', 'household_members', 'events', 'membership_plans', 'users'];
+const TABLES = ['news_posts', 'retired_qr_tokens', 'coupons', 'rsvps', 'memberships', 'payments', 'household_members', 'events',
+  'campaigns', 'membership_plans', 'users', 'pages'];
 
 // Wipes all data and loads the demo set again. Sessions are kept: the admin keeps the same id.
 function resetDemo(db) {

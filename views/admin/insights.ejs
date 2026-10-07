@@ -1,0 +1,14 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Membership &amp; event trends</h1></div>
+<div class="stats">
+  <div class="stat"><div class="label">Active memberships</div><div class="value"><%= status.active %></div><div class="muted small"><%= families %> people covered incl. family</div></div>
+  <div class="stat"><div class="label">Expired</div><div class="value"><%= status.expired %></div><div class="muted small"><a href="/admin/members?status=expired">See who to follow up with</a></div></div>
+  <div class="stat"><div class="label">Expiring in 60 days</div><div class="value"><%= expiringSoon %></div><div class="muted small">not yet renewed</div></div>
+  <div class="stat"><div class="label">Contacts never a member</div><div class="value"><%= status.never %></div><div class="muted small"><a href="/admin/members?status=none">Donors, sponsors, guests…</a></div></div>
+</div>
+<div class="card"><h2>New members per month</h2><p class="muted small" style="margin-top:0">First membership, last 12 months</p><%- joinsChart %></div>
+<div class="grid grid-2">
+  <div class="card"><h2>Active memberships by level</h2><%- levelsChart || '<p class="muted">No active memberships.</p>' %></div>
+  <div class="card"><h2>Recent events: registered vs. arrived</h2><%- eventsChart || '<p class="muted">No past events yet.</p>' %></div>
+</div>
+<%- include('../partials/foot') %>

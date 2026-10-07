@@ -1,0 +1,30 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/members">← Contacts</a>
+<div class="page-head"><h1>Import contacts</h1></div>
+<% if (result) { %>
+  <div class="card">
+    <h2>Import finished</h2>
+    <div class="stats">
+      <div class="stat"><div class="label">New contacts</div><div class="value"><%= result.created %></div></div>
+      <div class="stat"><div class="label">Updated</div><div class="value"><%= result.updated %></div></div>
+      <div class="stat"><div class="label">Memberships recorded</div><div class="value"><%= result.memberships %></div></div>
+      <div class="stat"><div class="label">Skipped rows</div><div class="value"><%= result.skipped.length %></div></div>
+    </div>
+    <% if (result.skipped.length) { %><details><summary>Why rows were skipped</summary><ul class="small"><% for (const s of result.skipped) { %><li><%= s %></li><% } %></ul></details><% } %>
+    <p><a class="btn" href="/admin/members?login=no">See imported contacts</a></p>
+  </div>
+<% } %>
+<div class="card">
+  <h2>Upload a spreadsheet (CSV)</h2>
+  <ol class="small">
+    <li>In WildApricot: <strong>Contacts → Export contacts</strong> and choose CSV. (Any CSV with "First name" and "Last name" columns works.)</li>
+    <li>Upload the file here. Contacts already in this app (same email) are updated; everyone else is added.</li>
+    <li>If a row has a <strong>Membership level</strong> matching one of ours and a <strong>Renewal due</strong> date, their membership is recorded too.</li>
+  </ol>
+  <form method="post" action="/admin/import?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">
+    <input type="file" name="file" accept=".csv,text/csv" required>
+    <div><button class="btn">Import</button></div>
+  </form>
+  <p class="muted small">Recognised columns: First name, Last name, Email, Phone, Address, City, State, Zip, Native place, Membership level, Membership status, Member since, Renewal due, Tags, Notes. Imported people get an app login when an admin creates one for them (from their contact page).</p>
+</div>
+<%- include('../partials/foot') %>

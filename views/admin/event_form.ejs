@@ -1,25 +1,54 @@
 <%- include('../partials/head') %>
 <a class="back" href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">← Back</a>
 <div class="page-head"><h1><%= event.id ? 'Edit event' : 'New event' %></h1></div>
-<div class="card">
-  <form method="post" action="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>" class="stack">
-    <%- include('../partials/csrf') %>
-    <label>Title <input name="title" value="<%= event.title || '' %>" required placeholder="e.g. Navratri Garba Night"></label>
+<form method="post" action="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">
+  <div class="card stack">
+    <h2>Details</h2>
+    <label>Title <input name="title" value="<%= event.title || '' %>" required placeholder="e.g. Navratri Garba #1"></label>
     <label>Description <textarea name="description"><%= event.description || '' %></textarea></label>
     <div class="fields">
       <label>Location <input name="location" value="<%= event.location || '' %>"></label>
       <label>Starts <input type="datetime-local" name="starts_at" value="<%= event.starts_at || '' %>" required></label>
       <label>Ends (optional) <input type="datetime-local" name="ends_at" value="<%= event.ends_at || '' %>"></label>
       <label>RSVP deadline (optional) <input type="datetime-local" name="rsvp_deadline" value="<%= event.rsvp_deadline || '' %>"></label>
-      <label>Fee per person (0 = free) <input name="fee" inputmode="decimal" value="<%= event.fee_cents ? (event.fee_cents / 100).toFixed(2) : '0' %>"></label>
-      <label>Total capacity (blank = unlimited) <input name="capacity" type="number" min="1" value="<%= event.capacity || '' %>"></label>
-      <label>Max people per RSVP <input name="max_party_size" type="number" min="1" max="100" value="<%= event.max_party_size %>" required></label>
       <label>Status <select name="status">
         <% for (const s of ['published', 'draft', 'cancelled']) { %><option value="<%= s %>" <%= event.status === s ? 'selected' : '' %>><%= s[0].toUpperCase() + s.slice(1) %></option><% } %>
       </select></label>
     </div>
+    <label>Photo or flyer (optional, max 5 MB) <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+    <% if (event.image_path) { %><div class="actions"><img src="<%= event.image_path %>" alt="" class="thumb"><label class="check"><input type="checkbox" name="remove_image" value="1"> Remove photo</label></div><% } %>
+  </div>
+
+  <div class="card stack">
+    <h2>Who can come &amp; pricing</h2>
+    <div class="fields">
+      <label>Member price per person (0 = free) <input name="fee" inputmode="decimal" value="<%= event.fee_cents ? (event.fee_cents / 100).toFixed(2) : '0' %>"></label>
+      <label>Total capacity (blank = unlimited) <input name="capacity" type="number" min="1" value="<%= event.capacity || '' %>"></label>
+      <label>Max family members per RSVP <input name="max_party_size" type="number" min="1" max="100" value="<%= event.max_party_size %>" required></label>
+    </div>
     <label class="check"><input type="checkbox" name="members_only" value="1" <%= event.members_only ? 'checked' : '' %>> Only members with an active (paid) membership can RSVP</label>
-    <div class="actions"><button class="btn">Save event</button><a href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">Cancel</a></div>
-  </form>
-</div>
+    <p class="muted small" style="margin:0">Members bring the family their membership level covers. When the event is full, people can join a waitlist and are moved in automatically when seats free up.</p>
+
+    <label class="check"><input type="checkbox" name="allow_guests" value="1" <%= event.guest_fee_cents !== null && event.guest_fee_cents !== undefined ? 'checked' : '' %> data-toggle="guest-fields"> Allow guests (friends, visiting relatives, non-members) at a guest price</label>
+    <div class="fields" id="guest-fields">
+      <label>Guest price per person (0 = free) <input name="guest_fee" inputmode="decimal" value="<%= event.guest_fee_cents != null ? (event.guest_fee_cents / 100).toFixed(2) : '' %>"></label>
+      <label>Max guests per RSVP <input name="max_guests" type="number" min="1" max="50" value="<%= event.max_guests || 4 %>"></label>
+    </div>
+
+    <div class="fields">
+      <label>Early-bird member price (optional) <input name="early_fee" inputmode="decimal" value="<%= event.early_fee_cents != null ? (event.early_fee_cents / 100).toFixed(2) : '' %>"></label>
+      <label>Early-bird ends <input type="datetime-local" name="early_until" value="<%= event.early_until || '' %>"></label>
+    </div>
+  </div>
+
+  <div class="card stack">
+    <h2>Registration questions (optional)</h2>
+    <label>One question per line. Start with <code>*</code> to make it required. Add choices after a colon.
+      <textarea name="questions" rows="4" placeholder="*Dietary preference: Regular, Jain, Swaminarayan
+T-shirt size: S, M, L, XL
+Anything we should know?"><%= questionsText %></textarea></label>
+  </div>
+  <div class="actions"><button class="btn">Save event</button><a href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">Cancel</a></div>
+</form>
+<script src="/forms.js"></script>
 <%- include('../partials/foot') %>

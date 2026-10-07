@@ -19,7 +19,8 @@ router.post('/login', (req, res, next) => {
   const { db } = req.app.locals;
   const email = String(req.body.email || '').trim();
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  if (!user || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
+  // Contacts added by an admin or imported have no password until they're given a login.
+  if (!user?.password_hash || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
     res.locals.flash = [{ type: 'error', message: 'Incorrect email or password.' }];
     return res.status(401).render('auth/login', { title: 'Sign in', email });
   }
@@ -45,9 +46,12 @@ router.post('/register', (req, res, next) => {
     if (!EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
     if (password.length < 8) throw new UserError('Password must be at least 8 characters.');
     if (password !== form.password_confirm) throw new UserError('Passwords do not match.');
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
-      throw new UserError('An account with that email already exists. Try signing in.');
+    const existing = db.prepare('SELECT password_hash FROM users WHERE email = ?').get(email);
+    if (existing && !existing.password_hash) {
+      // Imported from WildApricot or added by the committee: an admin issues the first login.
+      throw new UserError('You are already in our member records. Please ask a committee member to set up your login.');
     }
+    if (existing) throw new UserError('An account with that email already exists. Try signing in.');
     const profile = cleanProfile(form);
     // With no ADMIN_EMAIL configured, the very first account becomes the administrator.
     const noAdmin = !req.app.locals.config.adminEmail

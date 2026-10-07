@@ -10,7 +10,8 @@ const { loadUser, csrf, flash } = require('./middleware');
 const { UserError } = require('./services');
 const { seedDemo, isEmpty, DEMO_ACCOUNTS, DEMO_PASSWORD } = require('./demo');
 const util = require('./util');
-const { ORG } = require('./content');
+const { getContent } = require('./site');
+const { imageUpload } = require('./uploads');
 
 function createApp(config) {
   const db = openDb(config.databaseFile);
@@ -25,10 +26,10 @@ function createApp(config) {
   app.locals.db = db;
   app.locals.config = config;
   app.locals.gateway = gateway;
+  app.locals.imageUpload = imageUpload(config);
   Object.assign(app.locals, {
     orgName: config.orgName,
     paymentMode: gateway.mode,
-    org: ORG,
     demoMode: config.demoMode,
     demoAccounts: config.demoMode ? DEMO_ACCOUNTS : [],
     demoPassword: DEMO_PASSWORD,
@@ -44,7 +45,12 @@ function createApp(config) {
     });
     next();
   });
-  app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
+  app.use(express.static(path.join(__dirname, '..', 'public'), {
+    maxAge: '1h',
+    // The service worker must always be re-checked so app updates reach installed phones.
+    setHeaders: (res, file) => { if (file.endsWith('sw.js')) res.set('Cache-Control', 'no-cache'); },
+  }));
+  app.use('/uploads', express.static(config.uploadsDir, { maxAge: '7d', dotfiles: 'deny' }));
 
   // Stripe webhooks need the raw body and must skip CSRF/session handling.
   app.use('/pay/webhook', require('./routes/webhook'));
@@ -66,6 +72,7 @@ function createApp(config) {
   app.use((req, res, next) => {
     res.locals.path = req.path;
     res.locals.user = null;
+    res.locals.org = getContent(db, 'org');
     next();
   });
   app.use(flash);
@@ -75,7 +82,10 @@ function createApp(config) {
   app.use(require('./routes/auth'));
   app.use(require('./routes/public'));
   app.use(require('./routes/member'));
+  app.use(require('./routes/donations').router);
   app.use('/pay', require('./routes/pay'));
+  app.use('/admin', require('./routes/reports'));
+  app.use('/admin', require('./routes/site-admin'));
   app.use('/admin', require('./routes/admin'));
 
   app.use((req, res) => {
@@ -84,8 +94,10 @@ function createApp(config) {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
-    if (err instanceof UserError) {
-      req.flash('error', err.message);
+    if (err instanceof UserError || err.name === 'MulterError') {
+      req.flash('error', err.name === 'MulterError'
+        ? (err.code === 'LIMIT_FILE_SIZE' ? 'That file is too large (5 MB maximum).' : 'That file could not be uploaded.')
+        : err.message);
       return res.redirect(safeBack(req));
     }
     console.error(err);

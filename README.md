@@ -5,22 +5,36 @@ A simple, mobile-friendly web app for the samaj's members and committee:
 Organization details (About, Committee, Sponsors, Contact) live in `src/content.js`.
 
 **Members can**
-- Create an account and keep their profile up to date (contact info, address, native place/vatan, occupation)
-- List family members in their household
-- Browse events and RSVP with the number of people coming
-- Pay event fees and membership dues online (card via Stripe)
-- Get a **QR ticket** for each event (in *My tickets*, one tap away on the phone's bottom bar)
+- Keep their profile and family up to date; family members allowed depend on their membership level
+- Pay or renew membership dues (Senior Citizen, Individual, Married Couple, Family, Family with Parents) — upgrades pay the difference
+- Browse events as a list or a monthly calendar, add them to their phone calendar, and RSVP for their family
+  plus **guests at the guest price**; answer registration questions; use **coupon codes** and **early-bird** prices
+- Join a **waitlist** when an event is full — they're moved in automatically when seats free up
+- Show a one-time **QR ticket** at the door (works offline once opened)
+- **Donate** to the general fund or a campaign (e.g. Facility Fund) and get a **tax receipt**
+- Get a printable receipt for every payment; search the **member directory** (with privacy settings); read **News**
+- **Install the app** on their phone's home screen (iPhone and Android) — no app store needed
 
 **Admins can**
-- See and edit every member's full profile and family list; search and export the directory to CSV
-- Create events (date, location, per-person fee, capacity, max people per RSVP, RSVP deadline, members-only)
-- See who is attending and **how many people** (confirmed, awaiting payment, checked in) and export the guest list
-- **Scan QR codes** at the door with any phone: the scan shows the member's name and how many guests are
-  registered on that code; the admin picks how many actually arrived and checks them in.
-  **A QR code can only be used once** — a second scan shows "Already used", when, and by whom.
-- Collect cash/check at the door, or record any offline payment (dues, donations)
-- Manage membership levels (Senior Citizen, Individual, Married Couple, Family, Family with Parents) — each level
-  decides which family members can be on the profile and how many people the member can bring to events
+- Keep a **contact database** of members *and* non-members (donors, sponsors, vendors, volunteers) — with tags,
+  filters (membership status, level, tag, city, login) and CSV export
+- **Import contacts from a spreadsheet** — e.g. a WildApricot export — including membership levels and renewal dates
+- Create events with photos, member / guest / early-bird prices, capacity, waitlists, coupon codes and custom questions
+- See who's coming and how many (family vs. guests), answers to questions, and export the guest list
+- **Scan QR codes** at the door; each code works once, and changed or old codes are flagged
+- Record cash/check payments and donations; run **donation campaigns** with a goal thermometer; see the **donor list**
+- View **financial reports** by month and category and **export to QuickBooks**
+- Watch **trends**: new members per month, active members by level, event registrations vs. arrivals, renewals due
+- Edit the website's About, Committee, Sponsors and Contact pages, and post News with photos — no code needed
+
+Organization details default to `src/content.js` and can then be edited in **Admin → Website**.
+
+## Where the data lives
+
+Everything — members, contacts, events, payments, photos — is stored in one database on the hosting server
+(Render), reachable from any phone or computer. On the free demo plan that storage is temporary. For real use,
+pick a paid plan with a **persistent disk** (in `render.yaml`, uncomment the `disk:` section and set `DATABASE_FILE`
+to a path on it); Render snapshots the disk daily so you can restore from a backup.
 
 ## Put the demo online (free, about 10 minutes)
 
@@ -39,23 +53,23 @@ On the sign-in page, tap **Member (Family level)** or **Admin (committee)** — 
 Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
-1. *Home*: quick tiles, membership status, upcoming events.
-2. *My tickets*: the Navratri Garba #1 QR ticket for 4 people.
-3. *Events → Diwali Dinner & Cultural Program*: RSVP for 4 → pay $60 (simulated) → QR ticket appears.
-4. Change the RSVP from 4 to 2 → a new QR code is issued and the old one stops working (fees are non-refundable).
-5. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests
-   upgrading to Family with Parents.
-6. *Dues*: see the five levels, "Upgrade — pay $55 difference", and renewal for next year.
-7. *More*: member directory (with privacy settings), News, About Us, Committee, Sponsors and Contact.
+1. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
+2. *Tickets*: the Navratri Garba #1 QR ticket for 4 people.
+3. *Events → Diwali Dinner & Cultural Program*: choose 3 family + 2 guests, pick a dietary preference, enter coupon
+   `DIWALI10` → the estimate updates → pay (simulated) → QR ticket. Early-bird member price applies.
+4. *Events → Garba Dance Workshop for Kids*: it's full — **Join waitlist**. Try the **Calendar** view and **Add to my calendar**.
+5. Change an RSVP from 4 to 2 → a new QR code is issued and the old one stops working.
+6. *Profile*: try adding a "Father" — the Family level doesn't cover parents, so the app suggests an upgrade.
+7. *Dues*: the five levels, "Upgrade — pay $55 difference", renewal for next year.
+8. *More → My payments → Make a donation* → give to the Facility Fund → tax receipt (Print / Save as PDF).
 
 **As an admin**
-1. *Overview*: members, paid memberships, money collected, upcoming events.
-2. *Events → Navratri Garba #1*: headcount (confirmed / awaiting payment / checked in) and the guest list; download CSV.
-3. *Check-in*: scan the member's QR with the phone camera (or click **Check in** on the guest list) → choose how many
-   arrived → **Check in**. Scan the same code again → **Already used**. Scan the old (replaced) code → **Old QR code — replaced**.
-4. *Members*: search the directory, open a profile, see family, payments and RSVPs; record a cash/check payment.
-5. *Membership levels*: the five GSA levels and who each covers.
-6. *News*: post an announcement — it appears on every member's home page.
+1. *Overview*: totals and upcoming events. *Trends*: membership and attendance charts.
+2. *Events → Diwali*: headcount incl. guests, answers to questions, coupon usage; download CSV.
+3. *Check-in*: scan a member's QR (or click **Check in**) → choose how many arrived. Scan again → **Already used**.
+4. *Contacts*: filter by Sponsor / Donor / "No login yet"; add a contact without email; **Import from spreadsheet**.
+5. *Donations*: Facility Fund thermometer, donor list, start a new fund. *Reports*: income by month, **Export for QuickBooks**.
+6. *Website*: change the motto or committee list and open the public pages. *News*: post an announcement with a photo.
 7. *Overview → Reset demo data* before the next presentation.
 
 ## Adding Stripe later
@@ -100,7 +114,7 @@ If `ADMIN_EMAIL` isn't set, the first account registered becomes the administrat
 ## Development
 
 ```bash
-npm test        # end-to-end tests (RSVP, payments, one-time QR check-in, capacity, dues, CSV, CSRF)
+npm test        # end-to-end tests (RSVPs, guests, waitlist, coupons, QR check-in, dues, contacts/import, donations, reports)
 npm run dev     # restart on file changes
 ```
 

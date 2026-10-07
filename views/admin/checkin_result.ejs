@@ -24,7 +24,7 @@
     <h2 style="margin-bottom:0"><%= rsvp.first_name %> <%= rsvp.last_name %></h2>
     <p class="muted"><%= rsvp.event_title %> · <%= fmtDate(rsvp.starts_at) %></p>
     <div class="party-count"><%= rsvp.party_size %></div>
-    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered on this QR code</p>
+    <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? 'person' : 'people' %> registered on this QR code<%= rsvp.guest_count ? ` — ${rsvp.party_size - rsvp.guest_count} family + ${rsvp.guest_count} guest${rsvp.guest_count === 1 ? '' : 's'}` : '' %></p>
 
     <% if (rsvp.status === 'pending_payment') { %>
       <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack">

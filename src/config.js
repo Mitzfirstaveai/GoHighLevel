@@ -20,6 +20,8 @@ function loadConfig(overrides = {}) {
     orgName: env.ORG_NAME || 'Gujarati Samaj of Arkansas',
     currency: (env.CURRENCY || 'usd').toLowerCase(),
     databaseFile: env.DATABASE_FILE || path.join(__dirname, '..', 'data', 'samaj.db'),
+    // Uploaded event/news photos. Lives next to the database so one disk holds all data.
+    uploadsDir: env.UPLOADS_DIR || '',
     sessionSecret: env.SESSION_SECRET || 'dev-only-secret-change-me',
     adminEmail: env.ADMIN_EMAIL || '',
     adminPassword: env.ADMIN_PASSWORD || '',
@@ -32,6 +34,11 @@ function loadConfig(overrides = {}) {
       : !isProduction,
     ...overrides,
   };
+  if (!config.uploadsDir) {
+    config.uploadsDir = config.databaseFile === ':memory:'
+      ? path.join(require('node:os').tmpdir(), 'samaj-uploads')
+      : path.join(path.dirname(config.databaseFile), 'uploads');
+  }
   if (config.isProduction && config.sessionSecret === 'dev-only-secret-change-me') {
     throw new Error('SESSION_SECRET must be set in production');
   }

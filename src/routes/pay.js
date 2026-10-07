@@ -7,7 +7,7 @@ const router = express.Router();
 function redirectAfterPayment(db, payment) {
   if (payment.kind === 'event') return `/tickets/${payment.reference_id}`;
   if (payment.kind === 'membership' || payment.kind === 'membership_upgrade') return '/membership';
-  return '/payments';
+  return `/receipts/${payment.id}`;
 }
 
 router.get('/success', requireAuth, async (req, res) => {

@@ -1,0 +1,18 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/members">← Contacts</a>
+<div class="page-head"><h1>Add contact</h1></div>
+<div class="card">
+  <p class="muted">Add a member, donor, sponsor, vendor or volunteer. Email is optional — but it's needed if they should sign in to the app.</p>
+  <form method="post" action="/admin/members/new" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Email (optional) <input type="email" name="email" autocomplete="off"></label>
+    <%- include('../partials/profile-fields', { p: {} }) %>
+    <fieldset class="tag-picker"><legend>Tags</legend>
+      <% for (const t of tags) { %><label class="check"><input type="checkbox" name="tags" value="<%= t %>"> <%= t %></label><% } %>
+    </fieldset>
+    <label>Notes (only admins see these) <textarea name="notes"></textarea></label>
+    <label class="check"><input type="checkbox" name="create_login" value="1"> Create an app login now (shows a temporary password to give them)</label>
+    <div><button class="btn">Add contact</button></div>
+  </form>
+</div>
+<%- include('../partials/foot') %>

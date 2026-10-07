@@ -1,5 +1,15 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1>Namaste, <%= user.first_name %> 🙏</h1></div>
+<div class="card install-card" id="install-card" hidden>
+  <img src="/icon-192.png" alt="" width="48" height="48">
+  <div style="flex:1">
+    <strong>Get the GSA app</strong>
+    <div class="small muted">Add it to your home screen — your QR tickets work even without signal.</div>
+    <div class="small" data-ios hidden>On iPhone: tap <strong>Share</strong> <span aria-hidden="true">⎋</span> then <strong>Add to Home Screen</strong>.</div>
+  </div>
+  <button class="btn small" data-install hidden>Install</button>
+  <button class="linkish" data-dismiss aria-label="Dismiss">✕</button>
+</div>
 <div class="tiles">
   <a class="tile primary" href="/tickets"><%- include('../partials/icon', { name: 'ticket' }) %>My QR tickets<small><%= myRsvps.filter((r) => r.status === 'confirmed').length %> upcoming</small></a>
   <a class="tile" href="/events"><%- include('../partials/icon', { name: 'calendar' }) %>Events &amp; RSVP<small>See what's coming up</small></a>

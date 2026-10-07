@@ -1,13 +1,17 @@
-const crypto = require('node:crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { requireAdmin } = require('../middleware');
-const { ORG } = require('../content');
+const { getContent } = require('../site');
+const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts } = require('../contacts');
+const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
 const { parseMoney, parseIntInRange, nowLocal, toCsv } = require('../util');
 
 const router = express.Router();
 router.use(requireAdmin);
+
+// Optional photo on the event form (multipart; the CSRF token travels in the form's URL).
+const eventImage = (req, res, next) => req.app.locals.imageUpload.single('image')(req, res, next);
 
 const notFound = (res, what) => res.status(404).render('error', { title: 'Not found', message: `${what} not found.` });
 
@@ -36,39 +40,88 @@ router.post('/demo/reset', (req, res) => {
 
 // ---------- Members ----------
 
-const MEMBER_LIST_SQL = `
-  SELECT u.*, (SELECT MAX(end_date) FROM memberships m WHERE m.user_id = u.id) AS membership_end,
-         (SELECT COUNT(*) FROM household_members h WHERE h.user_id = u.id) AS household_count
-  FROM users u
-  WHERE (? = '' OR u.first_name || ' ' || u.last_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?
-         OR u.city LIKE ? OR u.native_place LIKE ?)
-  ORDER BY u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
-`;
-
-function searchMembers(db, q) {
-  const like = `%${q}%`;
-  return db.prepare(MEMBER_LIST_SQL).all(q, like, like, like, like, like);
+// Contact search with filters: text, membership status, level, tag, city, login.
+function searchMembers(db, filters = {}) {
+  const where = [];
+  const args = [];
+  const q = String(filters.q || '').trim();
+  if (q) {
+    where.push(`(u.first_name || ' ' || u.last_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR u.city LIKE ? OR u.native_place LIKE ?)`);
+    args.push(...Array(5).fill(`%${q}%`));
+  }
+  const now = nowLocal().slice(0, 10);
+  if (filters.status === 'active') { where.push('m.end_date >= ?'); args.push(now); }
+  if (filters.status === 'expired') { where.push('m.end_date < ?'); args.push(now); }
+  if (filters.status === 'none') where.push('m.end_date IS NULL');
+  if (filters.level) { where.push('m.plan_id = ?'); args.push(Number(filters.level)); }
+  if (filters.tag === 'Donor') where.push(`(',' || u.tags || ',' LIKE '%,Donor,%' OR EXISTS (SELECT 1 FROM payments d WHERE d.user_id = u.id AND d.kind = 'donation' AND d.status = 'paid'))`);
+  else if (filters.tag) { where.push(`',' || u.tags || ',' LIKE ?`); args.push(`%,${filters.tag},%`); }
+  if (filters.city) { where.push('u.city = ? COLLATE NOCASE'); args.push(filters.city); }
+  if (filters.login === 'yes') where.push('u.password_hash IS NOT NULL');
+  if (filters.login === 'no') where.push('u.password_hash IS NULL');
+  return db.prepare(`
+    SELECT u.*, m.end_date AS membership_end, p.name AS level_name,
+           (SELECT COUNT(*) FROM household_members h WHERE h.user_id = u.id) AS household_count,
+           EXISTS (SELECT 1 FROM payments d WHERE d.user_id = u.id AND d.kind = 'donation' AND d.status = 'paid') AS is_donor
+    FROM users u
+    LEFT JOIN memberships m ON m.id = (SELECT id FROM memberships WHERE user_id = u.id ORDER BY end_date DESC, id DESC LIMIT 1)
+    LEFT JOIN membership_plans p ON p.id = m.plan_id
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
+  `).all(...args);
 }
 
+const FILTER_KEYS = ['q', 'status', 'level', 'tag', 'city', 'login'];
+const pickFilters = (query) => Object.fromEntries(FILTER_KEYS.map((k) => [k, String(query[k] || '').trim()]));
+
 router.get('/members', (req, res) => {
-  const q = String(req.query.q || '').trim();
-  const members = searchMembers(req.app.locals.db, q);
-  res.render('admin/members', { title: 'Members', members, q, today: nowLocal().slice(0, 10) });
+  const { db } = req.app.locals;
+  const filters = pickFilters(req.query);
+  res.render('admin/members', {
+    title: 'Contacts', members: searchMembers(db, filters), filters, today: nowLocal().slice(0, 10), tags: TAGS,
+    plans: db.prepare('SELECT id, name FROM membership_plans ORDER BY sort_order, amount_cents').all(),
+    cities: db.prepare(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND city != '' ORDER BY city COLLATE NOCASE`).all().map((r) => r.city),
+    exportQuery: new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString(),
+  });
 });
 
 router.get('/members.csv', (req, res) => {
   const { db } = req.app.locals;
-  const members = searchMembers(db, '');
+  const members = searchMembers(db, pickFilters(req.query));
   const household = db.prepare('SELECT * FROM household_members ORDER BY user_id, id').all();
   const famBy = Map.groupBy(household, (h) => h.user_id);
   const rows = [['First name', 'Last name', 'Email', 'Phone', 'Address 1', 'Address 2', 'City', 'State', 'Postal code',
-    'Native place', 'Date of birth', 'Occupation', 'Role', 'Membership valid until', 'Family members', 'Joined']];
+    'Native place', 'Date of birth', 'Occupation', 'Membership level', 'Membership valid until', 'Tags', 'Family members', 'Has login', 'Added']];
   for (const m of members) {
     const fam = (famBy.get(m.id) || []).map((h) => `${h.name}${h.relationship ? ` (${h.relationship})` : ''}`).join('; ');
+    const tags = [...new Set([...m.tags.split(',').filter(Boolean), ...(m.is_donor ? ['Donor'] : [])])].join(', ');
     rows.push([m.first_name, m.last_name, m.email, m.phone, m.address_line1, m.address_line2, m.city, m.state,
-      m.postal_code, m.native_place, m.date_of_birth, m.occupation, m.role, m.membership_end, fam, m.created_at]);
+      m.postal_code, m.native_place, m.date_of_birth, m.occupation, m.level_name, m.membership_end, tags, fam,
+      m.password_hash ? 'yes' : 'no', m.created_at]);
   }
-  res.attachment('members.csv').type('text/csv').send(toCsv(rows));
+  res.attachment('contacts.csv').type('text/csv').send(toCsv(rows));
+});
+
+router.get('/members/new', (req, res) => {
+  res.render('admin/member_new', { title: 'Add contact', tags: TAGS });
+});
+
+router.post('/members/new', (req, res) => {
+  const { id, temporaryPassword } = addContact(req.app.locals.db, req.body);
+  req.flash('success', temporaryPassword
+    ? `Contact added with a login. Temporary password: ${temporaryPassword} — share it with them.`
+    : 'Contact added.');
+  res.redirect(`/admin/members/${id}`);
+});
+
+router.get('/import', (req, res) => {
+  res.render('admin/import', { title: 'Import contacts', result: null });
+});
+
+router.post('/import', csvUpload.single('file'), (req, res) => {
+  if (!req.file) throw new svc.UserError('Please choose a CSV file to import.');
+  const result = importContacts(req.app.locals.db, req.file.buffer.toString('utf8'));
+  res.render('admin/import', { title: 'Import contacts', result });
 });
 
 router.get('/members/:id', (req, res) => {
@@ -85,10 +138,12 @@ router.get('/members/:id', (req, res) => {
     household,
     membership,
     relationships: Object.keys(svc.RELATIONSHIPS),
+    tags: TAGS,
     payments: db.prepare(`SELECT * FROM payments WHERE user_id = ? AND status = 'paid' ORDER BY paid_at DESC`).all(member.id),
     rsvps: db.prepare(`SELECT r.*, e.title, e.starts_at FROM rsvps r JOIN events e ON e.id = r.event_id
                        WHERE r.user_id = ? ORDER BY e.starts_at DESC`).all(member.id),
     plans: db.prepare('SELECT * FROM membership_plans ORDER BY active DESC, sort_order, amount_cents').all(),
+    campaigns: db.prepare('SELECT id, title FROM campaigns WHERE active = 1 ORDER BY title').all(),
   });
 });
 
@@ -112,7 +167,12 @@ router.post('/members/:id/household/:hid/delete', (req, res) => {
 router.post('/members/:id', (req, res) => {
   const { db } = req.app.locals;
   svc.updateProfile(db, req.params.id, req.body);
-  db.prepare('UPDATE users SET notes = ? WHERE id = ?').run(String(req.body.notes || '').slice(0, 2000) || null, req.params.id);
+  const email = cleanEmail(req.body.email);
+  if (email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, req.params.id)) {
+    throw new svc.UserError('Another contact already uses that email.');
+  }
+  db.prepare('UPDATE users SET notes = ?, email = ?, tags = ? WHERE id = ?')
+    .run(String(req.body.notes || '').slice(0, 2000) || null, email, cleanTags(req.body.tags), req.params.id);
   req.flash('success', 'Member profile saved.');
   res.redirect(`/admin/members/${req.params.id}`);
 });
@@ -127,7 +187,9 @@ router.post('/members/:id/role', (req, res) => {
 });
 
 router.post('/members/:id/reset-password', (req, res) => {
-  const temp = crypto.randomBytes(6).toString('base64url');
+  const contact = req.app.locals.db.prepare('SELECT email FROM users WHERE id = ?').get(req.params.id);
+  if (!contact?.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
+  const temp = temporaryPassword();
   req.app.locals.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(temp, 10), req.params.id);
   req.app.locals.db.prepare(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`).run(Number(req.params.id));
   req.flash('success', `Temporary password: ${temp} — share it with the member and ask them to change it.`);
@@ -148,6 +210,10 @@ router.post('/members/:id/payments', (req, res) => {
     if (!(amount > 0)) throw new svc.UserError('Enter the amount received.');
     payment = svc.createPayment(db, { userId: member.id, kind: 'membership', referenceId: plan.id, amountCents: amount,
       description: `Membership — ${plan.name}` });
+  } else if (req.body.kind === 'donation') {
+    payment = svc.createDonationPayment(db, {
+      userId: member.id, campaignId: Number(req.body.campaign_id) || null, amountCents: parseMoney(req.body.amount), note: req.body.description,
+    });
   } else {
     const amount = parseMoney(req.body.amount);
     const description = String(req.body.description || '').trim().slice(0, 200);
@@ -167,14 +233,21 @@ function parseEventForm(body) {
   const fee = parseMoney(body.fee);
   const capacity = body.capacity ? parseIntInRange(body.capacity, 1, 100000) : null;
   const maxParty = parseIntInRange(body.max_party_size || 10, 1, 100);
+  const guestFee = body.allow_guests ? parseMoney(body.guest_fee) : null;
+  const maxGuests = body.allow_guests ? parseIntInRange(body.max_guests || 4, 1, 50) : 4;
+  const earlyFee = String(body.early_fee || '').trim() ? parseMoney(body.early_fee) : null;
   const dt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
   if (!title) throw new svc.UserError('Event title is required.');
   if (!dt.test(startsAt)) throw new svc.UserError('Please choose a start date and time.');
   if (body.ends_at && !dt.test(body.ends_at)) throw new svc.UserError('End time is invalid.');
   if (body.rsvp_deadline && !dt.test(body.rsvp_deadline)) throw new svc.UserError('RSVP deadline is invalid.');
   if (Number.isNaN(fee)) throw new svc.UserError('Fee must be an amount like 15 or 15.50.');
+  if (guestFee !== null && Number.isNaN(guestFee)) throw new svc.UserError('Guest price must be an amount like 20 or 20.00.');
+  if (earlyFee !== null && Number.isNaN(earlyFee)) throw new svc.UserError('Early-bird price must be an amount like 12.');
+  if (earlyFee !== null && !dt.test(body.early_until || '')) throw new svc.UserError('Choose when the early-bird price ends.');
   if (body.capacity && !capacity) throw new svc.UserError('Capacity must be a positive number.');
   if (!maxParty) throw new svc.UserError('Max people per RSVP must be between 1 and 100.');
+  if (!maxGuests) throw new svc.UserError('Max guests per RSVP must be between 1 and 50.');
   return {
     title,
     description: String(body.description || '').trim().slice(0, 5000) || null,
@@ -187,8 +260,16 @@ function parseEventForm(body) {
     max_party_size: maxParty,
     members_only: body.members_only ? 1 : 0,
     status: ['draft', 'published', 'cancelled'].includes(body.status) ? body.status : 'published',
+    guest_fee_cents: guestFee,
+    max_guests: maxGuests,
+    early_fee_cents: earlyFee,
+    early_until: earlyFee !== null ? body.early_until : null,
+    questions: JSON.stringify(svc.parseQuestions(body.questions)),
   };
 }
+
+const EVENT_COLUMNS = ['title', 'description', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
+  'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'max_guests', 'early_fee_cents', 'early_until', 'questions'];
 
 router.get('/events', (req, res) => {
   const { db } = req.app.locals;
@@ -198,17 +279,17 @@ router.get('/events', (req, res) => {
 });
 
 router.get('/events/new', (req, res) => {
-  res.render('admin/event_form', { title: 'New event', event: { max_party_size: 10, status: 'published', location: ORG.venue } });
+  res.render('admin/event_form', {
+    title: 'New event', questionsText: '',
+    event: { max_party_size: 10, max_guests: 4, status: 'published', location: getContent(req.app.locals.db, 'org').venue },
+  });
 });
 
-router.post('/events', (req, res) => {
+router.post('/events', eventImage, (req, res) => {
   const e = parseEventForm(req.body);
-  const id = req.app.locals.db.prepare(`
-    INSERT INTO events (title, description, location, starts_at, ends_at, rsvp_deadline, fee_cents, capacity,
-                        max_party_size, members_only, status, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(e.title, e.description, e.location, e.starts_at, e.ends_at, e.rsvp_deadline, e.fee_cents, e.capacity,
-    e.max_party_size, e.members_only, e.status, req.user.id).lastInsertRowid;
+  const id = req.app.locals.db.prepare(`INSERT INTO events (${EVENT_COLUMNS.join(', ')}, image_path, created_by)
+    VALUES (${EVENT_COLUMNS.map(() => '?').join(', ')}, ?, ?)`)
+    .run(...EVENT_COLUMNS.map((c) => e[c]), req.file ? `/uploads/${req.file.filename}` : null, req.user.id).lastInsertRowid;
   req.flash('success', 'Event created.');
   res.redirect(`/admin/events/${id}`);
 });
@@ -216,18 +297,50 @@ router.post('/events', (req, res) => {
 router.get('/events/:id/edit', (req, res) => {
   const event = svc.getEvent(req.app.locals.db, req.params.id);
   if (!event) return notFound(res, 'Event');
-  res.render('admin/event_form', { title: `Edit — ${event.title}`, event });
+  res.render('admin/event_form', { title: `Edit — ${event.title}`, event, questionsText: svc.questionsToText(svc.eventQuestions(event)) });
 });
 
-router.post('/events/:id', (req, res) => {
+router.post('/events/:id', eventImage, (req, res) => {
+  const { db, config } = req.app.locals;
+  const event = svc.getEvent(db, req.params.id);
+  if (!event) return notFound(res, 'Event');
   const e = parseEventForm(req.body);
-  req.app.locals.db.prepare(`
-    UPDATE events SET title = ?, description = ?, location = ?, starts_at = ?, ends_at = ?, rsvp_deadline = ?,
-      fee_cents = ?, capacity = ?, max_party_size = ?, members_only = ?, status = ? WHERE id = ?
-  `).run(e.title, e.description, e.location, e.starts_at, e.ends_at, e.rsvp_deadline, e.fee_cents, e.capacity,
-    e.max_party_size, e.members_only, e.status, req.params.id);
-  req.flash('success', 'Event saved.');
-  res.redirect(`/admin/events/${req.params.id}`);
+  let image = event.image_path;
+  if (req.file || req.body.remove_image) {
+    removeUpload(config, image);
+    image = req.file ? `/uploads/${req.file.filename}` : null;
+  }
+  db.prepare(`UPDATE events SET ${EVENT_COLUMNS.map((c) => `${c} = ?`).join(', ')}, image_path = ? WHERE id = ?`)
+    .run(...EVENT_COLUMNS.map((c) => e[c]), image, event.id);
+  // More seats (or a cancelled RSVP elsewhere) may let people off the waitlist.
+  const promoted = svc.promoteWaitlist(db, event.id);
+  req.flash('success', promoted.length ? `Event saved. ${promoted.length} RSVP${promoted.length === 1 ? '' : 's'} moved off the waitlist.` : 'Event saved.');
+  res.redirect(`/admin/events/${event.id}`);
+});
+
+router.post('/events/:id/coupons', (req, res) => {
+  const { db } = req.app.locals;
+  const event = svc.getEvent(db, req.params.id);
+  if (!event) return notFound(res, 'Event');
+  const code = String(req.body.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,30}$/.test(code)) throw new svc.UserError('Coupon codes use 3–30 letters or numbers, e.g. GARBA10.');
+  const percent = req.body.kind === 'percent' ? parseIntInRange(req.body.value, 1, 100) : null;
+  const amount = req.body.kind === 'amount' ? parseMoney(req.body.value) : null;
+  if (!percent && !(amount > 0)) throw new svc.UserError('Enter a discount: a percentage (1–100) or a dollar amount.');
+  const maxUses = req.body.max_uses ? parseIntInRange(req.body.max_uses, 1, 100000) : null;
+  if (db.prepare('SELECT 1 FROM coupons WHERE code = ?').get(code)) throw new svc.UserError('That code already exists.');
+  db.prepare('INSERT INTO coupons (code, event_id, percent_off, amount_off_cents, max_uses, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(code, event.id, percent, amount, maxUses, /^\d{4}-\d{2}-\d{2}$/.test(req.body.expires_at || '') ? req.body.expires_at : null);
+  req.flash('success', `Coupon ${code} created.`);
+  res.redirect(`/admin/events/${event.id}#coupons`);
+});
+
+router.post('/coupons/:id/toggle', (req, res) => {
+  const { db } = req.app.locals;
+  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
+  if (!coupon) return notFound(res, 'Coupon');
+  db.prepare('UPDATE coupons SET active = 1 - active WHERE id = ?').run(coupon.id);
+  res.redirect(`/admin/events/${coupon.event_id}#coupons`);
 });
 
 function eventAttendees(db, event) {
@@ -237,7 +350,7 @@ function eventAttendees(db, event) {
     WHERE r.event_id = ?
     ORDER BY r.status = 'cancelled', u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
   `).all(event.id).map((r) => ({
-    ...r, paid_cents: svc.paidForRsvp(db, r.id),
+    ...r, paid_cents: svc.paidForRsvp(db, r.id), answers: JSON.parse(r.answers || '[]'),
   }));
 }
 
@@ -250,6 +363,9 @@ router.get('/events/:id', (req, res) => {
     stats: svc.eventStats(db, event.id),
     revenue: svc.eventRevenue(db, event.id),
     attendees: eventAttendees(db, event),
+    questions: svc.eventQuestions(event),
+    coupons: db.prepare(`SELECT c.*, (SELECT COUNT(*) FROM rsvps r WHERE r.coupon_code = c.code COLLATE NOCASE AND r.status != 'cancelled') AS uses
+                         FROM coupons c WHERE c.event_id = ? ORDER BY c.created_at DESC`).all(event.id),
   });
 });
 
@@ -257,10 +373,12 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   const { db, money } = req.app.locals;
   const event = svc.getEvent(db, req.params.id);
   if (!event) return notFound(res, 'Event');
-  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Paid',
-    'Checked in at', 'People checked in', 'RSVP date']];
+  const questions = svc.eventQuestions(event);
+  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Of whom guests', 'Total price',
+    'Paid', 'Coupon', ...questions.map((q) => q.label), 'Checked in at', 'People checked in', 'RSVP date']];
   for (const a of eventAttendees(db, event)) {
-    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, money(a.paid_cents),
+    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.guest_count, money(a.total_cents),
+      money(a.paid_cents), a.coupon_code, ...questions.map((q, i) => a.answers[i]?.answer ?? ''),
       a.checked_in_at, a.checked_in_count, a.created_at]);
   }
   const slug = event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event';
@@ -273,7 +391,7 @@ router.post('/rsvps/:id/record-payment', (req, res) => {
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(req.params.id);
   if (!rsvp) return notFound(res, 'RSVP');
   const event = svc.getEvent(db, rsvp.event_id);
-  const due = svc.amountDue(db, rsvp, event);
+  const due = svc.amountDue(db, rsvp);
   if (due === 0) throw new svc.UserError('Nothing is owed for this RSVP.');
   const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
   db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event' AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
@@ -302,7 +420,7 @@ router.post('/checkin/lookup', (req, res) => {
 router.get('/checkin/:token', (req, res) => {
   const { db } = req.app.locals;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
-  const due = rsvp ? svc.amountDue(db, rsvp, { fee_cents: rsvp.fee_cents }) : 0;
+  const due = rsvp ? svc.amountDue(db, rsvp) : 0;
   // Distinguishes "you just checked them in" from "this code was already used earlier".
   const justCheckedIn = req.session.justCheckedIn === req.params.token;
   delete req.session.justCheckedIn;
@@ -334,16 +452,19 @@ router.get('/news', (req, res) => {
   res.render('admin/news', { title: 'News', posts });
 });
 
-router.post('/news', (req, res) => {
+router.post('/news', eventImage, (req, res) => {
   const title = String(req.body.title || '').trim().slice(0, 200);
   const body = String(req.body.body || '').trim().slice(0, 10000);
   if (!title || !body) throw new svc.UserError('Please enter a title and the announcement text.');
-  req.app.locals.db.prepare('INSERT INTO news_posts (title, body, author_id) VALUES (?, ?, ?)').run(title, body, req.user.id);
+  req.app.locals.db.prepare('INSERT INTO news_posts (title, body, author_id, image_path) VALUES (?, ?, ?, ?)')
+    .run(title, body, req.user.id, req.file ? `/uploads/${req.file.filename}` : null);
   req.flash('success', 'Announcement posted. Members see it under News and on their home page.');
   res.redirect('/admin/news');
 });
 
 router.post('/news/:id/delete', (req, res) => {
+  const post = req.app.locals.db.prepare('SELECT image_path FROM news_posts WHERE id = ?').get(req.params.id);
+  removeUpload(req.app.locals.config, post?.image_path);
   req.app.locals.db.prepare('DELETE FROM news_posts WHERE id = ?').run(req.params.id);
   req.flash('success', 'Announcement deleted.');
   res.redirect('/admin/news');

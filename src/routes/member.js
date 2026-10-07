@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 const { requireAuth } = require('../middleware');
 const svc = require('../services');
 const { parseIntInRange, nowLocal } = require('../util');
+const { receiptNumber } = require('./donations');
 
 const router = express.Router();
 
@@ -65,7 +66,7 @@ router.post('/profile/household/:id/delete', requireAuth, (req, res) => {
 
 router.post('/profile/password', requireAuth, (req, res) => {
   const { current_password: current, new_password: next, new_password_confirm: confirm } = req.body;
-  if (!bcrypt.compareSync(String(current || ''), req.user.password_hash)) throw new svc.UserError('Current password is incorrect.');
+  if (!req.user.password_hash || !bcrypt.compareSync(String(current || ''), req.user.password_hash)) throw new svc.UserError('Current password is incorrect.');
   if (String(next || '').length < 8) throw new svc.UserError('New password must be at least 8 characters.');
   if (next !== confirm) throw new svc.UserError('New passwords do not match.');
   req.app.locals.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(next, 10), req.user.id);
@@ -89,6 +90,7 @@ router.get('/directory', requireAuth, (req, res) => {
   const members = req.app.locals.db.prepare(`
     SELECT id, first_name, last_name, city, native_place, directory_contact, phone, email FROM users
     WHERE directory_listed = 1
+      AND (password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = users.id))
       AND (? = '' OR first_name || ' ' || last_name LIKE ? OR city LIKE ? OR native_place LIKE ?)
     ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE
   `).all(q, like, like, like);
@@ -108,6 +110,7 @@ router.get('/more', requireAuth, (req, res) => res.render('member/more', { title
 
 router.get('/events', requireAuth, (req, res) => {
   const { db } = req.app.locals;
+  if (req.query.view === 'calendar') return renderCalendar(req, res);
   const events = db.prepare(`
     SELECT e.*, r.status AS my_status, r.party_size AS my_party FROM events e
     LEFT JOIN rsvps r ON r.event_id = e.id AND r.user_id = ? AND r.status != 'cancelled'
@@ -118,29 +121,88 @@ router.get('/events', requireAuth, (req, res) => {
   res.render('member/events', { title: 'Events', events, past });
 });
 
+// Month grid of events (?view=calendar&month=YYYY-MM).
+function renderCalendar(req, res) {
+  const { db } = req.app.locals;
+  const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : nowLocal().slice(0, 7);
+  const [y, m] = month.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const events = db.prepare(`SELECT e.id, e.title, e.starts_at, e.status, r.status AS my_status FROM events e
+    LEFT JOIN rsvps r ON r.event_id = e.id AND r.user_id = ? AND r.status != 'cancelled'
+    WHERE e.status != 'draft' AND substr(e.starts_at, 1, 7) = ? ORDER BY e.starts_at`).all(req.user.id, month);
+  const byDay = Map.groupBy(events, (e) => Number(e.starts_at.slice(8, 10)));
+  const shift = (delta) => {
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return d.toISOString().slice(0, 7);
+  };
+  res.render('member/calendar', {
+    title: 'Events calendar', month, byDay, daysInMonth, leadingBlanks: first.getUTCDay(),
+    monthLabel: first.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    prev: shift(-1), next: shift(1), todayKey: nowLocal().slice(0, 10),
+  });
+}
+
+// "Add to my calendar" file (works with iPhone, Google and Outlook calendars).
+router.get('/events/:id/calendar.ics', requireAuth, (req, res) => {
+  const event = svc.getEvent(req.app.locals.db, req.params.id);
+  if (!event || event.status === 'draft') return res.sendStatus(404);
+  const stamp = (local) => local.replace(/[-:]/g, '') + '00';
+  const end = event.ends_at || event.starts_at.replace(/T(\d{2})/, (_, h) => `T${String(Math.min(23, Number(h) + 2)).padStart(2, '0')}`);
+  const esc = (t) => String(t || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => `\\${c}`);
+  const { config } = req.app.locals;
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${esc(res.locals.org.shortName)}//Events//EN`, 'BEGIN:VEVENT',
+    `UID:event-${event.id}@${new URL(config.baseUrl).host}`,
+    `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`,
+    `DTSTART:${stamp(event.starts_at)}`, `DTEND:${stamp(end)}`,
+    `SUMMARY:${esc(event.title)}`, `LOCATION:${esc(event.location)}`,
+    `DESCRIPTION:${esc(`${event.description || ''}\n${config.baseUrl}/events/${event.id}`)}`,
+    'END:VEVENT', 'END:VCALENDAR',
+  ];
+  res.type('text/calendar').attachment(`${event.title.replace(/[^\w]+/g, '-')}.ics`).send(lines.join('\r\n') + '\r\n');
+});
+
 router.get('/events/:id', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const event = svc.getEvent(db, req.params.id);
   if (!event || event.status === 'draft') return res.status(404).render('error', { title: 'Not found', message: 'Event not found.' });
   const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`)
     .get(event.id, req.user.id);
-  const due = rsvp ? svc.amountDue(db, rsvp, event) : 0;
-  const maxParty = svc.maxPartySize(db, event, req.user.id);
-  const familyListed = svc.getHousehold(db, req.user.id).length;
-  const spotsLeft = event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null;
   const membership = svc.membershipStatus(db, req.user.id);
+  const memberPrice = svc.memberPrice(event);
+  const guestPrice = event.guest_fee_cents ?? event.fee_cents;
   res.render('member/event', {
-    title: event.title, event, rsvp, due, maxParty, familyListed, spotsLeft, membership, open: svc.rsvpWindowOpen(event),
+    title: event.title, event, rsvp, membership, open: svc.rsvpWindowOpen(event),
+    due: rsvp ? svc.amountDue(db, rsvp) : 0,
+    maxParty: svc.maxPartySize(db, event, req.user.id),
+    familyListed: svc.getHousehold(db, req.user.id).length,
+    spotsLeft: event.capacity ? Math.max(0, event.capacity - svc.reservedSeats(db, event.id)) : null,
+    questions: svc.eventQuestions(event),
+    answers: rsvp ? JSON.parse(rsvp.answers || '[]') : [],
+    earlyBird: svc.earlyBirdActive(event),
+    prices: { self: membership.active ? memberPrice : guestPrice, member: memberPrice, guest: event.guest_fee_cents ?? 0 },
   });
 });
 
 router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
-  const partySize = parseIntInRange(req.body.party_size, 1, 1000);
-  const { rsvp, amountDue, qrReplaced } = svc.upsertRsvp(db, { eventId: Number(req.params.id), userId: req.user.id, partySize });
+  const { rsvp, amountDue, qrReplaced, waitlisted } = svc.upsertRsvp(db, {
+    eventId: Number(req.params.id), userId: req.user.id,
+    partySize: parseIntInRange(req.body.party_size, 1, 1000),
+    guests: req.body.guests ? parseIntInRange(req.body.guests, 0, 1000) ?? -1 : 0,
+    couponCode: String(req.body.coupon || '').trim(),
+    body: req.body,
+    joinWaitlist: Boolean(req.body.waitlist),
+  });
+  if (waitlisted) {
+    req.flash('info', `The event is full, so you're on the waitlist for ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}. If seats open up you'll be moved in automatically${rsvp.total_cents ? ' and can then pay' : ''}.`);
+    return res.redirect(`/events/${req.params.id}`);
+  }
   if (qrReplaced) {
     req.flash('info', `Your RSVP is now for ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}. A new QR code was issued — your old QR code no longer works.`);
   }
+  if (rsvp.discount_cents) req.flash('success', `Coupon ${rsvp.coupon_code} applied: ${req.app.locals.money(rsvp.discount_cents)} off.`);
   if (amountDue === 0) {
     if (!qrReplaced) req.flash('success', 'You are registered! Show this QR code at the entrance.');
     return res.redirect(`/tickets/${rsvp.id}`);
@@ -237,6 +299,18 @@ router.post('/membership/pay', requireAuth, async (req, res) => {
   const url = await gateway.startCheckout(payment, req.user);
   if (!url) throw new svc.UserError('Online payment is not available yet. Please pay an organizer.');
   res.redirect(303, url);
+});
+
+// Printable receipt for any paid payment (members see their own; admins see all).
+router.get('/receipts/:id', requireAuth, (req, res) => {
+  const payment = req.app.locals.db.prepare(`SELECT p.*, u.first_name, u.last_name, u.email, u.address_line1, u.address_line2,
+      u.city, u.state, u.postal_code, c.title AS campaign_title
+    FROM payments p JOIN users u ON u.id = p.user_id LEFT JOIN campaigns c ON p.kind = 'donation' AND c.id = p.reference_id
+    WHERE p.id = ? AND p.status = 'paid'`).get(req.params.id);
+  if (!payment || (payment.user_id !== req.user.id && req.user.role !== 'admin')) {
+    return res.status(404).render('error', { title: 'Not found', message: 'Receipt not found.' });
+  }
+  res.render('member/receipt', { title: `Receipt ${receiptNumber(payment.id)}`, payment, number: receiptNumber(payment.id) });
 });
 
 router.get('/payments', requireAuth, (req, res) => {

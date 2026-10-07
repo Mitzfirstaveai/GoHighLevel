@@ -6,7 +6,10 @@
   <meta name="theme-color" content="#E67817">
   <title><%= title %> · <%= orgName %></title>
   <link rel="icon" type="image/png" href="/logo.png">
-  <link rel="apple-touch-icon" href="/logo.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="GSA">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <%
@@ -28,10 +31,14 @@
     ['/admin', 'Overview', 'shield', true],
     ['/admin/checkin', 'Check-in', 'scan'],
     ['/admin/events', 'Events', 'calendar'],
-    ['/admin/members', 'Members', 'users'],
+    ['/admin/members', 'Contacts', 'users'],
     ['/admin/payments', 'Payments', 'dollar'],
-    ['/admin/plans', 'Membership levels', 'list'],
+    ['/admin/donations', 'Donations', 'heart'],
+    ['/admin/reports', 'Reports', 'chart'],
+    ['/admin/insights', 'Trends', 'trend'],
+    ['/admin/plans', 'Levels', 'list'],
     ['/admin/news', 'News', 'news'],
+    ['/admin/site', 'Website', 'edit'],
   ];
 %>
 <body class="<%= user ? 'signed-in' : '' %>">

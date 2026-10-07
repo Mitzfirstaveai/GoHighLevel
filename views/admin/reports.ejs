@@ -1,0 +1,31 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Financial report</h1>
+  <div class="actions">
+    <form method="get" class="actions"><select name="year" onchange="this.form.submit()" aria-label="Year"><% for (const y of years) { %><option <%= y === year ? 'selected' : '' %>><%= y %></option><% } %></select><noscript><button class="btn small">Go</button></noscript></form>
+    <a class="btn secondary" href="/admin/reports/quickbooks.csv?year=<%= year %>">Export for QuickBooks</a>
+    <a class="btn secondary" href="/admin/payments.csv">All payments CSV</a>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="label">Total income <%= year %></div><div class="value"><%= money(grandTotal) %></div></div>
+  <% for (const [k, label] of categories) { %><div class="stat"><div class="label"><%= label %></div><div class="value"><%= money(totals[k]) %></div></div><% } %>
+</div>
+<div class="card"><h2>Income by month</h2><%- chart %></div>
+<div class="card table-wrap">
+  <h2>By month and category</h2>
+  <table>
+    <thead><tr><th>Month</th><% for (const [, label] of categories) { %><th class="num"><%= label %></th><% } %><th class="num">Total</th></tr></thead>
+    <tbody><% months.forEach((m, i) => { %><tr><td><%= m %></td><% for (const [k] of categories) { %><td class="num"><%= grid[i][k] ? money(grid[i][k]) : '—' %></td><% } %><td class="num"><strong><%= money(monthTotals[i]) %></strong></td></tr><% }) %></tbody>
+    <tfoot><tr><th>Total</th><% for (const [k] of categories) { %><th class="num"><%= money(totals[k]) %></th><% } %><th class="num"><%= money(grandTotal) %></th></tr></tfoot>
+  </table>
+</div>
+<div class="grid grid-2">
+  <div class="card table-wrap"><h2>Event fees by event</h2>
+    <table><tbody><% for (const e of events) { %><tr><td><a href="/admin/events/<%= e.id %>"><%= e.title %></a><div class="muted small"><%= fmtDate(e.starts_at.slice(0, 10)) %></div></td><td class="num"><%= money(e.cents) %></td></tr><% } %>
+    <% if (!events.length) { %><tr><td class="muted">No event fees this year.</td></tr><% } %></tbody></table></div>
+  <div class="card table-wrap"><h2>Donations by fund</h2>
+    <table><tbody><% for (const f of funds) { %><tr><td><%= f.title %><div class="muted small"><%= f.donors %> donor<%= f.donors === 1 ? '' : 's' %></div></td><td class="num"><%= money(f.cents) %></td></tr><% } %>
+    <% if (!funds.length) { %><tr><td class="muted">No donations this year.</td></tr><% } %></tbody></table></div>
+</div>
+<p class="muted small">QuickBooks: in QuickBooks Online use <em>Settings → Import data → Sales receipts</em> (or an import app), and map "Item" to your income accounts — Membership dues, Event fees, Donations, Other income.</p>
+<%- include('../partials/foot') %>

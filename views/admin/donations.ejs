@@ -1,0 +1,46 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Donations</h1><a class="btn secondary" href="/admin/donations.csv<%= exportQuery ? `?${exportQuery}` : '' %>">Download CSV</a></div>
+<div class="stats">
+  <div class="stat"><div class="label">Donations shown</div><div class="value"><%= donations.length %></div></div>
+  <div class="stat"><div class="label">Total</div><div class="value"><%= money(total) %></div></div>
+  <div class="stat"><div class="label">Donors</div><div class="value"><%= donorCount %></div></div>
+</div>
+<h2>Funds &amp; campaigns</h2>
+<div class="grid grid-2">
+  <% for (const c of campaigns) { %>
+    <div class="card <%= c.active ? '' : 'dim' %>">
+      <div class="actions" style="justify-content:space-between"><strong><%= c.title %></strong>
+        <form method="post" action="/admin/campaigns/<%= c.id %>/toggle"><%- include('../partials/csrf') %><button class="btn secondary small"><%= c.active ? 'Close' : 'Reopen' %></button></form></div>
+      <%- include('../partials/thermometer', { c }) %>
+    </div>
+  <% } %>
+  <div class="card">
+    <strong>Start a fund</strong>
+    <form method="post" action="/admin/campaigns" class="stack" style="margin-top:8px">
+      <%- include('../partials/csrf') %>
+      <input name="title" placeholder="e.g. Facility Fund" required>
+      <input name="goal" inputmode="decimal" placeholder="Goal (optional), e.g. 25000">
+      <input name="description" placeholder="Short description (optional)">
+      <div><button class="btn secondary small">Create</button></div>
+    </form>
+  </div>
+</div>
+<form method="get" class="card filters" style="margin-top:16px">
+  <input name="q" value="<%= filters.q %>" placeholder="Donor name or email" class="grow">
+  <select name="campaign"><option value="">All funds</option><option value="general" <%= filters.campaign === 'general' ? 'selected' : '' %>>General fund</option>
+    <% for (const c of campaigns) { %><option value="<%= c.id %>" <%= String(c.id) === filters.campaign ? 'selected' : '' %>><%= c.title %></option><% } %></select>
+  <label class="small">From <input type="date" name="from" value="<%= filters.from %>"></label>
+  <label class="small">To <input type="date" name="to" value="<%= filters.to %>"></label>
+  <button class="btn">Filter</button><% if (exportQuery) { %><a href="/admin/donations">Clear</a><% } %>
+</form>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Date</th><th>Donor</th><th>Fund</th><th>Method</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody><% for (const d of donations) { %>
+      <tr><td><%= fmtDate(d.paid_at.slice(0, 10)) %></td><td><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
+        <td><%= d.campaign_title || 'General fund' %></td><td><%= d.method %></td><td class="num"><%= money(d.amount_cents) %></td><td class="num"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
+    <% } %>
+    <% if (!donations.length) { %><tr><td colspan="6" class="muted">No donations match.</td></tr><% } %></tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

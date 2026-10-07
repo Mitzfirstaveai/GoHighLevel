@@ -27,7 +27,9 @@ function csrf(req, res, next) {
   if (!req.session.csrf) req.session.csrf = crypto.randomBytes(24).toString('base64url');
   res.locals.csrf = req.session.csrf;
   if (req.method !== 'POST') return next();
-  const sent = String(req.body?._csrf || '');
+  // Photo/spreadsheet upload forms are multipart, which is parsed later by the route,
+  // so those forms carry the token in their action URL instead.
+  const sent = String(req.body?._csrf || req.query?._csrf || '');
   const ok = sent.length === req.session.csrf.length
     && crypto.timingSafeEqual(Buffer.from(sent), Buffer.from(req.session.csrf));
   if (!ok) return res.status(403).render('error', { title: 'Session expired', message: 'Your form expired. Please go back, refresh the page and try again.' });

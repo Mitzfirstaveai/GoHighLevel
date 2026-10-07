@@ -184,9 +184,10 @@ function getEvent(db, eventId) {
   return db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
 }
 
+// Seats held by confirmed RSVPs and by RSVPs waiting for payment (waitlisted ones hold none).
 function reservedSeats(db, eventId, excludeRsvpId = 0) {
   return db.prepare(`SELECT COALESCE(SUM(party_size), 0) AS n FROM rsvps
-                     WHERE event_id = ? AND status != 'cancelled' AND id != ?`)
+                     WHERE event_id = ? AND status IN ('confirmed', 'pending_payment') AND id != ?`)
     .get(eventId, excludeRsvpId).n;
 }
 
@@ -195,8 +196,11 @@ function eventStats(db, eventId) {
     SELECT
       COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed_parties,
       COALESCE(SUM(party_size) FILTER (WHERE status = 'confirmed'), 0) AS confirmed_people,
+      COALESCE(SUM(guest_count) FILTER (WHERE status = 'confirmed'), 0) AS confirmed_guests,
       COUNT(*) FILTER (WHERE status = 'pending_payment') AS pending_parties,
       COALESCE(SUM(party_size) FILTER (WHERE status = 'pending_payment'), 0) AS pending_people,
+      COUNT(*) FILTER (WHERE status = 'waitlisted') AS waitlisted_parties,
+      COALESCE(SUM(party_size) FILTER (WHERE status = 'waitlisted'), 0) AS waitlisted_people,
       COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL) AS checked_in_parties,
       COALESCE(SUM(checked_in_count), 0) AS checked_in_people
     FROM rsvps WHERE event_id = ?
@@ -219,7 +223,7 @@ function paidForRsvp(db, rsvpId) {
 }
 
 // A member can bring themselves plus the family on their profile that their membership level
-// covers, never more than the event's own per-RSVP limit.
+// covers, never more than the event's own per-RSVP limit. Guests are counted separately.
 function maxPartySize(db, event, userId) {
   return Math.min(event.max_party_size, 1 + coveredFamily(db, userId));
 }
@@ -234,8 +238,8 @@ function replaceQrToken(db, rsvp, reason) {
   return token;
 }
 
-function amountDue(db, rsvp, event) {
-  return Math.max(0, event.fee_cents * rsvp.party_size - paidForRsvp(db, rsvp.id));
+function amountDue(db, rsvp) {
+  return Math.max(0, rsvp.total_cents - paidForRsvp(db, rsvp.id));
 }
 
 function rsvpWindowOpen(event) {
@@ -246,12 +250,88 @@ function rsvpWindowOpen(event) {
   return true;
 }
 
+// ---------- Event pricing ----------
+
+function earlyBirdActive(event, at = nowLocal()) {
+  return event.early_fee_cents !== null && Boolean(event.early_until) && at <= event.early_until;
+}
+
+// Per-person price for the member and their covered family (early-bird price while it lasts).
+function memberPrice(event) {
+  return earlyBirdActive(event) ? event.early_fee_cents : event.fee_cents;
+}
+
+function eventQuestions(event) {
+  try {
+    const q = JSON.parse(event.questions || '[]');
+    return Array.isArray(q) ? q : [];
+  } catch {
+    return [];
+  }
+}
+
+// Turns the admin's "one question per line" text into structured questions.
+// "*" at the start = required; "Question: a, b, c" = pick one of a/b/c.
+function parseQuestions(text) {
+  return String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 10).map((line) => {
+    const required = line.startsWith('*');
+    const body = line.replace(/^\*\s*/, '');
+    const colon = body.indexOf(':');
+    const options = colon > 0 ? body.slice(colon + 1).split(',').map((o) => o.trim()).filter(Boolean) : [];
+    const label = (options.length ? body.slice(0, colon) : body).trim().slice(0, 200);
+    return { label, required, options };
+  });
+}
+
+function questionsToText(questions) {
+  return questions.map((q) => `${q.required ? '*' : ''}${q.label}${q.options.length ? `: ${q.options.join(', ')}` : ''}`).join('\n');
+}
+
+function collectAnswers(event, body) {
+  return eventQuestions(event).map((q, i) => {
+    const answer = String(body[`q_${i}`] ?? '').trim().slice(0, 300);
+    if (q.required && !answer) throw new UserError(`Please answer: ${q.label}`);
+    if (answer && q.options.length && !q.options.includes(answer)) throw new UserError(`Please choose an option for: ${q.label}`);
+    return { label: q.label, answer };
+  });
+}
+
+function findCoupon(db, code, event, excludeRsvpId = 0) {
+  const coupon = db.prepare('SELECT * FROM coupons WHERE code = ? AND active = 1').get(String(code).trim());
+  if (!coupon || (coupon.event_id && coupon.event_id !== event.id)) throw new UserError('That coupon code is not valid for this event.');
+  if (coupon.expires_at && coupon.expires_at < today()) throw new UserError('That coupon code has expired.');
+  if (coupon.max_uses) {
+    const used = db.prepare(`SELECT COUNT(*) AS n FROM rsvps WHERE coupon_code = ? COLLATE NOCASE
+                             AND status != 'cancelled' AND id != ?`).get(coupon.code, excludeRsvpId).n;
+    if (used >= coupon.max_uses) throw new UserError('That coupon code has been fully used.');
+  }
+  return coupon;
+}
+
 /**
- * Creates or updates a member's RSVP. Returns { rsvp, amountDue }.
- * Free events (or fully paid RSVPs) are confirmed immediately; otherwise the RSVP
- * waits in pending_payment until the balance is paid.
+ * Price of an RSVP: the member pays the member price for themselves and covered family; guests
+ * (and someone without an active membership) pay the guest price. A coupon then comes off the total.
  */
-function upsertRsvp(db, { eventId, userId, partySize }) {
+function priceRsvp(db, { event, userId, family, guests, couponCode, excludeRsvpId = 0 }) {
+  const isMember = membershipStatus(db, userId).active;
+  const mPrice = memberPrice(event);
+  const gPrice = event.guest_fee_cents ?? event.fee_cents;
+  const subtotal = (isMember ? mPrice : gPrice) + (family - 1) * mPrice + guests * gPrice;
+  let discount = 0;
+  let coupon = null;
+  if (couponCode && subtotal > 0) {
+    coupon = findCoupon(db, couponCode, event, excludeRsvpId);
+    discount = coupon.percent_off ? Math.round(subtotal * coupon.percent_off / 100) : Math.min(subtotal, coupon.amount_off_cents);
+  }
+  return { subtotal, discount, total: subtotal - discount, couponCode: coupon?.code ?? null };
+}
+
+/**
+ * Creates or updates a member's RSVP. Returns { rsvp, amountDue, qrReplaced, waitlisted }.
+ * Free (or fully paid) RSVPs are confirmed at once; otherwise they wait in pending_payment.
+ * If the event is full and the member asked for it, the RSVP goes on the waitlist instead.
+ */
+function upsertRsvp(db, { eventId, userId, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false }) {
   return transaction(db, () => {
     const event = getEvent(db, eventId);
     if (!event) throw new UserError('Event not found.');
@@ -265,66 +345,115 @@ function upsertRsvp(db, { eventId, userId, partySize }) {
         ? 'You can register 1 person. Family members listed on your profile and covered by your membership level can come with you.'
         : `Number of people must be between 1 and ${maxParty} (you plus the family members covered by your membership).`);
     }
+    guests = Number(guests) || 0;
+    if (!Number.isInteger(guests) || guests < 0) throw new UserError('Number of guests looks incorrect.');
+    if (guests > 0 && event.guest_fee_cents === null) throw new UserError('This event does not allow guests.');
+    if (guests > event.max_guests) throw new UserError(`You can bring up to ${event.max_guests} guest${event.max_guests === 1 ? '' : 's'} to this event.`);
+    const answers = JSON.stringify(collectAnswers(event, body));
+    const total = partySize + guests;
 
-    const existing = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?')
-      .get(eventId, userId);
+    const existing = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId);
     if (existing?.checked_in_at) throw new UserError('You have already checked in to this event.');
+    const reuseCoupon = !couponCode && existing && existing.status !== 'cancelled' ? existing.coupon_code : null;
+    const price = priceRsvp(db, {
+      event, userId, family: partySize, guests, couponCode: couponCode || reuseCoupon, excludeRsvpId: existing?.id ?? 0,
+    });
 
+    let waitlisted = false;
     if (event.capacity) {
       const taken = reservedSeats(db, eventId, existing?.id ?? 0);
-      if (taken + partySize > event.capacity) {
-        const left = Math.max(0, event.capacity - taken);
-        throw new UserError(`Sorry, only ${left} spot${left === 1 ? '' : 's'} left for this event.`);
+      if (taken + total > event.capacity) {
+        if (!joinWaitlist && existing?.status !== 'waitlisted') {
+          const left = Math.max(0, event.capacity - taken);
+          throw new UserError(`Sorry, only ${left} spot${left === 1 ? '' : 's'} left for this event. You can join the waitlist instead.`);
+        }
+        waitlisted = true;
       }
+    }
+
+    const sameRequest = existing && existing.status !== 'cancelled' && existing.party_size === total
+      && existing.guest_count === guests && (existing.coupon_code || null) === price.couponCode;
+    if (sameRequest && (existing.status !== 'waitlisted' || waitlisted)) {
+      db.prepare(`UPDATE rsvps SET answers = ?, updated_at = datetime('now') WHERE id = ?`).run(answers, existing.id);
+      return { rsvp: { ...existing, answers }, amountDue: amountDue(db, existing), qrReplaced: false, waitlisted: existing.status === 'waitlisted' };
     }
 
     let rsvpId;
     let qrReplaced = false;
     if (existing) {
-      if (existing.status !== 'cancelled' && existing.party_size === partySize) {
-        return { rsvp: existing, amountDue: amountDue(db, existing, event), qrReplaced };
-      }
-      // Any change in guest count (or re-opening a cancelled RSVP) issues a new QR code,
+      // Any change in who is coming (or re-opening a cancelled RSVP) issues a new QR code,
       // so a ticket showing the old number of people can never be scanned.
-      replaceQrToken(db, existing, existing.status === 'cancelled' ? 'rsvp reopened' : `guests changed ${existing.party_size} → ${partySize}`);
-      qrReplaced = existing.status !== 'cancelled';
-      db.prepare(`UPDATE rsvps SET party_size = ?, status = 'pending_payment', updated_at = datetime('now')
-                  WHERE id = ?`).run(partySize, existing.id);
+      const hadTicket = ['confirmed', 'pending_payment'].includes(existing.status);
+      const changed = existing.party_size !== total || existing.guest_count !== guests;
+      if (existing.status === 'cancelled' || changed) {
+        replaceQrToken(db, existing, existing.status === 'cancelled' ? 'rsvp reopened'
+          : `guests changed ${existing.party_size} → ${total}`);
+      }
+      qrReplaced = hadTicket && changed;
+      db.prepare(`UPDATE rsvps SET party_size = ?, guest_count = ?, total_cents = ?, discount_cents = ?, coupon_code = ?,
+                  answers = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(total, guests, price.total, price.discount, price.couponCode, answers,
+          waitlisted ? 'waitlisted' : 'pending_payment', existing.id);
       rsvpId = existing.id;
     } else {
-      rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, status, qr_token)
-                                  VALUES (?, ?, ?, 'pending_payment', ?)`)
-        .run(eventId, userId, partySize, newToken()).lastInsertRowid);
+      rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, discount_cents,
+                                  coupon_code, answers, status, qr_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId, total, guests, price.total, price.discount, price.couponCode, answers,
+          waitlisted ? 'waitlisted' : 'pending_payment', newToken()).lastInsertRowid);
     }
-    // Any checkout started for the old party size is now stale.
+    // Any checkout started for the old request is now stale.
     db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
                 AND reference_id = ? AND status = 'pending'`).run(rsvpId);
 
     const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
-    const due = amountDue(db, rsvp, event);
-    if (due === 0) {
+    const due = waitlisted ? 0 : amountDue(db, rsvp);
+    if (!waitlisted && due === 0) {
       db.prepare(`UPDATE rsvps SET status = 'confirmed' WHERE id = ?`).run(rsvpId);
       rsvp.status = 'confirmed';
     }
-    return { rsvp, amountDue: due, qrReplaced };
+    // Fewer people than before may have freed seats for the waitlist.
+    if (existing && existing.party_size > total) promoteWaitlist(db, eventId);
+    return { rsvp, amountDue: due, qrReplaced, waitlisted };
   });
 }
 
+/**
+ * Moves waitlisted RSVPs (first come, first served) into the event while seats are free.
+ * Free ones are confirmed straight away; paid ones then wait for payment.
+ * Returns the RSVP ids that were promoted.
+ */
+function promoteWaitlist(db, eventId) {
+  const event = getEvent(db, eventId);
+  const waiting = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at, id`).all(eventId);
+  const promoted = [];
+  let taken = reservedSeats(db, eventId);
+  for (const r of waiting) {
+    if (event.capacity && taken + r.party_size > event.capacity) continue;
+    const status = amountDue(db, r) === 0 ? 'confirmed' : 'pending_payment';
+    db.prepare(`UPDATE rsvps SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(status, r.id);
+    taken += r.party_size;
+    promoted.push(r.id);
+  }
+  return promoted;
+}
+
 function cancelRsvp(db, { eventId, userId }) {
-  const rsvp = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId);
-  if (!rsvp || rsvp.status === 'cancelled') throw new UserError('You do not have an RSVP for this event.');
-  if (rsvp.checked_in_at) throw new UserError('This RSVP has already been checked in.');
-  db.prepare(`UPDATE rsvps SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`).run(rsvp.id);
-  db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
-              AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
-  return { paidCents: paidForRsvp(db, rsvp.id) };
+  return transaction(db, () => {
+    const rsvp = db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId);
+    if (!rsvp || rsvp.status === 'cancelled') throw new UserError('You do not have an RSVP for this event.');
+    if (rsvp.checked_in_at) throw new UserError('This RSVP has already been checked in.');
+    db.prepare(`UPDATE rsvps SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`).run(rsvp.id);
+    db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
+                AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
+    promoteWaitlist(db, eventId);
+    return { paidCents: paidForRsvp(db, rsvp.id) };
+  });
 }
 
 function confirmRsvpIfPaid(db, rsvpId) {
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
   if (!rsvp || rsvp.status !== 'pending_payment') return;
-  const event = getEvent(db, rsvp.event_id);
-  if (amountDue(db, rsvp, event) === 0) {
+  if (amountDue(db, rsvp) === 0) {
     db.prepare(`UPDATE rsvps SET status = 'confirmed', updated_at = datetime('now') WHERE id = ?`).run(rsvpId);
   }
 }
@@ -378,10 +507,10 @@ function checkIn(db, { token, guests, adminId }) {
 
 // ---------- Payments ----------
 
-function createPayment(db, { userId, kind, referenceId, description, amountCents }) {
-  const id = db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents)
-                         VALUES (?, ?, ?, ?, ?)`)
-    .run(userId, kind, referenceId ?? null, description, amountCents).lastInsertRowid;
+function createPayment(db, { userId, kind, referenceId, description, amountCents, note = null }) {
+  const id = db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, note)
+                         VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(userId, kind, referenceId ?? null, description, amountCents, note).lastInsertRowid;
   return db.prepare('SELECT * FROM payments WHERE id = ?').get(id);
 }
 
@@ -389,7 +518,7 @@ function createEventPayment(db, { rsvpId, userId }) {
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ? AND user_id = ?').get(rsvpId, userId);
   if (!rsvp || rsvp.status !== 'pending_payment') throw new UserError('Nothing to pay for this RSVP.');
   const event = getEvent(db, rsvp.event_id);
-  const due = amountDue(db, rsvp, event);
+  const due = amountDue(db, rsvp);
   if (due === 0) throw new UserError('Nothing to pay for this RSVP.');
   db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
               AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
@@ -425,6 +554,28 @@ function createMembershipPayment(db, { planId, user }) {
   });
 }
 
+// ---------- Donations ----------
+
+function campaignProgress(db, campaignId) {
+  return db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(DISTINCT user_id) AS donors FROM payments
+                     WHERE kind = 'donation' AND status = 'paid' AND reference_id = ?`).get(campaignId);
+}
+
+function createDonationPayment(db, { userId, campaignId, amountCents, note }) {
+  if (!Number.isInteger(amountCents) || amountCents < 100) throw new UserError('Please enter a donation of at least $1.');
+  if (amountCents > 100000000) throw new UserError('For gifts this large, please contact the committee.');
+  let campaign = null;
+  if (campaignId) {
+    campaign = db.prepare('SELECT * FROM campaigns WHERE id = ? AND active = 1').get(campaignId);
+    if (!campaign) throw new UserError('Please choose a fund to give to.');
+  }
+  return createPayment(db, {
+    userId, kind: 'donation', referenceId: campaign?.id ?? null, amountCents,
+    description: `Donation — ${campaign ? campaign.title : 'General fund'}`,
+    note: String(note || '').trim().slice(0, 300) || null,
+  });
+}
+
 /**
  * Marks a payment as paid and applies its effect (membership granted / RSVP confirmed).
  * Idempotent: Stripe may deliver both a redirect and a webhook for the same payment.
@@ -453,8 +604,9 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
 module.exports = {
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
-  coveredFamily, membershipQuote,
-  getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats,
+  coveredFamily, membershipQuote, periodEnd,
+  getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
+  earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,
   maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, checkIn,
-  createPayment, createEventPayment, createMembershipPayment, markPaymentPaid,
+  createPayment, createEventPayment, createMembershipPayment, markPaymentPaid, campaignProgress, createDonationPayment,
 };

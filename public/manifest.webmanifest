@@ -1,0 +1,19 @@
+{
+  "name": "Gujarati Samaj of Arkansas",
+  "short_name": "GSA",
+  "description": "Membership, events, QR tickets and donations for the Gujarati Samaj of Arkansas",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8f5",
+  "theme_color": "#E67817",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "My tickets", "url": "/tickets", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Events", "url": "/events", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

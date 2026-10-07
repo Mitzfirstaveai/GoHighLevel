@@ -1,0 +1,56 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Website content</h1><a class="btn secondary" href="/about" target="_blank">View public pages</a></div>
+<p class="muted">Changes appear on the public About, Committee, Sponsors and Contact pages, receipts and the footer immediately.</p>
+
+<div class="card" id="org">
+  <h2>Organization &amp; contact details</h2>
+  <form method="post" action="/admin/site/org" class="stack">
+    <%- include('../partials/csrf') %>
+    <div class="fields">
+      <label>Short name <input name="shortName" value="<%= o.shortName %>"></label>
+      <label>Motto <input name="motto" value="<%= o.motto %>"></label>
+      <label>Founded (year) <input name="founded" inputmode="numeric" value="<%= o.founded || '' %>"></label>
+      <label>Address line 1 <input name="address1" value="<%= o.address[0] || '' %>"></label>
+      <label>Address line 2 <input name="address2" value="<%= o.address[1] || '' %>"></label>
+      <label>Phone <input name="phone" value="<%= o.phone %>"></label>
+      <label>Email <input type="email" name="email" value="<%= o.email %>"></label>
+      <label>EIN (shown on donation receipts) <input name="ein" value="<%= o.ein || '' %>" placeholder="XX-XXXXXXX"></label>
+    </div>
+    <label>Default event location <input name="venue" value="<%= o.venue %>"></label>
+    <div><button class="btn">Save details</button></div>
+  </form>
+</div>
+
+<div class="card" id="about">
+  <h2>About Us</h2>
+  <form method="post" action="/admin/site/about" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>About (leave a blank line between paragraphs) <textarea name="history" rows="8"><%= historyText %></textarea></label>
+    <label>Mission <textarea name="mission" rows="5"><%= about.mission %></textarea></label>
+    <label>Vision <textarea name="vision" rows="3"><%= about.vision %></textarea></label>
+    <label>Nonprofit status <textarea name="nonprofit" rows="3"><%= about.nonprofit %></textarea></label>
+    <label>Membership <textarea name="membership" rows="2"><%= about.membership %></textarea></label>
+    <div><button class="btn">Save About Us</button></div>
+  </form>
+</div>
+
+<div class="card" id="committee">
+  <h2>Committee members</h2>
+  <form method="post" action="/admin/site/committee" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Start each group with <code>## Group name</code>, then one person per line: <code>Name | Role | City | Village</code> (role can be blank)
+      <textarea name="committee" rows="14" class="mono"><%= committeeText %></textarea></label>
+    <div><button class="btn">Save committee</button></div>
+  </form>
+</div>
+
+<div class="card" id="sponsors">
+  <h2>Sponsors</h2>
+  <form method="post" action="/admin/site/sponsors" class="stack">
+    <%- include('../partials/csrf') %>
+    <label>Start each level with <code>## Platinum</code> / <code>## Gold</code> …, then one sponsor per line
+      <textarea name="sponsors" rows="8" class="mono"><%= sponsorsText %></textarea></label>
+    <div><button class="btn">Save sponsors</button></div>
+  </form>
+</div>
+<%- include('../partials/foot') %>

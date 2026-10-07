@@ -1,0 +1,123 @@
+// Shared test harness: starts the app on an in-memory database and provides a tiny
+// cookie-keeping browser plus helpers for common flows.
+const assert = require('node:assert/strict');
+const { createApp } = require('../src/app');
+const { loadConfig } = require('../src/config');
+const { grantMembership } = require('../src/services');
+
+const PLANS_SQL = `INSERT INTO membership_plans (name, amount_cents, duration_months, calendar_year, spouse_allowed, children_allowed, max_parents, min_age)
+  VALUES ('Senior Citizen', 11000, 12, 1, 0, 0, 0, 65), ('Individual', 16500, 12, 1, 0, 0, 0, 18),
+         ('Married Couple', 27500, 12, 1, 1, 0, 0, 0), ('Family', 33000, 12, 1, 1, 1, 0, 0),
+         ('Family with Parents', 38500, 12, 1, 1, 1, 2, 0)`;
+
+async function startTestApp() {
+  const app = createApp(loadConfig({
+    databaseFile: ':memory:', adminEmail: 'admin@test.org', adminPassword: 'adminpass1',
+    stripeSecretKey: '', allowDemoPayments: true, baseUrl: 'http://test.local', orgName: 'Test Samaj', demoMode: false,
+  }));
+  const db = app.locals.db;
+  db.exec(PLANS_SQL);
+  let server;
+  await new Promise((resolve) => { server = app.listen(0, resolve); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  class Client {
+    constructor() { this.cookie = ''; this.csrf = ''; }
+
+    async request(method, path, form, extraHeaders = {}) {
+      const headers = { cookie: this.cookie, ...extraHeaders };
+      let body;
+      if (form instanceof FormData) {
+        body = form;
+      } else if (form) {
+        headers['content-type'] = 'application/x-www-form-urlencoded';
+        const params = new URLSearchParams({ _csrf: this.csrf });
+        for (const [k, v] of Object.entries(form)) for (const one of [].concat(v)) params.append(k, one);
+        body = params.toString();
+      }
+      const res = await fetch(base + path, { method, headers, body, redirect: 'manual' });
+      const setCookie = res.headers.get('set-cookie');
+      if (setCookie) this.cookie = setCookie.split(';')[0];
+      const text = await res.text();
+      const m = text.match(/name="_csrf" value="([^"]+)"/);
+      if (m) this.csrf = m[1];
+      return { status: res.status, location: res.headers.get('location'), text, headers: res.headers };
+    }
+
+    get(path) { return this.request('GET', path); }
+
+    async post(path, form = {}) {
+      if (!this.csrf) await this.get('/login');
+      return this.request('POST', path, form);
+    }
+
+    // Multipart upload; the CSRF token goes in the URL like the real upload forms.
+    async upload(path, fields, file) {
+      if (!this.csrf) await this.get('/login');
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+      if (file) fd.append(file.field, new Blob([file.content], { type: file.type }), file.name);
+      return this.request('POST', `${path}${path.includes('?') ? '&' : '?'}_csrf=${encodeURIComponent(this.csrf)}`, fd);
+    }
+
+    async follow(res) {
+      let r = res;
+      while (r.location) r = await this.get(r.location);
+      return r;
+    }
+  }
+
+  async function login(email, password) {
+    const c = new Client();
+    await c.get('/login');
+    const res = await c.post('/login', { email, password });
+    assert.equal(res.status, 302, 'login should redirect');
+    await c.get('/dashboard'); // refresh CSRF token for the new session
+    return c;
+  }
+
+  const planId = (name) => db.prepare('SELECT id FROM membership_plans WHERE name = ?').get(name).id;
+
+  async function register(email, first = 'Test', familyMembers = 0) {
+    const c = new Client();
+    await c.get('/register');
+    const res = await c.post('/register', {
+      email, password: 'secret123', password_confirm: 'secret123', first_name: first, last_name: 'Member',
+    });
+    assert.equal(res.status, 302);
+    await c.get('/profile');
+    for (let i = 1; i <= familyMembers; i++) {
+      await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter' });
+    }
+    if (familyMembers) {
+      // Family members only count toward event guests while covered by a paid membership.
+      const userId = db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
+      grantMembership(db, { userId, planId: planId('Family') });
+    }
+    return c;
+  }
+
+  function futureDate(days, time = '18:00') {
+    const d = new Date(Date.now() + days * 86400000);
+    return `${d.toISOString().slice(0, 10)}T${time}`;
+  }
+
+  async function createEvent(admin, fields) {
+    const res = await admin.post('/admin/events', {
+      title: 'Garba Night', starts_at: futureDate(10), fee: '0', max_party_size: '6', status: 'published', ...fields,
+    });
+    assert.equal(res.status, 302);
+    return Number(res.location.split('/').pop());
+  }
+
+  function rsvpFor(eventId, email) {
+    return db.prepare(`SELECT r.* FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.event_id = ? AND u.email = ?`)
+      .get(eventId, email);
+  }
+
+  return {
+    db, base, Client, login, register, planId, futureDate, createEvent, rsvpFor, close: () => server.close(),
+  };
+}
+
+module.exports = { startTestApp };

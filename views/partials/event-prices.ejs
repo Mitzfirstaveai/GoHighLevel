@@ -1,0 +1,2 @@
+<% if (!event.fee_cents && !event.guest_fee_cents) { %>Free<% if (event.guest_fee_cents === 0) { %> · guests welcome<% } %>
+<% } else { %>Members <%= money(event.fee_cents) %>/person<% if (event.early_fee_cents != null && event.early_until) { %> · early bird <%= money(event.early_fee_cents) %> until <%= fmtDate(event.early_until) %><% } %><% if (event.guest_fee_cents != null) { %> · guests <%= event.guest_fee_cents ? money(event.guest_fee_cents) : 'free' %><% } %><% } %>

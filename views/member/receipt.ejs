@@ -1,0 +1,30 @@
+<%- include('../partials/head') %>
+<div class="receipt card">
+  <div class="receipt-head">
+    <img src="/logo.png" alt="" width="64" height="64">
+    <div>
+      <strong><%= orgName %></strong><br>
+      <span class="small muted"><%= org.address.join(', ') %><br><%= org.phone %> · <%= org.email %><% if (org.ein) { %><br>EIN <%= org.ein %><% } %></span>
+    </div>
+    <div class="receipt-no"><span class="muted small">Receipt</span><br><strong><%= number %></strong></div>
+  </div>
+  <h1><%= payment.kind === 'donation' ? 'Donation receipt' : 'Payment receipt' %></h1>
+  <div class="fields">
+    <div><span class="muted small">Received from</span><br><strong><%= payment.first_name %> <%= payment.last_name %></strong>
+      <% if (payment.address_line1) { %><br><span class="small"><%= payment.address_line1 %><%= payment.address_line2 ? `, ${payment.address_line2}` : '' %><br><%= [payment.city, payment.state, payment.postal_code].filter(Boolean).join(', ') %></span><% } %></div>
+    <div><span class="muted small">Date</span><br><strong><%= fmtDate(payment.paid_at.slice(0, 10)) %></strong></div>
+    <div><span class="muted small">Payment method</span><br><strong><%= { stripe: 'Card', demo: 'Card (demo)', cash: 'Cash', check: 'Check', other: 'Other' }[payment.method] || payment.method %><%= payment.method === 'check' && payment.provider_ref ? ` #${payment.provider_ref}` : '' %></strong></div>
+  </div>
+  <table style="margin:16px 0">
+    <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
+    <tbody><tr><td><%= payment.description %><% if (payment.note) { %><div class="muted small"><%= payment.note %></div><% } %></td><td class="num"><%= money(payment.amount_cents) %></td></tr></tbody>
+    <tfoot><tr><th>Total</th><th class="num"><%= money(payment.amount_cents) %></th></tr></tfoot>
+  </table>
+  <% if (payment.kind === 'donation') { %>
+    <p class="small"><%= orgName %> is a tax-exempt organization under Section 501(c)(3) of the Internal Revenue Code<%= org.ein ? ` (EIN ${org.ein})` : '' %>.
+      No goods or services were provided in exchange for this contribution. Please keep this receipt for your tax records.</p>
+  <% } %>
+  <p class="small muted">Thank you for supporting the <%= orgName %> — “<%= org.motto %>”.</p>
+  <div class="actions no-print"><button class="btn" onclick="window.print()">Print / Save as PDF</button><a class="btn secondary" href="/payments">My payments</a></div>
+</div>
+<%- include('../partials/foot') %>

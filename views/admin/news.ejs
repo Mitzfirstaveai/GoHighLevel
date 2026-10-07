@@ -2,10 +2,10 @@
 <div class="page-head"><h1>News &amp; announcements</h1></div>
 <div class="card">
   <h2>Post an announcement</h2>
-  <form method="post" action="/admin/news" class="stack">
-    <%- include('../partials/csrf') %>
+  <form method="post" action="/admin/news?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">
     <label>Title <input name="title" required placeholder="e.g. Navratri volunteers needed"></label>
     <label>Message <textarea name="body" required rows="6"></textarea></label>
+    <label>Photo (optional) <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"></label>
     <div><button class="btn">Post</button></div>
   </form>
 </div>

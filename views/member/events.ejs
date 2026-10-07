@@ -1,5 +1,7 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Upcoming events</h1></div>
+<div class="page-head"><h1>Upcoming events</h1>
+  <nav class="pills" style="margin:0"><a href="/events" class="active">List</a><a href="/events?view=calendar">Calendar</a></nav>
+</div>
 <% if (!events.length) { %><div class="card"><p class="muted">No upcoming events yet. Check back soon!</p></div><% } %>
 <div class="event-list">
 <% for (const e of events) { %>

@@ -1,112 +1,23 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { createApp } = require('../src/app');
-const { loadConfig } = require('../src/config');
+const { startTestApp } = require('./helpers');
 
-let server;
-let base;
+let t;
 let db;
+let Client;
+let login;
+let register;
+let planId;
+let futureDate;
+let createEvent;
+let rsvpFor;
 
 before(async () => {
-  const app = createApp(loadConfig({
-    databaseFile: ':memory:', adminEmail: 'admin@test.org', adminPassword: 'adminpass1',
-    stripeSecretKey: '', allowDemoPayments: true, baseUrl: 'http://test.local', orgName: 'Test Samaj',
-  }));
-  db = app.locals.db;
-  db.exec(`INSERT INTO membership_plans (name, amount_cents, duration_months, calendar_year, spouse_allowed, children_allowed, max_parents, min_age)
-           VALUES ('Senior Citizen', 11000, 12, 1, 0, 0, 0, 65), ('Individual', 16500, 12, 1, 0, 0, 0, 18),
-                  ('Married Couple', 27500, 12, 1, 1, 0, 0, 0), ('Family', 33000, 12, 1, 1, 1, 0, 0),
-                  ('Family with Parents', 38500, 12, 1, 1, 1, 2, 0)`);
-  await new Promise((resolve) => { server = app.listen(0, resolve); });
-  base = `http://127.0.0.1:${server.address().port}`;
+  t = await startTestApp();
+  ({ db, Client, login, register, planId, futureDate, createEvent, rsvpFor } = t);
 });
 
-after(() => server.close());
-
-// Tiny cookie-keeping browser that knows how to fill in the CSRF token.
-class Client {
-  constructor() { this.cookie = ''; this.csrf = ''; }
-
-  async request(method, path, form) {
-    const headers = { cookie: this.cookie };
-    let body;
-    if (form) {
-      headers['content-type'] = 'application/x-www-form-urlencoded';
-      body = new URLSearchParams({ _csrf: this.csrf, ...form }).toString();
-    }
-    const res = await fetch(base + path, { method, headers, body, redirect: 'manual' });
-    const setCookie = res.headers.get('set-cookie');
-    if (setCookie) this.cookie = setCookie.split(';')[0];
-    const text = await res.text();
-    const m = text.match(/name="_csrf" value="([^"]+)"/);
-    if (m) this.csrf = m[1];
-    return { status: res.status, location: res.headers.get('location'), text, headers: res.headers };
-  }
-
-  get(path) { return this.request('GET', path); }
-
-  async post(path, form = {}) {
-    if (!this.csrf) await this.get('/login');
-    return this.request('POST', path, form);
-  }
-
-  async follow(res) {
-    let r = res;
-    while (r.location) r = await this.get(r.location);
-    return r;
-  }
-}
-
-async function login(email, password) {
-  const c = new Client();
-  await c.get('/login');
-  const res = await c.post('/login', { email, password });
-  assert.equal(res.status, 302, 'login should redirect');
-  await c.get('/dashboard'); // refresh CSRF token for the new session
-  return c;
-}
-
-async function register(email, first = 'Test', familyMembers = 0) {
-  const c = new Client();
-  await c.get('/register');
-  const res = await c.post('/register', {
-    email, password: 'secret123', password_confirm: 'secret123', first_name: first, last_name: 'Member',
-  });
-  assert.equal(res.status, 302);
-  await c.get('/profile');
-  for (let i = 1; i <= familyMembers; i++) {
-    await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter' });
-  }
-  if (familyMembers) {
-    // Family members only count toward event guests while covered by a paid membership.
-    const { grantMembership } = require('../src/services');
-    const userId = db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
-    grantMembership(db, { userId, planId: planId('Family') });
-  }
-  return c;
-}
-
-function planId(name) {
-  return db.prepare('SELECT id FROM membership_plans WHERE name = ?').get(name).id;
-}
-
-function futureDate(days, time = '18:00') {
-  const d = new Date(Date.now() + days * 86400000);
-  return `${d.toISOString().slice(0, 10)}T${time}`;
-}
-
-async function createEvent(admin, fields) {
-  const res = await admin.post('/admin/events', {
-    title: 'Garba Night', starts_at: futureDate(10), fee: '0', max_party_size: '6', status: 'published', ...fields,
-  });
-  assert.equal(res.status, 302);
-  return Number(res.location.split('/').pop());
-}
-
-function rsvpFor(eventId, email) {
-  return db.prepare(`SELECT r.* FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.event_id = ? AND u.email = ?`)
-    .get(eventId, email);
-}
+after(() => t.close());
 
 test('pages require sign-in and admin area requires admin', async () => {
   const anon = new Client();

@@ -9,6 +9,7 @@ const ORG = {
   phone: '(501) 916-2416',
   email: 'gsaarkansas@gmail.com',
   venue: 'GSA Community Center | 1 GSA Circle, Little Rock, AR 72209',
+  ein: '', // shown on donation receipts when set
 };
 
 const ABOUT = {
