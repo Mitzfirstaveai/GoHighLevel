@@ -85,12 +85,20 @@ test('the committee & volunteer sign-in turns ordinary members away and takes ad
   await t.register('plain@test.org', 'Plain');
   const c = new t.Client();
   let res = await c.get('/login');
-  assert.match(res.text, /href="\/admin\/login">Committee &amp; volunteer sign-in/);
+  assert.match(res.text, /class="staff-signin">\s*<a class="btn big secondary" href="\/admin\/login">[\s\S]*?Committee &amp; volunteer sign-in<\/a>/);
+  // It sits right under the member Sign in button, above everything else.
+  assert.ok(res.text.indexOf('class="staff-signin"') < res.text.indexOf('New here?'));
   await c.get('/admin/login');
   res = await c.post('/admin/login', { email: 'plain@test.org', password: 'secret123' });
   assert.equal(res.status, 403);
   assert.match(res.text, /only for the committee and door volunteers/);
   assert.equal((await c.get('/dashboard')).location, '/login'); // not signed in
+  assert.equal((await c.get('/admin/checkin')).location, '/admin/login'); // and no door check-in
+  // A family login (spouse) isn't let in either, unless an admin assigns them as a door volunteer.
+  t.db.prepare(`UPDATE users SET owner_id = (SELECT id FROM users WHERE email = 'door@test.org') WHERE email = 'plain@test.org'`).run();
+  res = await c.post('/admin/login', { email: 'plain@test.org', password: 'secret123' });
+  assert.equal(res.status, 403);
+  t.db.prepare(`UPDATE users SET owner_id = NULL WHERE email = 'plain@test.org'`).run();
   res = await c.post('/admin/login', { email: 'door@test.org', password: 'wrong-password' });
   assert.equal(res.status, 401);
   const a = new t.Client();

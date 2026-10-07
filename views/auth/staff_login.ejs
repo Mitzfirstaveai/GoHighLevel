@@ -2,7 +2,8 @@
 <div class="card" style="max-width:460px;margin:20px auto">
   <img src="/logo.png" alt="" width="80" height="80" style="display:block;margin:0 auto 8px;border-radius:50%">
   <h1 style="text-align:center"><%= t('Committee & volunteer sign-in') %></h1>
-  <p class="muted" style="text-align:center"><%= t('For committee members and door volunteers. Volunteers go straight to door check-in.') %></p>
+  <p style="text-align:center"><%= t('Only for committee members, and for volunteers the committee has given door access. Volunteers go straight to door check-in.') %></p>
+  <p class="muted small" style="text-align:center"><%= t('Members: please use the member sign-in.') %> <a href="/login"><%= t('Member sign-in') %></a></p>
   <% if (user && !doorMode) { %>
     <p class="flash info"><%= t("You're signed in to the member app as {name}. Signing in here switches to your committee or volunteer account.", { name: `${user.first_name} ${user.last_name}` }) %></p>
   <% } %>

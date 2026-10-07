@@ -8,6 +8,10 @@
     <label><%= t('Password') %> <input type="password" name="password" required autocomplete="current-password"></label>
     <button class="btn big"><%= t('Sign in') %></button>
   </form>
+  <%# Committee & volunteers: a clear second way in, right under the member sign-in. %>
+  <div class="staff-signin">
+    <a class="btn big secondary" href="/admin/login"><%- include('../partials/icon', { name: 'shield' }) %> <%= t('Committee & volunteer sign-in') %></a>
+  </div>
   <% const memberDemo = demoAccounts.filter((a) => !a.door); %>
   <% if (memberDemo.length) { %>
     <div class="demo-login">
@@ -23,6 +27,5 @@
     </div>
   <% } %>
   <p class="muted small"><%= t('New here?') %> <a href="/register"><%= t('Create your member account') %></a>. <%= t('Forgot your password? Ask a committee member to reset it.') %></p>
-  <p class="small" style="text-align:center"><a href="/admin/login"><%= t('Committee & volunteer sign-in') %></a></p>
 </div>
 <%- include('../partials/foot') %>
