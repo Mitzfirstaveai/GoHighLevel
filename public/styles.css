@@ -176,7 +176,7 @@ td .badge { white-space: normal; max-width: 100%; } /* long level names wrap ins
 .badge.neutral { background: var(--border); color: var(--text); }
 
 form.stack { display: grid; gap: 12px; }
-.fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.fields { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16em), 1fr)); } /* wide enough for a date and time */
 label { display: grid; gap: 4px; font-weight: 600; font-size: 1rem; }
 label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
 input, select, textarea {
@@ -607,3 +607,10 @@ table.stack tfoot tr { border-top: 2px solid var(--border); border-bottom: 0; }
 body.admin-mode .menu-compact .inner { gap: 4px; padding: 6px 10px; display: grid; grid-template-columns: repeat(6, auto); justify-content: center; }
 @media (min-width: 1300px) { html.size-normal body.admin-mode .menu-compact .inner { grid-template-columns: repeat(12, auto); } } /* otherwise two even rows of six */
 body.admin-mode .menu-compact a { padding: 5px 9px; gap: 5px; }
+/* Admin header has an extra "Admin" label: use the short name up to tablet width so nothing is cut off. */
+@media (max-width: 1000px) {
+  body.admin-mode .topbar .brand-full { display: none; }
+  body.admin-mode .topbar .brand-short { display: inline; }
+}
+/* Buttons inside tables keep their label on one line ("Check in", not "Check / in"). */
+td .btn { white-space: nowrap; }

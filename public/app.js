@@ -82,8 +82,9 @@
   const fit = () => {
     for (const table of tables) {
       table.classList.remove('stack');
+      // Measure the box, not just the table: a long value can spill past the table's own edge.
       const wrap = table.parentElement;
-      if (table.scrollWidth > wrap.clientWidth + 1) table.classList.add('stack');
+      if (Math.max(table.scrollWidth, wrap.scrollWidth) > wrap.clientWidth + 1) table.classList.add('stack');
     }
   };
   fit();
