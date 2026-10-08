@@ -25,7 +25,7 @@
     <% if (!events.length) { %><tr><td class="muted">No event fees this year.</td></tr><% } %></tbody>
     <% if (events.length) { %><tfoot><tr><th>Total<div class="muted small"><%= events.length %> event<%= events.length === 1 ? '' : 's' %></div></th><th class="num"><%= money(eventsTotal) %></th></tr></tfoot><% } %></table></div>
   <div class="card table-wrap"><h2>Donations by fund</h2>
-    <table><tbody><% for (const f of funds) { %><tr><td><%= f.title %><div class="muted small"><%= f.donors %> donor<%= f.donors === 1 ? '' : 's' %></div></td><td class="num"><%= money(f.cents) %></td></tr><% } %>
+    <table><tbody><% for (const f of funds) { %><tr><td><a href="/admin/donations?campaign=<%= f.fund_id || 'general' %>&amp;from=<%= year %>-01-01&amp;to=<%= year %>-12-31#donation-list"><%= f.title %></a><div class="muted small"><%= f.donors %> donor<%= f.donors === 1 ? '' : 's' %></div></td><td class="num"><%= money(f.cents) %></td></tr><% } %>
     <% if (!funds.length) { %><tr><td class="muted">No donations this year.</td></tr><% } %></tbody>
     <% if (funds.length) { %><tfoot><tr><th>Total<div class="muted small"><%= donorCount %> donor<%= donorCount === 1 ? '' : 's' %></div></th><th class="num"><%= money(fundsTotal) %></th></tr></tfoot><% } %></table></div>
 </div>

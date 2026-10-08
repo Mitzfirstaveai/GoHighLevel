@@ -282,6 +282,12 @@ test('financial report, QuickBooks export and trends dashboard', async () => {
   const fundsBox = res.text.split('<h2>Donations by fund</h2>')[1].split('</table>')[0];
   const perFund = [...fundsBox.matchAll(/<tbody>[\s\S]*?<\/tbody>/g)][0][0].matchAll(/(\d+) donors?</g);
   assert.ok([...perFund].reduce((a, m) => a + Number(m[1]), 0) > gifts.donors, 'a donor to two funds appears under both');
+  // Each fund opens its donations for that year.
+  assert.match(fundsBox, new RegExp(`<a href="/admin/donations\\?campaign=${fund}&amp;from=${year}-01-01&amp;to=${year}-12-31#donation-list">Temple Fund</a>`));
+  assert.match(fundsBox, new RegExp(`<a href="/admin/donations\\?campaign=general&amp;from=${year}-01-01&amp;to=${year}-12-31#donation-list">General fund</a>`));
+  res = await admin.get(`/admin/donations?campaign=${fund}&from=${year}-01-01&to=${year}-12-31`);
+  assert.match(res.text, /id="donation-list"/);
+  assert.match(res.text, /<div class="label">Total<\/div><div class="value">\$50\.00</);
   const { formatMoney } = require('../src/util');
   assert.match(fundsBox, new RegExp(`<tfoot><tr><th>Total<div class="muted small">${gifts.donors} donors</div></th><th class="num">\\${formatMoney(gifts.cents)}</th>`));
   res = await admin.get(`/admin/reports/quickbooks.csv?year=${year}`);

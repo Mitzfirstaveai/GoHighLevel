@@ -46,7 +46,7 @@ router.get('/reports', (req, res) => {
   const events = db.prepare(`SELECT e.id, e.title, e.starts_at, SUM(p.amount_cents) AS cents FROM payments p
     JOIN rsvps r ON r.id = p.reference_id JOIN events e ON e.id = r.event_id
     WHERE p.kind = 'event' AND p.status = 'paid' AND substr(datetime(p.paid_at, 'localtime'), 1, 4) = ? GROUP BY e.id ORDER BY cents DESC`).all(year);
-  const funds = db.prepare(`SELECT COALESCE(c.title, 'General fund') AS title, SUM(p.amount_cents) AS cents, COUNT(DISTINCT p.user_id) AS donors
+  const funds = db.prepare(`SELECT p.reference_id AS fund_id, COALESCE(c.title, 'General fund') AS title, SUM(p.amount_cents) AS cents, COUNT(DISTINCT p.user_id) AS donors
     FROM payments p LEFT JOIN campaigns c ON c.id = p.reference_id
     WHERE p.kind = 'donation' AND p.status = 'paid' AND substr(datetime(p.paid_at, 'localtime'), 1, 4) = ? GROUP BY p.reference_id ORDER BY cents DESC`).all(year);
   // A donor who gave to two funds is counted once in the total.

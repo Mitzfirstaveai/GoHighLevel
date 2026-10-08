@@ -25,7 +25,7 @@
     </form>
   </div>
 </div>
-<form method="get" class="card filters" style="margin-top:16px">
+<form method="get" class="card filters" id="donation-list" style="margin-top:16px">
   <input name="q" value="<%= filters.q %>" placeholder="Donor name or email" class="grow">
   <select name="campaign"><option value="">All funds</option><option value="general" <%= filters.campaign === 'general' ? 'selected' : '' %>>General fund</option>
     <% for (const c of campaigns) { %><option value="<%= c.id %>" <%= String(c.id) === filters.campaign ? 'selected' : '' %>><%= c.title %></option><% } %></select>
