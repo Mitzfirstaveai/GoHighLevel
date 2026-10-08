@@ -6,7 +6,8 @@
 <% for (const p of posts) { %>
   <article class="card">
     <h2 style="margin-bottom:4px"><%= loc(p, 'title') %></h2>
-    <p class="muted small" style="margin-top:0"><%= p.first_name ? `${p.first_name} ${p.last_name} · ` : '' %><%= fmtDay(p.created_at) %></p>
+    <%# Announcements come from GSA as a whole, not the committee member who typed them. %>
+    <p class="muted small" style="margin-top:0"><%= t('GSA Committee') %> · <%= fmtDay(p.created_at) %></p>
     <% if (p.image_path) { %><img src="<%= p.image_path %>" alt="" class="event-hero"><% } %>
     <div style="white-space:pre-line"><%= loc(p, 'body') %></div>
   </article>
