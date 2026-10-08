@@ -1,0 +1,36 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>Contacts</h1>
+  <div class="actions">
+    <a class="btn" href="/admin/members/new?type=business">+ Add sponsor or vendor</a>
+    <a class="btn secondary" href="/admin/members.csv?type=business<%= q ? `&q=${encodeURIComponent(q)}` : '' %><%= tag ? `&tag=${tag}` : '' %>">Download CSV</a>
+  </div>
+</div>
+<%- include('contacts_tabs', { active: 'business', counts }) %>
+<p class="muted small">Businesses and organizations GSA works with. They don't sign in and aren't counted as members. Sponsors marked
+  "Show on the website" appear on the public <a href="/sponsors" target="_blank">Sponsors page</a>, grouped by level.</p>
+<form method="get" class="card filters">
+  <input type="hidden" name="type" value="business">
+  <input name="q" value="<%= q %>" placeholder="Search business, contact person, email, phone…" class="grow">
+  <select name="tag" aria-label="Type"><option value="">Sponsors and vendors</option><option <%= tag === 'Sponsor' ? 'selected' : '' %>>Sponsor</option><option <%= tag === 'Vendor' ? 'selected' : '' %>>Vendor</option></select>
+  <button class="btn">Filter</button>
+  <% if (q || tag) { %><a href="/admin/members?type=business">Clear</a><% } %>
+</form>
+<div class="card table-wrap">
+  <table>
+    <thead><tr><th>Business</th><th>Contact</th><th>Type</th><th>Sponsorship</th><th class="num">Given</th></tr></thead>
+    <tbody>
+    <% for (const b of businesses) { %>
+      <tr>
+        <td><a href="/admin/members/<%= b.id %>"><strong><%= b.first_name %></strong></a><% if (b.website) { %><div class="small"><a href="<%= b.website %>" target="_blank" rel="noopener noreferrer"><%= b.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') %></a></div><% } %></td>
+        <td><%= b.contact_person || '' %><div class="muted small"><%= [b.email, b.phone].filter(Boolean).join(' · ') %></div></td>
+        <td><% for (const t of b.tags.split(',').filter(Boolean)) { %><span class="badge tag"><%= t %></span> <% } %></td>
+        <td><% if (b.sponsor_level) { %><%= b.sponsor_level %><%= b.sponsor_year ? ` ${b.sponsor_year}` : '' %><% } %>
+          <% if (b.show_on_website) { %><div><span class="badge ok">On website</span></div><% } %></td>
+        <td class="num"><%= b.given_cents ? money(b.given_cents) : '—' %></td>
+      </tr>
+    <% } %>
+    <% if (!businesses.length) { %><tr><td colspan="5" class="muted">No sponsors or vendors<%= q || tag ? ' match these filters' : ' yet' %>.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

@@ -81,7 +81,8 @@ router.get('/insights', (req, res) => {
       COUNT(*) FILTER (WHERE m.end_date >= ?) AS active,
       COUNT(*) FILTER (WHERE m.end_date < ?) AS expired,
       COUNT(*) FILTER (WHERE m.end_date IS NULL) AS never
-    FROM users u LEFT JOIN memberships m ON m.id = (SELECT id FROM memberships WHERE user_id = u.id ORDER BY end_date DESC, id DESC LIMIT 1)`)
+    FROM users u LEFT JOIN memberships m ON m.id = (SELECT id FROM memberships WHERE user_id = u.id ORDER BY end_date DESC, id DESC LIMIT 1)
+    WHERE u.contact_type = 'member'`)
     .get(today, today);
   // One row per member: the membership in effect today (after an upgrade, the newest one).
   const inEffect = `SELECT m.* FROM memberships m WHERE m.id = (SELECT MAX(id) FROM memberships x

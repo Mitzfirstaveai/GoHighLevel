@@ -1,0 +1,26 @@
+<%# Fields for a sponsor or vendor. `b` is the contact (or defaults), `levels` the sponsorship levels. %>
+<input type="hidden" name="contact_type" value="business">
+<div class="fields">
+  <label>Business or organization name <input name="organization" value="<%= b.first_name || '' %>" required maxlength="200"></label>
+  <label>Contact person <input name="contact_person" value="<%= b.contact_person || '' %>" maxlength="200"></label>
+  <label>Email <input type="email" name="email" value="<%= b.email || '' %>" autocomplete="off"></label>
+  <label>Phone <input type="tel" name="phone" value="<%= b.phone || '' %>"></label>
+  <label>Website <input name="website" value="<%= b.website || '' %>" placeholder="www.example.com"></label>
+  <label>Address line 1 <input name="address_line1" value="<%= b.address_line1 || '' %>"></label>
+  <label>Address line 2 <input name="address_line2" value="<%= b.address_line2 || '' %>"></label>
+  <label>City <input name="city" value="<%= b.city || '' %>"></label>
+  <label>State <input name="state" value="<%= b.state || '' %>"></label>
+  <label>ZIP / Postal code <input name="postal_code" value="<%= b.postal_code || '' %>"></label>
+</div>
+<fieldset class="tag-picker"><legend>Type</legend>
+  <% const mine = String(b.tags || '').split(','); for (const t of ['Sponsor', 'Vendor', 'Donor']) { %><label class="check"><input type="checkbox" name="tags" value="<%= t %>" <%= mine.includes(t) ? 'checked' : '' %>> <%= t %></label><% } %>
+</fieldset>
+<fieldset class="stack" style="border:1px solid var(--border);border-radius:10px;padding:10px 14px">
+  <legend>Sponsorship</legend>
+  <div class="fields">
+    <label>Level <select name="sponsor_level"><option value="">—</option><% for (const l of levels) { %><option <%= b.sponsor_level === l ? 'selected' : '' %>><%= l %></option><% } %></select></label>
+    <label>Year <input name="sponsor_year" inputmode="numeric" pattern="\d{4}" value="<%= b.sponsor_year || '' %>" placeholder="<%= new Date().getFullYear() %>"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="show_on_website" value="1" <%= b.show_on_website ? 'checked' : '' %>> <span>Show on the website's Sponsors page (by level; with a link if there's a website)</span></label>
+</fieldset>
+<label>Notes (only admins see these) <textarea name="notes"><%= b.notes || '' %></textarea></label>

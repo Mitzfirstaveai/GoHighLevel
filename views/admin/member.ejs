@@ -1,5 +1,5 @@
 <%- include('../partials/head') %>
-<a class="back" href="/admin/members">← Member directory</a>
+<a class="back" href="/admin/members">← Contacts</a>
 <div class="page-head"><h1><%= member.first_name %> <%= member.last_name %></h1>
   <div class="actions"><% if (member.role === 'admin') { %><span class="badge neutral">Administrator</span><% } %><% if (member.checkin_access && member.role !== 'admin') { %><span class="badge neutral">Door volunteer</span><% } %>
   <% if (membership.active) { %><span class="badge ok">Member until <%= fmtDate(membership.current.end_date) %></span><% } else { %><span class="badge warn">No active membership</span><% } %></div>
@@ -102,4 +102,12 @@
       <button class="btn secondary small" onclick="return confirm('Generate a temporary password for this member?')"><%= member.password_hash ? 'Reset password' : 'Create app login' %></button></form>
   </div>
 </div>
+<% if (!member.password_hash && member.role !== 'admin' && !member.owner_id) { %>
+<div class="card">
+  <h2>In the wrong list?</h2>
+  <p class="muted small">If this is a business or organization (a sponsor or vendor) rather than a member, move it to Sponsors &amp; vendors.</p>
+  <form method="post" action="/admin/members/<%= member.id %>/contact-type" onsubmit="return confirm('Move to Sponsors & vendors?')"><%- include('../partials/csrf') %>
+    <input type="hidden" name="type" value="business"><button class="btn secondary small">Move to Sponsors &amp; vendors</button></form>
+</div>
+<% } %>
 <%- include('../partials/foot') %>

@@ -1,0 +1,12 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/members?type=business">← Sponsors &amp; vendors</a>
+<div class="page-head"><h1>Add sponsor or vendor</h1></div>
+<div class="card">
+  <p class="muted">Businesses and organizations GSA works with. They're kept apart from members: they don't sign in to the app and aren't counted as members.</p>
+  <form method="post" action="/admin/members/new" class="stack">
+    <%- include('../partials/csrf') %>
+    <%- include('business_fields', { b, levels }) %>
+    <div><button class="btn">Add</button></div>
+  </form>
+</div>
+<%- include('../partials/foot') %>

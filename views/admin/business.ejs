@@ -1,0 +1,54 @@
+<%- include('../partials/head') %>
+<a class="back" href="/admin/members?type=business">← Sponsors &amp; vendors</a>
+<div class="page-head"><h1><%= b.first_name %></h1>
+  <div class="actions">
+    <% for (const t of b.tags.split(',').filter(Boolean)) { %><span class="badge tag"><%= t %></span><% } %>
+    <% if (b.sponsor_level) { %><span class="badge neutral"><%= b.sponsor_level %><%= b.sponsor_year ? ` ${b.sponsor_year}` : '' %></span><% } %>
+    <% if (b.show_on_website) { %><a class="badge ok" href="/sponsors" target="_blank">On the website</a><% } %>
+  </div>
+</div>
+<div class="card">
+  <h2>Details</h2>
+  <form method="post" action="/admin/members/<%= b.id %>" class="stack">
+    <%- include('../partials/csrf') %>
+    <%- include('business_fields', { b, levels }) %>
+    <div><button class="btn">Save changes</button></div>
+  </form>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Record a payment</h2>
+    <p class="muted small">Sponsorships and donations get a tax receipt in the organization's name.</p>
+    <form method="post" action="/admin/members/<%= b.id %>/payments" class="stack">
+      <%- include('../partials/csrf') %>
+      <div class="fields">
+        <label>Type <select name="kind"><option value="donation">Sponsorship / donation</option><option value="other">Other (e.g. vendor fee)</option></select></label>
+        <label>Fund <select name="campaign_id"><option value="">General fund</option><% for (const c of campaigns) { %><option value="<%= c.id %>"><%= c.title %></option><% } %></select></label>
+        <label>Amount <input name="amount" inputmode="decimal" placeholder="0.00" required></label>
+        <label>Description / note <input name="description" placeholder="e.g. <%= b.sponsor_level || 'Gold' %> sponsorship <%= new Date().getFullYear() %>"></label>
+        <label>Method <select name="method"><option value="check">Check</option><option value="cash">Cash</option><option value="other">Other</option></select></label>
+        <label>Check # / reference <input name="reference"></label>
+      </div>
+      <div><button class="btn secondary">Record payment</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>Payments (<%= money(payments.reduce((s, p) => s + p.amount_cents, 0)) %>)</h2>
+    <% if (!payments.length) { %><p class="muted">None yet.</p><% } else { %>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
+      <tbody><% for (const p of payments) { %><tr><td><%= fmtDay(p.paid_at) %></td><td><%= p.description %><div class="muted small"><%= p.method %></div></td>
+        <td class="num"><%= money(p.amount_cents) %></td><td><a href="/receipts/<%= p.id %>">Receipt</a></td></tr><% } %></tbody>
+    </table></div>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h2>In the wrong list?</h2>
+  <p class="muted small">If this is a person who should be a member, move them to Members (you'll then check their first and last name).</p>
+  <form method="post" action="/admin/members/<%= b.id %>/contact-type" onsubmit="return confirm('Move to Members?')"><%- include('../partials/csrf') %>
+    <input type="hidden" name="type" value="member"><button class="btn secondary small">Move to Members</button></form>
+</div>
+<%- include('../partials/foot') %>

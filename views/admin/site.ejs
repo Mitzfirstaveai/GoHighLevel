@@ -61,11 +61,7 @@
 
 <div class="card" id="sponsors">
   <h2>Sponsors</h2>
-  <form method="post" action="/admin/site/sponsors" class="stack">
-    <%- include('../partials/csrf') %>
-    <label>Start each level with <code>## Platinum</code> / <code>## Gold</code> …, then one sponsor per line
-      <textarea name="sponsors" rows="8" class="mono"><%= sponsorsText %></textarea></label>
-    <div><button class="btn">Save sponsors</button></div>
-  </form>
+  <p>The public Sponsors page is built from <a href="/admin/members?type=business">Contacts → Sponsors &amp; vendors</a>:
+    every sponsor with <strong>Show on the website</strong> ticked appears there, grouped by level, linked to their website.</p>
 </div>
 <%- include('../partials/foot') %>

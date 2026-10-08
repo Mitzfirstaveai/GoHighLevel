@@ -901,7 +901,7 @@ function celebrations(db, { from = today(), days = 7 } = {}) {
     return null;
   };
   // Signed-up members, or contacts with a membership (the same people the member directory lists).
-  const active = '(u.password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id))';
+  const active = `(u.contact_type = 'member' AND (u.password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)))`;
   const list = [];
   for (const u of db.prepare(`SELECT first_name, last_name, date_of_birth FROM users u WHERE share_birthday = 1 AND ${active}`).all()) {
     const when = upcoming(u.date_of_birth?.slice(5, 10));

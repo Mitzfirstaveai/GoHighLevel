@@ -216,7 +216,7 @@ test('the admin area stays in English for the committee', async () => {
   const c = await t.adminLogin('admin@example.com', 'demo1234');
   await c.get('/prefs?lang=gu&back=/admin');
   const res = await c.get('/admin/members');
-  assert.match(res.text, /Contacts \(\d+\)/);
+  assert.match(res.text, /Members \(\d+\)/);
   assert.match(res.text, /<nav class="subnav[^"]*" aria-label="Admin" lang="en">/);
   await c.get('/prefs?lang=en&back=/');
 });

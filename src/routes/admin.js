@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAdmin } = require('../middleware');
 const { getContent, setContent } = require('../site');
 const newsfeed = require('../newsfeed');
-const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts } = require('../contacts');
+const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts, SPONSOR_LEVELS, addBusiness, updateBusiness, setContactType } = require('../contacts');
 const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
 const { DEMO_ACCOUNTS } = require('../demo');
@@ -21,7 +21,7 @@ router.get('/', (req, res) => {
   const { db } = req.app.locals;
   const today = nowLocal().slice(0, 10);
   const stats = {
-    members: db.prepare('SELECT COUNT(*) AS n FROM users').get().n,
+    members: db.prepare(`SELECT COUNT(*) AS n FROM users WHERE contact_type = 'member'`).get().n,
     activeMembers: db.prepare('SELECT COUNT(DISTINCT user_id) AS n FROM memberships WHERE end_date >= ?').get(today).n,
     upcomingEvents: db.prepare(`SELECT COUNT(*) AS n FROM events WHERE status = 'published' AND starts_at >= ?`).get(today).n,
     collected: db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS c FROM payments WHERE status = 'paid'`).get().c,
@@ -45,8 +45,9 @@ router.post('/demo/reset', (req, res) => {
 // ---------- Members ----------
 
 // Contact search with filters: text, membership status, level, tag, city, login.
+// Members tab of Contacts (sponsors & vendors have their own tab).
 function searchMembers(db, filters = {}) {
-  const where = [];
+  const where = [`u.contact_type = 'member'`];
   const args = [];
   const q = String(filters.q || '').trim();
   if (q) {
@@ -70,7 +71,7 @@ function searchMembers(db, filters = {}) {
     FROM users u
     LEFT JOIN memberships m ON m.id = (SELECT id FROM memberships WHERE user_id = u.id ORDER BY end_date DESC, id DESC LIMIT 1)
     LEFT JOIN membership_plans p ON p.id = m.plan_id
-    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    WHERE ${where.join(' AND ')}
     ORDER BY u.last_name COLLATE NOCASE, u.first_name COLLATE NOCASE
   `).all(...args);
 }
@@ -78,11 +79,31 @@ function searchMembers(db, filters = {}) {
 const FILTER_KEYS = ['q', 'status', 'level', 'tag', 'city', 'login'];
 const pickFilters = (query) => Object.fromEntries(FILTER_KEYS.map((k) => [k, String(query[k] || '').trim()]));
 
+// Sponsors & vendors tab: organization name (in first_name), contact person, level, on the website, total given.
+function searchBusinesses(db, { q = '', tag = '' } = {}) {
+  const like = `%${String(q).trim()}%`;
+  return db.prepare(`
+    SELECT u.*, (SELECT COALESCE(SUM(amount_cents), 0) FROM payments p WHERE p.user_id = u.id AND p.status = 'paid') AS given_cents
+    FROM users u WHERE u.contact_type = 'business'
+      AND (u.first_name LIKE ? OR COALESCE(u.contact_person, '') LIKE ? OR COALESCE(u.email, '') LIKE ? OR COALESCE(u.phone, '') LIKE ?)
+      AND (? = '' OR ',' || u.tags || ',' LIKE ?)
+    ORDER BY u.first_name COLLATE NOCASE
+  `).all(like, like, like, like, tag, `%,${tag},%`);
+}
+
+const contactCounts = (db) => db.prepare(`SELECT COUNT(*) FILTER (WHERE contact_type = 'member') AS members,
+  COUNT(*) FILTER (WHERE contact_type = 'business') AS businesses FROM users`).get();
+
 router.get('/members', (req, res) => {
   const { db } = req.app.locals;
+  if (req.query.type === 'business') {
+    const q = String(req.query.q || '').trim();
+    const tag = ['Sponsor', 'Vendor'].includes(req.query.tag) ? req.query.tag : '';
+    return res.render('admin/businesses', { title: 'Sponsors & vendors', businesses: searchBusinesses(db, { q, tag }), q, tag, counts: contactCounts(db) });
+  }
   const filters = pickFilters(req.query);
   res.render('admin/members', {
-    title: 'Contacts', members: searchMembers(db, filters), filters, today: nowLocal().slice(0, 10), tags: TAGS,
+    title: 'Contacts', members: searchMembers(db, filters), filters, today: nowLocal().slice(0, 10), tags: TAGS, counts: contactCounts(db),
     plans: db.prepare('SELECT id, name FROM membership_plans ORDER BY sort_order, amount_cents').all(),
     cities: db.prepare(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND city != '' ORDER BY city COLLATE NOCASE`).all().map((r) => r.city),
     exportQuery: new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString(),
@@ -91,6 +112,15 @@ router.get('/members', (req, res) => {
 
 router.get('/members.csv', (req, res) => {
   const { db } = req.app.locals;
+  if (req.query.type === 'business') {
+    const rows = [['Organization', 'Contact person', 'Email', 'Phone', 'Website', 'Address 1', 'Address 2', 'City', 'State', 'Postal code',
+      'Tags', 'Sponsor level', 'Sponsor year', 'On website', 'Total given', 'Notes']];
+    for (const b of searchBusinesses(db, { q: req.query.q || '', tag: ['Sponsor', 'Vendor'].includes(req.query.tag) ? req.query.tag : '' })) {
+      rows.push([b.first_name, b.contact_person, b.email, b.phone, b.website, b.address_line1, b.address_line2, b.city, b.state, b.postal_code,
+        b.tags.split(',').filter(Boolean).join(', '), b.sponsor_level, b.sponsor_year, b.show_on_website ? 'yes' : 'no', (b.given_cents / 100).toFixed(2), b.notes]);
+    }
+    return res.attachment('sponsors-and-vendors.csv').type('text/csv').send(toCsv(rows));
+  }
   const members = searchMembers(db, pickFilters(req.query));
   const household = db.prepare('SELECT * FROM household_members ORDER BY user_id, id').all();
   const famBy = Map.groupBy(household, (h) => h.user_id);
@@ -107,10 +137,18 @@ router.get('/members.csv', (req, res) => {
 });
 
 router.get('/members/new', (req, res) => {
+  if (req.query.type === 'business') {
+    return res.render('admin/business_new', { title: 'Add sponsor or vendor', levels: SPONSOR_LEVELS, b: { tags: req.query.tag === 'Vendor' ? 'Vendor' : 'Sponsor' } });
+  }
   res.render('admin/member_new', { title: 'Add contact', tags: TAGS });
 });
 
 router.post('/members/new', (req, res) => {
+  if (req.body.contact_type === 'business') {
+    const id = addBusiness(req.app.locals.db, req.body);
+    req.flash('success', 'Sponsor/vendor added.');
+    return res.redirect(`/admin/members/${id}`);
+  }
   const { id, temporaryPassword } = addContact(req.app.locals.db, req.body);
   req.flash('success', temporaryPassword
     ? `Contact added with a login. Temporary password: ${temporaryPassword} — share it with them.`
@@ -132,6 +170,13 @@ router.get('/members/:id', (req, res) => {
   const { db } = req.app.locals;
   const member = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!member) return notFound(res, 'Member');
+  if (member.contact_type === 'business') {
+    return res.render('admin/business', {
+      title: member.first_name, b: member, levels: SPONSOR_LEVELS,
+      payments: db.prepare(`SELECT * FROM payments WHERE user_id = ? AND status = 'paid' ORDER BY paid_at DESC`).all(member.id),
+      campaigns: db.prepare('SELECT id, title FROM campaigns WHERE active = 1 ORDER BY title').all(),
+    });
+  }
   const membership = svc.membershipStatus(db, member.id);
   const household = svc.getHousehold(db, member.id);
   // A family login (spouse etc. with their own sign-in) is covered by the member who listed them.
@@ -173,6 +218,11 @@ router.post('/members/:id/household/:hid/delete', (req, res) => {
 
 router.post('/members/:id', (req, res) => {
   const { db } = req.app.locals;
+  if (db.prepare(`SELECT 1 FROM users WHERE id = ? AND contact_type = 'business'`).get(req.params.id)) {
+    updateBusiness(db, req.params.id, req.body);
+    req.flash('success', 'Saved.');
+    return res.redirect(`/admin/members/${req.params.id}`);
+  }
   svc.updateProfile(db, req.params.id, req.body);
   const email = cleanEmail(req.body.email);
   if (email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, req.params.id)) {
@@ -181,6 +231,14 @@ router.post('/members/:id', (req, res) => {
   db.prepare('UPDATE users SET notes = ?, email = ?, tags = ? WHERE id = ?')
     .run(String(req.body.notes || '').slice(0, 2000) || null, email, cleanTags(req.body.tags), req.params.id);
   req.flash('success', 'Member profile saved.');
+  res.redirect(`/admin/members/${req.params.id}`);
+});
+
+// Move a contact between the Members and Sponsors & vendors tabs.
+router.post('/members/:id/contact-type', (req, res) => {
+  const type = req.body.type === 'business' ? 'business' : 'member';
+  setContactType(req.app.locals.db, req.params.id, type);
+  req.flash('success', type === 'business' ? 'Moved to Sponsors & vendors. Check the organization name.' : 'Moved to Members. Check the first and last name.');
   res.redirect(`/admin/members/${req.params.id}`);
 });
 
@@ -236,10 +294,11 @@ router.post('/members/:id/reset-password', (req, res) => {
 // Record an offline (cash/check) payment: membership dues or a miscellaneous fee.
 router.post('/members/:id/payments', (req, res) => {
   const { db } = req.app.locals;
-  const member = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+  const member = db.prepare('SELECT id, contact_type FROM users WHERE id = ?').get(req.params.id);
   if (!member) return notFound(res, 'Member');
   const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
   let payment;
+  if (req.body.kind === 'membership' && member.contact_type === 'business') throw new svc.UserError('Sponsors and vendors don\'t have memberships.');
   if (req.body.kind === 'membership') {
     const plan = db.prepare('SELECT * FROM membership_plans WHERE id = ?').get(req.body.plan_id);
     if (!plan) throw new svc.UserError('Choose a membership plan.');

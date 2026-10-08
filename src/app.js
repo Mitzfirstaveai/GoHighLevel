@@ -25,6 +25,8 @@ function createApp(config) {
   });
   if (config.demoMode && isEmpty(db)) seedDemo(db, { photosDir: config.photosDir });
   ensureAdmin(db, config);
+  // Once: the old typed-in website sponsor list becomes sponsor contacts (Admin → Contacts → Sponsors & vendors).
+  require('./contacts').importWebsiteSponsors(db);
 
   const app = express();
   app.set('view engine', 'ejs');

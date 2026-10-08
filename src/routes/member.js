@@ -146,7 +146,7 @@ router.get('/directory', requireAuth, (req, res) => {
   const like = `%${q}%`;
   const members = req.app.locals.db.prepare(`
     SELECT id, first_name, last_name, city, native_place, directory_contact, phone, email FROM users
-    WHERE directory_listed = 1
+    WHERE directory_listed = 1 AND contact_type = 'member'
       AND (password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = users.id))
       AND (? = '' OR first_name || ' ' || last_name LIKE ? OR city LIKE ? OR native_place LIKE ?)
     ORDER BY last_name COLLATE NOCASE, first_name COLLATE NOCASE

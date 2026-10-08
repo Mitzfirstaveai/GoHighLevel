@@ -129,8 +129,13 @@ function seedDemo(db, { photosDir } = {}) {
       userId[email] = Number(db.prepare(`INSERT INTO users (email, first_name, last_name, phone, city, state, tags, notes, source)
         VALUES (?, ?, ?, ?, ?, 'AR', ?, ?, 'admin')`).run(email, first, last, phone, city, tags, notes).lastInsertRowid);
     };
-    contact('events@stonebank.example.com', 'Laura', 'Mitchell', '501-555-0150', 'Little Rock', 'Sponsor', 'Stone Bank — Platinum sponsor contact');
-    contact('orders@shreejicatering.example.com', 'Bhavesh', 'Rana', '501-555-0151', 'Sherwood', 'Vendor', 'Caterer for Diwali dinner');
+    // Sponsors & vendors (kept apart from members; the business name is in first_name).
+    const business = (email, organization, person, phone, city, tags, level, website, notes) => db.prepare(`INSERT INTO users
+      (email, first_name, last_name, contact_type, contact_person, phone, city, state, tags, sponsor_level, sponsor_year, show_on_website, website, notes, source)
+      VALUES (?, ?, '', 'business', ?, ?, ?, 'AR', ?, ?, ?, ?, ?, ?, 'admin')`)
+      .run(email, organization, person, phone, city, tags, level, level ? new Date().getFullYear() : null, level ? 1 : 0, website, notes);
+    business('events@stonebank.example.com', 'Stone Bank', 'Laura Mitchell', '501-555-0150', 'Little Rock', 'Sponsor', 'Platinum', 'https://www.stonebank.example.com', 'Platinum sponsor since 2019');
+    business('orders@shreejicatering.example.com', 'Shreeji Catering', 'Bhavesh Rana', '501-555-0151', 'Sherwood', 'Vendor', null, null, 'Caterer for Diwali dinner');
     contact('dinesh.patel@example.com', 'Dinesh', 'Patel', '479-555-0152', 'Springdale', 'Donor', 'Lives out of town; supports the Facility Fund');
     contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
     db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
@@ -303,6 +308,7 @@ function resetDemo(db, { photosDir } = {}) {
     db.exec(`DELETE FROM sqlite_sequence WHERE name IN (${TABLES.map((t) => `'${t}'`).join(', ')})`);
   });
   seedDemo(db, { photosDir });
+  require('./contacts').importWebsiteSponsors(db);
 }
 
 function isEmpty(db) {

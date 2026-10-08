@@ -509,6 +509,7 @@ module.exports = {
   'Gold': 'ગોલ્ડ',
   'Silver': 'સિલ્વર',
   'Bronze': 'બ્રોન્ઝ',
+  'Community partner': 'સમુદાય ભાગીદાર',
   'Become a sponsor': 'પ્રાયોજક બનો',
   'Interested in supporting GSA? Contact us:': 'GSAને સહયોગ આપવા માંગો છો? અમારો સંપર્ક કરો:',
   'Contact Us': 'અમારો સંપર્ક કરો',

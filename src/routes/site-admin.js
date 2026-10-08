@@ -27,20 +27,6 @@ function parseCommittee(text) {
   return groups;
 }
 
-const sponsorsToText = (tiers) => tiers.map((t) => [`## ${t.tier}`, ...t.names].join('\n')).join('\n\n');
-
-function parseSponsors(text) {
-  const tiers = [];
-  for (const raw of String(text).split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (line.startsWith('##')) { tiers.push({ tier: line.replace(/^#+\s*/, '').slice(0, 40), names: [] }); continue; }
-    if (!tiers.length) tiers.push({ tier: 'Sponsors', names: [] });
-    tiers.at(-1).names.push(line.slice(0, 150));
-  }
-  return tiers;
-}
-
 router.get('/site', (req, res) => {
   const { db } = req.app.locals;
   const about = getContent(db, 'about');
@@ -53,7 +39,6 @@ router.get('/site', (req, res) => {
     aboutGu,
     historyGuText: aboutGu.history.join('\n\n'),
     committeeText: committeeToText(getContent(db, 'committee')),
-    sponsorsText: sponsorsToText(getContent(db, 'sponsors')),
   });
 });
 
@@ -99,10 +84,5 @@ router.post('/site/committee', (req, res) => {
   res.redirect('/admin/site#committee');
 });
 
-router.post('/site/sponsors', (req, res) => {
-  setContent(req.app.locals.db, 'sponsors', parseSponsors(req.body.sponsors));
-  req.flash('success', 'Sponsors page saved.');
-  res.redirect('/admin/site#sponsors');
-});
 
 module.exports = router;

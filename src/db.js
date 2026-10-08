@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS users (
   share_birthday INTEGER NOT NULL DEFAULT 0,
   anniversary TEXT,                       -- YYYY-MM-DD
   share_anniversary INTEGER NOT NULL DEFAULT 0,
+  -- Sponsors & vendors are kept apart from members. For them first_name holds the organization's name
+  -- (last_name is empty), so payments, receipts and exports show the business name.
+  contact_type TEXT NOT NULL DEFAULT 'member',  -- 'member' | 'business'
+  contact_person TEXT,
+  website TEXT,
+  sponsor_level TEXT,                     -- Platinum, Gold, … (sponsors)
+  sponsor_year INTEGER,
+  show_on_website INTEGER NOT NULL DEFAULT 0,  -- listed on the public Sponsors page
   checkin_access INTEGER NOT NULL DEFAULT 0, -- door volunteer: may use the check-in scanner
   -- Family login: a spouse/child/parent with their own sign-in, covered by this member's membership.
   owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -277,8 +285,8 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 10; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
-// 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA)
+const SCHEMA_VERSION = 11; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+// 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
@@ -301,6 +309,21 @@ const MIGRATIONS = {
     'ALTER TABLE users ADD COLUMN share_anniversary INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE household_members ADD COLUMN birthday TEXT',
     'ALTER TABLE household_members ADD COLUMN share_birthday INTEGER NOT NULL DEFAULT 0',
+  ],
+  11: [
+    "ALTER TABLE users ADD COLUMN contact_type TEXT NOT NULL DEFAULT 'member'",
+    'ALTER TABLE users ADD COLUMN contact_person TEXT',
+    'ALTER TABLE users ADD COLUMN website TEXT',
+    'ALTER TABLE users ADD COLUMN sponsor_level TEXT',
+    'ALTER TABLE users ADD COLUMN sponsor_year INTEGER',
+    'ALTER TABLE users ADD COLUMN show_on_website INTEGER NOT NULL DEFAULT 0',
+    // Contacts tagged Sponsor or Vendor who aren't members (no login, no membership, not family or staff) become
+    // sponsor/vendor contacts. Their name moves to the organization field until the committee types the business name.
+    `UPDATE users SET contact_type = 'business', contact_person = trim(first_name || ' ' || last_name),
+       first_name = trim(first_name || ' ' || last_name), last_name = ''
+     WHERE (',' || tags || ',' LIKE '%,Sponsor,%' OR ',' || tags || ',' LIKE '%,Vendor,%')
+       AND password_hash IS NULL AND role = 'member' AND owner_id IS NULL AND checkin_access = 0
+       AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = users.id)`,
   ],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',

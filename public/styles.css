@@ -532,3 +532,9 @@ html { scroll-padding-top: 80px; }
 .fund-card .fund-give .icon { width: 20px; height: 20px; }
 .fund-card > :nth-last-child(2) { margin-bottom: 14px; }
 .fund-card.chosen { border: 2px solid var(--brand); }
+
+.tier-silver { background: linear-gradient(135deg, #f1f1f1, #cfd4d8); color: #333; }
+.tier-bronze { background: linear-gradient(135deg, #f1c9a5, #b9773e); color: #3b2210; }
+.tier-community-partner, .tier-sponsors { background: var(--brand-soft); color: var(--brand); }
+a.sponsor { text-decoration: none; color: var(--text); }
+a.sponsor:hover { border-color: var(--brand); color: var(--brand); }

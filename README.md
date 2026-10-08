@@ -17,6 +17,10 @@ Organization details (About, Committee, Sponsors, Contact) live in `src/content.
   out US politics, elections and political parties (important for a 501(c)(3)) and distressing stories. The four
   suggested sources are a starting point; check them on the live site and add Gujarati papers' RSS feeds.
   `NEWS_REFRESH_MINUTES` changes the refresh interval (0 turns it off).
+- **Sponsors & vendors** (Admin → Contacts → Sponsors & vendors tab): businesses and organizations are kept apart
+  from members, with organization name, contact person, website, sponsorship level and year. They don't sign in and
+  aren't counted in member numbers, reports, the directory or celebrations. Sponsorship payments get tax receipts in
+  the organization's name. Sponsors marked **Show on the website** make up the public Sponsors page, by level.
 - **Celebrations**: members choose to share their birthday, wedding anniversary and family members' birthdays
   (Profile → Celebrations). Members see this week's on Home and News; only the month and day, never a year or age.
 - **Light/dark button** (moon/sun) next to A+ for members, admins, door volunteers and visitors. Until someone picks,

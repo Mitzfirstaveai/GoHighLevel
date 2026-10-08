@@ -1,11 +1,13 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Contacts (<%= members.length %>)</h1>
+<div class="page-head"><h1>Contacts</h1>
   <div class="actions">
     <a class="btn" href="/admin/members/new">+ Add contact</a>
     <a class="btn secondary" href="/admin/import">Import from spreadsheet</a>
     <a class="btn secondary" href="/admin/members.csv<%= exportQuery ? `?${exportQuery}` : '' %>">Download CSV</a>
   </div>
 </div>
+<%- include('contacts_tabs', { active: 'member', counts }) %>
+<% if (exportQuery) { %><p class="muted small"><%= members.length %> matching</p><% } %>
 <form method="get" class="card filters">
   <input name="q" value="<%= filters.q %>" placeholder="Search name, email, phone, city, native place…" class="grow">
   <select name="status" aria-label="Membership status">

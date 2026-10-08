@@ -293,7 +293,9 @@ test('admins edit the public website content', async () => {
   });
   assert.equal(res.status, 302);
   await admin.post('/admin/site/committee', { committee: '## Executive Committee\nAnil Patel | President | Little Rock | Bahumara\nNew Person |  | Cabot | Ruva' });
-  await admin.post('/admin/site/sponsors', { sponsors: '## Gold\nAcme Sweets' });
+  // Sponsors come from Contacts → Sponsors & vendors (only those shown on the website).
+  await admin.post('/admin/members/new', { contact_type: 'business', organization: 'Acme Sweets', sponsor_level: 'Gold', show_on_website: '1', website: 'acmesweets.example.com', tags: 'Sponsor' });
+  await admin.post('/admin/members/new', { contact_type: 'business', organization: 'Quiet Vendor LLC', tags: 'Vendor' });
 
   const anon = new t.Client();
   res = await anon.get('/about');
@@ -302,7 +304,8 @@ test('admins edit the public website content', async () => {
   assert.match(res.text, /New Person/);
   assert.doesNotMatch(res.text, /Board of Trustees/);
   res = await anon.get('/sponsors');
-  assert.match(res.text, /Acme Sweets/);
+  assert.match(res.text, /tier-gold">Gold<\/span> Level[\s\S]*?href="https:\/\/acmesweets\.example\.com" target="_blank" rel="noopener noreferrer">Acme Sweets</);
+  assert.doesNotMatch(res.text, /Quiet Vendor/);
 
   // EIN shows on donation receipts.
   const donor = await t.register('ein@test.org');
