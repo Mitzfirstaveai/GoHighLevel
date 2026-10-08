@@ -1,5 +1,6 @@
 <%- include('../partials/head') %>
-<%# Home, in order of what members need most: today's ticket, status tiles, their events, news, celebrations, what's on. %>
+<%# Home, in order of what members need most: today's ticket, status tiles, their events, GSA announcement, celebrations,
+    what's on, then Gujarat & India headlines to read. %>
 <div class="page-head"><h1><%= t('Namaste, {name}', { name: user.first_name }) %> 🙏</h1></div>
 <% for (const r of todayTickets) { %>
   <section class="today-banner" aria-label="<%= t('Today') %>">
@@ -64,32 +65,16 @@
   </div>
 </div>
 
-<%# News: the latest GSA announcement, then Gujarat & India headlines. %>
-<% if (latestNews || headlines.length) { %>
+<%# The latest GSA announcement stays near the top: it's from GSA and often time-sensitive. %>
+<% if (latestNews) { %>
 <section class="card home-news">
-  <h2 style="margin-top:0">📰 <%= t('News') %></h2>
-  <% if (latestNews) { %>
-    <a class="home-announcement" href="/news">
-      <div class="small muted">📢 <%= t('GSA announcements') %> · <%= fmtDay(latestNews.created_at) %></div>
-      <strong><%= loc(latestNews, 'title') %></strong>
-      <% const newsBody = loc(latestNews, 'body'); %>
-      <div class="muted small"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
-    </a>
-  <% } %>
-  <% if (headlines.length) { %>
-    <div class="home-headlines">
-      <div class="small muted" style="margin-top:12px"><%= t('Gujarat & India news') %></div>
-      <ul>
-        <% for (const h of headlines) { %>
-          <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
-        <% } %>
-      </ul>
-    </div>
-  <% } %>
-  <div class="actions" style="justify-content:space-between;margin-top:6px">
-    <% if (latestNews) { %><a href="/news"><%= t('All announcements') %> →</a><% } %>
-    <% if (headlines.length) { %><a href="/news/india"><%= t('More news') %> →</a><% } %>
-  </div>
+  <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0">📢 <%= t('GSA announcements') %></h2><a href="/news"><%= t('All announcements') %> →</a></div>
+  <a class="home-announcement" href="/news">
+    <div class="small muted"><%= fmtDay(latestNews.created_at) %></div>
+    <strong><%= loc(latestNews, 'title') %></strong>
+    <% const newsBody = loc(latestNews, 'body'); %>
+    <div class="muted small"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
+  </a>
 </section>
 <% } %>
 
@@ -107,4 +92,15 @@
   <% } %>
   </div>
 </div>
+<%# Gujarat & India headlines: reading for the end of the page. %>
+<% if (headlines.length) { %>
+<section class="card home-headlines">
+  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0">📰 <%= t('Gujarat & India news') %></h2><a href="/news/india"><%= t('More news') %> →</a></div>
+  <ul>
+    <% for (const h of headlines) { %>
+      <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
+    <% } %>
+  </ul>
+</section>
+<% } %>
 <%- include('../partials/foot') %>

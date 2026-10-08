@@ -31,7 +31,7 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const membership = svc.membershipStatus(db, req.user.id);
   const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
-  const headlines = newsfeed.visibleNews(db, { lang: defaultNewsLang(req), limit: 3 }).items;
+  const headlines = newsfeed.visibleNews(db, { lang: defaultNewsLang(req), limit: 5 }).items;
   // Event-day banner: today's confirmed tickets, one per event (the member's own ticket first).
   const todayTickets = myRsvps.filter((r) => r.status === 'confirmed' && r.starts_at.slice(0, 10) === today())
     .filter((r, i, all) => all.findIndex((x) => x.event_id === r.event_id) === i);
