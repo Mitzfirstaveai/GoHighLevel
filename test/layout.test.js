@@ -43,4 +43,7 @@ test('the phone bottom bar uses the top menu names and includes Donate', async (
   const labels = [...bar.matchAll(/<span>([^<]+)<\/span>/g)].map((x) => x[1].replace('\u00AD', ''));
   assert.deepEqual(labels, ['Home', 'Events', 'My tickets', 'Membership', 'Donate', 'More']);
   assert.match(bar, /class="active"[^>]*>[\s\S]*?<span>Donate<\/span>/);
+  // Donate has its own button, so the More page doesn't list it again.
+  const more = (await m.get('/more')).text;
+  assert.doesNotMatch(more.slice(more.indexOf('<main'), more.indexOf('</main>')), /href="\/donate"/);
 });
