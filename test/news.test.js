@@ -256,3 +256,13 @@ test('home headlines take turns between sources instead of five from one paper',
   db.prepare('DELETE FROM news_sources WHERE id IN (?, ?, ?)').run(busy, quiet, third);
   for (const id of wasOn) db.prepare('UPDATE news_sources SET enabled = 1 WHERE id = ?').run(id);
 });
+
+test('display settings sit at the bottom of Profile and More; Profile has no second Sign out', async () => {
+  const m = await t.register('settings@test.org', 'Settings');
+  const profile = (await m.get('/profile')).text;
+  const main = profile.slice(profile.indexOf('<main'), profile.indexOf('</main>'));
+  assert.ok(main.indexOf('id="display"') > main.indexOf('Change password'), 'after Change password');
+  assert.doesNotMatch(main, /action="\/logout"/, 'Sign out only in the header');
+  const more = (await m.get('/more')).text;
+  assert.ok(more.indexOf('id="display"') > more.indexOf('Contact us'), 'after the About GSA links');
+});

@@ -1,6 +1,5 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1><%= t('More') %></h1></div>
-<%- include('../partials/display-settings') %>
 <div class="card menu-list">
   <a href="/profile"><%- include('../partials/icon', { name: 'user' }) %><%= t('My profile & family') %></a>
   <a href="/payments"><%- include('../partials/icon', { name: 'dollar' }) %><%= t('My payments') %></a>
@@ -16,6 +15,7 @@
   <a href="/sponsors"><%- include('../partials/icon', { name: 'star' }) %><%= t('Sponsors') %></a>
   <a href="/contact"><%- include('../partials/icon', { name: 'phone' }) %><%= t('Contact us') %></a>
 </div>
+<%- include('../partials/display-settings') %>
 <form method="post" action="/logout" class="card menu-list"><%- include('../partials/csrf') %>
   <button><%- include('../partials/icon', { name: 'logout' }) %><%= t('Sign out') %></button>
 </form>

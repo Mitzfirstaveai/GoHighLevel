@@ -1,8 +1,6 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1><%= t('My profile') %></h1>
-  <form method="post" action="/logout"><%- include('../partials/csrf') %><button class="btn secondary small"><%- include('../partials/icon', { name: 'logout' }) %> <%= t('Sign out') %></button></form>
-</div>
-<%- include('../partials/display-settings') %>
+<%# Sign out is in the header on every page, so it isn't repeated here. %>
+<div class="page-head"><h1><%= t('My profile') %></h1></div>
 <div class="card">
   <h2><%= t('Personal & contact details') %></h2>
   <form method="post" action="/profile" class="stack">
@@ -144,6 +142,8 @@
     <div><button class="btn secondary"><%= t('Change password') %></button></div>
   </form>
 </div>
+<%# Full display settings at the end: the header's ગુજરાતી, light/dark and A+ buttons cover everyday switching. %>
+<%- include('../partials/display-settings') %>
 <script>
   // Copy an invite link (older phones: the link box is selected so it can be copied by hand).
   document.querySelectorAll('[data-copy]').forEach((btn) => btn.addEventListener('click', async () => {
