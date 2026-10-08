@@ -33,21 +33,8 @@
     ['/about', 'About GSA', 'info'],
   ];
   const aboutPaths = ['/about', '/committee', '/sponsors', '/contact'];
-  // The admin area is for the committee and stays in English.
-  const adminTabs = [
-    ['/admin', 'Overview', 'shield', true],
-    ['/admin/checkin', 'Check-in', 'scan'],
-    ['/admin/events', 'Events', 'calendar'],
-    ['/admin/members', 'Contacts', 'users'],
-    ['/admin/payments', 'Payments', 'dollar'],
-    ['/admin/donations', 'Donations', 'heart'],
-    ['/admin/reports', 'Reports', 'chart'],
-    ['/admin/insights', 'Trends', 'trend'],
-    ['/admin/plans', 'Levels', 'list'],
-    ['/admin/news', 'News', 'news'],
-    ['/admin/photos', 'Photos', 'photo'],
-    ['/admin/site', 'Website', 'edit'],
-  ];
+  // The admin area is for the committee and stays in English (menu list in src/menus.js).
+  const adminTabs = ADMIN_MENU;
   const back = encodeURIComponent(url);
   const sizeLabels = { normal: 'Text size: normal', large: 'Text size: large', xlarge: 'Text size: extra large' };
 %>
@@ -120,6 +107,14 @@
     <div class="inner">
       <% for (const [href, label, icon, exact] of adminTabs) { %>
         <a href="<%= href %>" class="<%= active(href, exact) ? 'active' : '' %>"<%- active(href, exact) ? ' aria-current="page"' : '' %>><%- include('icon', { name: icon }) %><span><%= label %></span></a>
+      <% } %>
+    </div>
+  </nav>
+  <%# Bigger screens: the same menu as one slim row, pinned to the top once the big buttons scroll away (app.js). Phones use the bottom bar. %>
+  <nav class="menu-compact desktop-only" aria-label="Admin" lang="en" data-compact-menu hidden>
+    <div class="inner">
+      <% for (const [href, label, icon, exact] of adminTabs) { %>
+        <a href="<%= href %>" class="<%= active(href, exact) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><%= label %></a>
       <% } %>
     </div>
   </nav>

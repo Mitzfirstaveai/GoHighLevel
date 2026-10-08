@@ -44,6 +44,7 @@ function createApp(config) {
     demoMode: config.demoMode,
     demoAccounts: config.demoMode ? DEMO_ACCOUNTS : [],
     demoPassword: DEMO_PASSWORD,
+    ...require('./menus'),
     money: (cents) => util.formatMoney(cents, config.currency),
     monthName: util.monthName,
     fmtDate: util.formatDateTime,

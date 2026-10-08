@@ -1,8 +1,8 @@
 // Installable app: register the service worker, offer "Install" where the browser supports it,
 // and clear cached tickets on sign-out.
 (function () {
-  // Members' menu: when the big menu buttons scroll off screen, show the slim pinned menu instead.
-  const bigMenu = document.querySelector('.member-menu');
+  // Members' and admins' menus: when the big menu buttons scroll off screen, show the slim pinned menu instead.
+  const bigMenu = document.querySelector('.member-menu, .admin-menu');
   const slimMenu = document.querySelector('[data-compact-menu]');
   if (bigMenu && slimMenu && 'IntersectionObserver' in window) {
     const header = document.querySelector('.topbar');

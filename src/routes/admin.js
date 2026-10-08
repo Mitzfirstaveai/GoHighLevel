@@ -17,6 +17,9 @@ const eventImage = (req, res, next) => req.app.locals.imageUpload.single('image'
 
 const notFound = (res, what) => res.status(404).render('error', { title: 'Not found', message: `${what} not found.` });
 
+// Phones: the admin pages not on the bottom bar.
+router.get('/more', (req, res) => res.render('admin/more', { title: 'More' }));
+
 router.get('/', (req, res) => {
   const { db } = req.app.locals;
   const today = nowLocal().slice(0, 10);

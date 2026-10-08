@@ -21,7 +21,13 @@ test('signed in to the admin area, member pages send the admin back to the admin
   assert.equal((await a.get('/')).location, '/admin');
   const res = await a.get('/admin');
   assert.match(res.text, /class="subnav[ "]/);
-  assert.doesNotMatch(res.text, /class="tabbar/, 'no member tab bar');
+  // Phones get the admin bottom bar (not the member one); "More" lists the other admin pages.
+  const bar = res.text.split('<nav class="tabbar mobile-only admin-tabbar"')[1].split('</nav>')[0];
+  assert.deepEqual([...bar.matchAll(/<span>([^<]+)<\/span>/g)].map((x) => x[1]), ['Overview', 'Check-in', 'Events', 'Contacts', 'More']);
+  assert.match(res.text, /class="menu-compact desktop-only" aria-label="Admin"[^>]*data-compact-menu hidden/, 'slim pinned row on bigger screens');
+  const more = await a.get('/admin/more');
+  for (const page of ['Payments', 'Donations', 'Reports', 'Trends', 'Levels', 'News', 'Photos', 'Website']) assert.match(more.text, new RegExp(`<main[\\s\\S]*>\\s*${page}</a>`), page);
+  assert.match((await a.get('/admin/reports')).text, /admin-tabbar"[\s\S]*?class="active" *href="\/admin\/more"|admin-tabbar"[\s\S]*?href="\/admin\/more" class="active"/, 'More is lit on its pages');
   assert.doesNotMatch(res.text, /href="\/profile"|href="\/membership"/, 'no member menu');
   assert.match(res.text, /<button class="pref-btn">Sign out<\/button>/);
   // The public information pages the committee edits can still be checked.

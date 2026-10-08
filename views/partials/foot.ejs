@@ -18,6 +18,15 @@
     <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.some((m) => path === m || path.startsWith(m + '/'))) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label).replace(/^Membership$/, 'Member\u00ADship') %></span></a>
   <% } %>
 </nav>
+<% } else if (user && adminMode) { %>
+<%# Phones: the admin bottom bar. "More" covers the admin pages not on the bar. %>
+<nav class="tabbar mobile-only admin-tabbar" aria-label="Admin" lang="en">
+  <% const onAdmin = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
+     const inMore = ADMIN_MORE.some(([h]) => onAdmin(h)) || path === '/admin/more'; %>
+  <% for (const [href, label, icon, exact] of ADMIN_BAR) { %>
+    <a href="<%= href %>" class="<%= (href === '/admin/more' ? inMore : onAdmin(href, exact)) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= label %></span></a>
+  <% } %>
+</nav>
 <% } %>
 <footer class="site-footer">
   <div class="footer-info">

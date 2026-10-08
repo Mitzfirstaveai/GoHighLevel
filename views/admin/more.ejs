@@ -1,0 +1,8 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>More</h1></div>
+<div class="card menu-list">
+  <% for (const [href, label, icon] of ADMIN_MORE) { %>
+    <a href="<%= href %>"><%- include('../partials/icon', { name: icon }) %><%= label %></a>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>

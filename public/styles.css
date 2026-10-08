@@ -598,3 +598,12 @@ table.stack .cell-label { display: block; font-size: .8rem; font-weight: 600; te
 table.stack td:empty { display: none; }
 table.stack .cell-value, table.stack .cell-value * { text-align: left; }
 table.stack tfoot tr { border-top: 2px solid var(--border); border-bottom: 0; }
+/* Admin phones: room at the bottom for the admin bar. */
+@media (max-width: 820px) {
+  body.admin-mode main { padding-bottom: 110px; }
+  body.admin-mode .site-footer { padding-bottom: 104px; }
+}
+/* Admin's slim row has 12 links: a little tighter so they fit on one line on a laptop. */
+body.admin-mode .menu-compact .inner { gap: 4px; padding: 6px 10px; display: grid; grid-template-columns: repeat(6, auto); justify-content: center; }
+@media (min-width: 1300px) { html.size-normal body.admin-mode .menu-compact .inner { grid-template-columns: repeat(12, auto); } } /* otherwise two even rows of six */
+body.admin-mode .menu-compact a { padding: 5px 9px; gap: 5px; }
