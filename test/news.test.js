@@ -224,3 +224,18 @@ test('home tiles: membership status, level and renewal; a yellow Pay dues tile w
   res = await n.get('/dashboard');
   assert.match(res.text, /class="tile warn" href="\/membership"[\s\S]*?Pay dues <span class="badge warn">Not active<\/span>[\s\S]*?Not a paid member yet/);
 });
+
+test('home: a "Today" banner with the QR ticket on event day; Donate tile; no duplicate shortcut tiles', async () => {
+  const today = require('../src/util').today();
+  const eventId = await t.createEvent(admin, { title: 'Sharad Purnima Garba', starts_at: `${today}T23:30`, location: 'GSA Community Center | 1 GSA Circle, Little Rock, AR 72209' });
+  const m = await t.register('today@test.org', 'Today', 1);
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '1' });
+  const rsvp = t.rsvpFor(eventId, 'today@test.org');
+  const res = await m.get('/dashboard');
+  assert.match(res.text, new RegExp(`class="today-banner"[\\s\\S]*?Today · 11:30 PM[\\s\\S]*?Sharad Purnima Garba[\\s\\S]*?GSA Community Center</div>[\\s\\S]*?href="/tickets/${rsvp.id}"`));
+  // Short event lines: weekday, time and venue name, not the full street address.
+  assert.doesNotMatch(res.text.slice(res.text.indexOf('My upcoming events'), res.text.indexOf('</main>')), /1 GSA Circle/);
+  assert.match(res.text, /class="tile" href="\/donate"/);
+  assert.doesNotMatch(res.text, /Events &amp; RSVP|href="\/directory"><svg[^]*?Find community members/);
+  assert.match(res.text, /data-compact-menu hidden/);
+});

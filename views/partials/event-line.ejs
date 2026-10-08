@@ -1,0 +1,5 @@
+<%# One short line for event lists on Home: weekday · time · venue name · price. Full address and price details are on the event page. %>
+<% const venue = String(event.location || '').split(/[|,]/)[0].trim();
+   const price = !event.fee_cents && !event.guest_fee_cents ? t('Free')
+     : event.fee_cents ? t('{price}/person', { price: money(event.fee_cents) }) : t('Free for members'); %>
+<%= [fmtWeekday(event.starts_at), fmtTime(event.starts_at), venue, showPrice ? price : ''].filter(Boolean).join(' · ') %>

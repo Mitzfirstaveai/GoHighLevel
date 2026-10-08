@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const QRCode = require('qrcode');
 const { requireAuth } = require('../middleware');
 const svc = require('../services');
-const { parseIntInRange, nowLocal, weekdayName } = require('../util');
+const { parseIntInRange, nowLocal, today, weekdayName } = require('../util');
 const { receiptNumber } = require('./donations');
 const newsfeed = require('../newsfeed');
 
@@ -32,6 +32,9 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
   const headlines = newsfeed.visibleNews(db, { lang: defaultNewsLang(req), limit: 3 }).items;
+  // Event-day banner: today's confirmed tickets, one per event (the member's own ticket first).
+  const todayTickets = myRsvps.filter((r) => r.status === 'confirmed' && r.starts_at.slice(0, 10) === today())
+    .filter((r, i, all) => all.findIndex((x) => x.event_id === r.event_id) === i);
   // Family logins: the membership is held (and renewed) by the member who added them.
   const holder = req.user.owner_id ? db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   // "Renew for 2027" on the Membership tile, once next year's dues can be paid (at most a year ahead).
@@ -43,7 +46,7 @@ router.get('/dashboard', requireAuth, (req, res) => {
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
   res.render('member/dashboard', {
-    title: 'My dashboard', membership, myRsvps, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
+    title: 'My dashboard', membership, myRsvps, todayTickets, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
   });
 });
 

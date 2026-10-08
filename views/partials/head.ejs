@@ -104,6 +104,15 @@
       <% } %>
     </div>
   </nav>
+  <%# The same menu as one slim row, pinned to the top once the big buttons scroll away (shown by app.js). %>
+  <nav class="menu-compact desktop-only" aria-label="<%= t('Main menu') %>" data-compact-menu hidden>
+    <div class="inner">
+      <% for (const [href, label, icon, exact] of memberTabs) { %>
+        <% const on = active(href, exact) || (href === '/about' && aboutPaths.includes(path)); %>
+        <a href="<%= href %>" class="<%= on ? 'active' : '' %>"><%- include('icon', { name: icon }) %><%= t(label) %></a>
+      <% } %>
+    </div>
+  </nav>
 <% } %>
 <% if (adminMode) { %>
   <nav class="subnav menu-band admin-menu" aria-label="Admin" lang="en">

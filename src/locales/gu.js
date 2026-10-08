@@ -141,6 +141,8 @@ module.exports = {
   'Renew for {year}': '{year} માટે રિન્યૂ કરો',
   'Expired {date}': '{date}ના રોજ સમાપ્ત',
   'Held by {name}': '{name}ના નામે',
+  '{price}/person': '{price}/વ્યક્તિ',
+  'All announcements': 'બધી જાહેરાતો',
   '{name} renews the family membership.': '{name} પરિવારનું સભ્યપદ રિન્યૂ કરે છે.',
   'My profile & family': 'મારી પ્રોફાઇલ અને પરિવાર',
   'Contact details, family members': 'સંપર્ક વિગતો, પરિવારના સભ્યો',

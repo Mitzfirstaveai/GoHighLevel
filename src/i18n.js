@@ -2,7 +2,7 @@
 // English text is the key; src/locales/gu.js maps it to Gujarati. Anything without a
 // translation falls back to English, and is recorded in `missing` so tests can catch gaps.
 const gu = require('./locales/gu');
-const { formatDateTime, localDate } = require('./util');
+const { formatDateTime, formatTime, weekdayName, localDate } = require('./util');
 
 const LANGS = ['en', 'gu'];
 const SIZES = ['normal', 'large', 'xlarge'];
@@ -63,6 +63,9 @@ function i18nMiddleware(req, res, next) {
     fmtDate: (value) => formatDateTime(value, lang === 'gu' ? 'gu-IN' : 'en-US'),
     // Date only, in local time, for stored timestamps (paid at, posted at, joined…).
     fmtDay: (value) => formatDateTime(localDate(value), lang === 'gu' ? 'gu-IN' : 'en-US'),
+    // Short event times for lists: "Sat · 7:30 PM" (the date is on the badge beside it).
+    fmtTime: (value) => formatTime(value, lang === 'gu' ? 'gu-IN' : 'en-US'),
+    fmtWeekday: (value) => weekdayName(new Date(`${String(value).slice(0, 10)}T00:00:00Z`), lang === 'gu' ? 'gu-IN' : 'en-US'),
     // Pick the Gujarati version of a field (title_gu, …) when reading in Gujarati and it exists.
     loc: (obj, field) => (lang === 'gu' && obj?.[`${field}_gu`]) || obj?.[field] || '',
     plural: (n, one, many) => t(n === 1 ? one : many, { n }),

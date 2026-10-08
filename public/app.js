@@ -1,6 +1,18 @@
 // Installable app: register the service worker, offer "Install" where the browser supports it,
 // and clear cached tickets on sign-out.
 (function () {
+  // Members' menu: when the big menu buttons scroll off screen, show the slim pinned menu instead.
+  const bigMenu = document.querySelector('.member-menu');
+  const slimMenu = document.querySelector('[data-compact-menu]');
+  if (bigMenu && slimMenu && 'IntersectionObserver' in window) {
+    const header = document.querySelector('.topbar');
+    // Sits just under the pinned header (logo, language, text size, Sign out), whatever its height.
+    new IntersectionObserver(([entry]) => {
+      slimMenu.style.top = `${header ? header.offsetHeight : 0}px`;
+      slimMenu.hidden = entry.isIntersecting;
+    }, { rootMargin: `-${header ? header.offsetHeight : 0}px 0px 0px 0px` }).observe(bigMenu);
+  }
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
     document.querySelectorAll('form[action="/logout"]').forEach((f) => f.addEventListener('submit', () => {

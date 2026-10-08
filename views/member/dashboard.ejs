@@ -1,5 +1,16 @@
 <%- include('../partials/head') %>
+<%# Home, in order of what members need most: today's ticket, status tiles, their events, news, celebrations, what's on. %>
 <div class="page-head"><h1><%= t('Namaste, {name}', { name: user.first_name }) %> 🙏</h1></div>
+<% for (const r of todayTickets) { %>
+  <section class="today-banner" aria-label="<%= t('Today') %>">
+    <div>
+      <div class="today-label"><%= t('Today') %> · <%= fmtTime(r.starts_at) %></div>
+      <strong><%= loc(r, 'title') %></strong>
+      <div class="small"><%= String(r.location || '').split(/[|,]/)[0].trim() %></div>
+    </div>
+    <a class="btn big-touch" href="/tickets/<%= r.id %>"><%- include('../partials/icon', { name: 'ticket' }) %> <%= t('Show QR ticket') %></a>
+  </section>
+<% } %>
 <div class="card install-card" id="install-card" hidden>
   <img src="/icon-192.png" alt="" width="48" height="48">
   <div style="flex:1">
@@ -12,7 +23,6 @@
 </div>
 <div class="tiles">
   <a class="tile primary" href="/tickets"><%- include('../partials/icon', { name: 'ticket' }) %><%= t('My QR tickets') %><small><%= t('{n} upcoming', { n: myRsvps.filter((r) => r.status === 'confirmed').length }) %></small></a>
-  <a class="tile" href="/events"><%- include('../partials/icon', { name: 'calendar' }) %><%= t('Events & RSVP') %><small><%= t("See what's coming up") %></small></a>
   <%# Membership: status badge, level, dates and what to do next. Turns yellow when dues are owed. %>
   <% if (membership.active) { %>
     <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %>
@@ -29,25 +39,19 @@
     </a>
   <% } %>
   <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %><%= t('My profile & family') %><small><%= t('Contact details, family members') %></small></a>
+  <a class="tile" href="/donate"><%- include('../partials/icon', { name: 'heart' }) %><%= t('Donate') %><small><%= t('Support GSA') %></small></a>
 </div>
-<% if (latestNews) { %>
-<a class="card" href="/news" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--green)">
-  <div class="small muted">📢 <%= t('Latest news') %> · <%= fmtDay(latestNews.created_at) %></div>
-  <strong><%= loc(latestNews, 'title') %></strong>
-  <% const newsBody = loc(latestNews, 'body'); %>
-  <div class="muted small" style="margin-top:4px"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
-</a>
-<% } %>
+
 <div class="card">
-  <h2><%= t('My upcoming events') %></h2>
-  <% if (!myRsvps.length) { %><p class="muted"><%= t("You haven't RSVP'd to any upcoming events.") %></p><% } %>
+  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0"><%= t('My upcoming events') %></h2><a href="/tickets"><%= t('My tickets') %> →</a></div>
+  <% if (!myRsvps.length) { %><p class="muted" style="margin-bottom:0"><%= t("You haven't RSVP'd to any upcoming events.") %></p><% } %>
   <div class="event-list">
   <% for (const r of myRsvps) { %>
     <div class="event-item">
       <%- include('../partials/date-chip', { when: r.starts_at }) %>
       <div style="flex:1">
         <strong><%= loc(r, 'title') %></strong> <%- include('../partials/rsvp-badge', { status: r.status }) %>
-        <div class="muted small"><%= fmtDate(r.starts_at) %><%= r.location ? ` · ${r.location}` : '' %></div>
+        <div class="muted small"><%- include('../partials/event-line', { event: r, showPrice: false }) %></div>
         <%- include('../partials/ticket-names', { tk: r }) %>
         <% if (!r.mine) { %><div class="small muted"><%= t("{name}'s ticket", { name: `${r.holder_first} ${r.holder_last}` }) %></div><% } %>
         <div class="actions" style="margin-top:6px">
@@ -59,36 +63,48 @@
   <% } %>
   </div>
 </div>
-<% if (celebrations.length) { %><%- include('../partials/celebrations') %><% } %>
-<% if (headlines.length) { %>
-<section class="card home-headlines">
-  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0">📰 <%= t('Gujarat & India news') %></h2><a href="/news/india"><%= t('More news') %> →</a></div>
-  <ul>
-    <% for (const h of headlines) { %>
-      <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
-    <% } %>
-  </ul>
+
+<%# News: the latest GSA announcement, then Gujarat & India headlines. %>
+<% if (latestNews || headlines.length) { %>
+<section class="card home-news">
+  <h2 style="margin-top:0">📰 <%= t('News') %></h2>
+  <% if (latestNews) { %>
+    <a class="home-announcement" href="/news">
+      <div class="small muted">📢 <%= t('GSA announcements') %> · <%= fmtDay(latestNews.created_at) %></div>
+      <strong><%= loc(latestNews, 'title') %></strong>
+      <% const newsBody = loc(latestNews, 'body'); %>
+      <div class="muted small"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
+    </a>
+  <% } %>
+  <% if (headlines.length) { %>
+    <div class="home-headlines">
+      <div class="small muted" style="margin-top:12px"><%= t('Gujarat & India news') %></div>
+      <ul>
+        <% for (const h of headlines) { %>
+          <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
+        <% } %>
+      </ul>
+    </div>
+  <% } %>
+  <div class="actions" style="justify-content:space-between;margin-top:6px">
+    <% if (latestNews) { %><a href="/news"><%= t('All announcements') %> →</a><% } %>
+    <% if (headlines.length) { %><a href="/news/india"><%= t('More news') %> →</a><% } %>
+  </div>
 </section>
 <% } %>
 
+<% if (celebrations.length) { %><%- include('../partials/celebrations') %><% } %>
 
 <div class="card">
-  <div class="page-head"><h2 style="margin:0"><%= t('Coming up') %></h2><a href="/events"><%= t('All events') %> →</a></div>
-  <% if (!upcoming.length) { %><p class="muted"><%= t('No other events scheduled right now.') %></p><% } %>
+  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0"><%= t('Coming up') %></h2><a href="/events"><%= t('All events') %> →</a></div>
+  <% if (!upcoming.length) { %><p class="muted" style="margin-bottom:0"><%= t('No other events scheduled right now.') %></p><% } %>
   <div class="event-list">
   <% for (const e of upcoming) { %>
     <a class="event-item" href="/events/<%= e.id %>">
       <%- include('../partials/date-chip', { when: e.starts_at }) %>
-      <div><strong><%= loc(e, 'title') %></strong><div class="muted small"><%= fmtDate(e.starts_at) %><%= e.location ? ` · ${e.location}` : '' %> · <%- include('../partials/event-prices', { event: e }) %></div></div>
+      <div><strong><%= loc(e, 'title') %></strong><div class="muted small"><%- include('../partials/event-line', { event: e, showPrice: true }) %></div></div>
     </a>
   <% } %>
   </div>
-</div>
-<div class="tiles">
-  <a class="tile" href="/directory"><%- include('../partials/icon', { name: 'book' }) %><%= t('Member directory') %><small><%= t('Find community members') %></small></a>
-  <a class="tile" href="/news"><%- include('../partials/icon', { name: 'news' }) %><%= t('News') %><small><%= t('Announcements') %></small></a>
-  <a class="tile" href="/photos"><%- include('../partials/icon', { name: 'photo' }) %><%= t('Photos') %><small><%= t('From our events') %></small></a>
-  <a class="tile" href="/donate"><%- include('../partials/icon', { name: 'heart' }) %><%= t('Donate') %><small><%= t('Support GSA') %></small></a>
-  <a class="tile" href="/contact"><%- include('../partials/icon', { name: 'phone' }) %><%= t('Contact GSA') %><small><%= org.phone %></small></a>
 </div>
 <%- include('../partials/foot') %>

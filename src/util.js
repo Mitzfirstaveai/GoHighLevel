@@ -82,6 +82,18 @@ function formatDateTime(value, locale = 'en-US') {
   return new Intl.DateTimeFormat(locale, opts).format(d);
 }
 
+// Time of day only: "7:30 PM" in English, "સાંજે 7:30" in Gujarati (Gujarati words for the time of day, never AM/PM).
+function formatTime(value, locale = 'en-US') {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  if (locale.startsWith('gu')) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', dayPeriod: 'long' })
+      .formatToParts(d).map((p) => [p.type, p.value]));
+    return `${parts.dayPeriod} ${parts.hour}:${parts.minute}`;
+  }
+  return new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(d);
+}
+
 // Month and weekday names for headings and date badges: shortened in English ("Oct", "Thu"),
 // always the full word in Gujarati.
 function monthName(date, locale) {
@@ -102,6 +114,7 @@ function toCsv(rows) {
 }
 
 module.exports = {
+  formatTime,
   formatMoney, parseMoney, localDate, localTimestamp, parseIntInRange, newToken, nowLocal, today, addMonths,
   formatDateTime, monthName, weekdayName, toCsv,
 };

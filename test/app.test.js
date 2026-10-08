@@ -457,6 +457,6 @@ test('admin posts news that members see', async () => {
   let res = await member.get('/news');
   assert.match(res.text, /Garba volunteers needed/);
   res = await member.get('/dashboard');
-  assert.match(res.text, /Latest news/);
+  assert.match(res.text, /GSA announcements/);
   assert.match(res.text, /Garba volunteers needed/);
 });
