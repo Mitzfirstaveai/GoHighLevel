@@ -10,6 +10,15 @@ Organization details (About, Committee, Sponsors, Contact) live in `src/content.
   vision, event names and descriptions, and news can all be shown in Gujarati.
 - **Text size button (A+)** with Normal / Large / Extra large, also saved per member. Larger default text, darker grey
   text for contrast, and large buttons and tap targets throughout — designed with older members in mind.
+- **Gujarat & India news** (News → Gujarat & India news, and the top headlines on Home): headlines and a short
+  "quick read" from Indian news websites the committee picks, refreshed every hour, with **Read the full story**
+  opening the newspaper's site (full articles are never copied). Admin → News → Gujarat & India news manages the
+  sources (**Check now** shows whether each feed works), hides single stories, and edits the **filter words** that keep
+  out US politics, elections and political parties (important for a 501(c)(3)) and distressing stories. The four
+  suggested sources are a starting point; check them on the live site and add Gujarati papers' RSS feeds.
+  `NEWS_REFRESH_MINUTES` changes the refresh interval (0 turns it off).
+- **Celebrations**: members choose to share their birthday, wedding anniversary and family members' birthdays
+  (Profile → Celebrations). Members see this week's on Home and News; only the month and day, never a year or age.
 - **Light/dark button** (moon/sun) next to A+ for members, admins, door volunteers and visitors. Until someone picks,
   the app follows their phone's own light/dark setting; their choice is then saved (on the profile when signed in,
   on the device otherwise). *More → Language, text size and colors* also offers "Same as my phone".

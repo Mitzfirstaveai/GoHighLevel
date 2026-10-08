@@ -147,7 +147,11 @@ test('every member and public page is fully translated', async () => {
   // Exercise the states that show the most text: a paid event with questions and guests, a full event, a ticket.
   await c.post(`/events/${event('Diwali Dinner & Cultural Program')}/rsvp`, { party_size: '2', guests: '1', q_0: 'Jain', coupon: 'DIWALI10' });
   await c.post(`/events/${event('Garba Dance Workshop for Kids')}/rsvp`, { party_size: '1', waitlist: '1' });
-  const pages = ['/dashboard', '/events', '/events?view=calendar', `/events/${event('Diwali Dinner & Cultural Program')}`,
+  // Two sample stories so the Gujarat & India news page and the home-page headlines show their labels.
+  const src = (url) => db.prepare('SELECT id FROM news_sources WHERE url LIKE ?').get(`%${url}%`).id;
+  db.prepare(`INSERT INTO news_items (source_id, guid, title, summary, link, published_at) VALUES (?, 'g1', 'ગુજરાતમાં નવરાત્રિની ધૂમ', 'ગરબા', 'https://example.com/1', datetime('now', '-3 hours')),
+    (?, 'g2', 'Ahmedabad heritage walk turns 25', 'A short summary.', 'https://example.com/2', datetime('now', '-2 days'))`).run(src('bbci'), src('ahmedabad'));
+  const pages = ['/dashboard', '/news/india', '/news/india?lang=all', '/events', '/events?view=calendar', `/events/${event('Diwali Dinner & Cultural Program')}`,
     `/events/${event('Garba Dance Workshop for Kids')}`, `/events/${event('Navratri Garba #1')}`, `/events/${event('Annual General Meeting')}`,
     '/tickets', `/tickets/${ticket}`, '/membership', '/profile', '/payments', '/donate', '/directory', '/news', '/more',
     '/photos', '/photos?category=festivals',

@@ -135,6 +135,13 @@ function seedDemo(db, { photosDir } = {}) {
     contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
     db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
     db.prepare(`UPDATE users SET tags = 'Volunteer', checkin_access = 1 WHERE email = 'dhruv.amin@example.com'`).run();
+    // Celebrations this week (dates relative to today, so the demo always has some): members who chose to share.
+    const monthDay = (days) => localDateTime(days, '00:00').slice(5, 10);
+    db.prepare(`UPDATE users SET anniversary = ?, share_anniversary = 1 WHERE email = 'member@example.com'`).run(`2008-${monthDay(0)}`);
+    for (const [email, days] of [['raj.desai@example.com', 2], ['meena.mehta@example.com', 1]]) {
+      db.prepare(`UPDATE users SET date_of_birth = substr(date_of_birth, 1, 5) || ?, share_birthday = 1 WHERE email = ?`).run(monthDay(days), email);
+    }
+    db.prepare(`UPDATE household_members SET birthday = ?, share_birthday = 1 WHERE name = 'Diya Shah'`).run(monthDay(4));
     // Amit (Priya's husband) has his own family login, covered by Priya's Family membership.
     const amitRow = db.prepare(`SELECT id FROM household_members WHERE user_id = ? AND name = 'Amit Shah'`).get(userId['member@example.com']).id;
     userId['amit.shah@example.com'] = Number(db.prepare(`INSERT INTO users (email, password_hash, first_name, last_name, phone, city, state, owner_id)

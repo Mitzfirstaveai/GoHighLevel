@@ -8,6 +8,7 @@ const KEYS = {
   about_gu: defaults.ABOUT_GU,
   committee: defaults.COMMITTEE,
   sponsors: defaults.SPONSORS,
+  news_filter: defaults.NEWS_FILTER,
 };
 
 function getContent(db, key) {

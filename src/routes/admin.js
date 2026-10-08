@@ -1,7 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { requireAdmin } = require('../middleware');
-const { getContent } = require('../site');
+const { getContent, setContent } = require('../site');
+const newsfeed = require('../newsfeed');
 const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts } = require('../contacts');
 const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
@@ -473,6 +474,92 @@ router.post('/news/:id/delete', (req, res) => {
   req.app.locals.db.prepare('DELETE FROM news_posts WHERE id = ?').run(req.params.id);
   req.flash('success', 'Announcement deleted.');
   res.redirect('/admin/news');
+});
+
+// ---------- Gujarat & India news ----------
+
+router.get('/news/feeds', (req, res) => {
+  const { db } = req.app.locals;
+  const words = newsfeed.filterWords(db);
+  const sources = db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM news_items i WHERE i.source_id = s.id) AS item_count
+    FROM news_sources s ORDER BY s.enabled DESC, s.name COLLATE NOCASE`).all();
+  // Latest stories from every source, including the ones members don't see, so the committee can check the filter.
+  const items = db.prepare(`SELECT i.*, s.name AS source_name, s.enabled FROM news_items i JOIN news_sources s ON s.id = i.source_id
+    ORDER BY i.published_at DESC, i.id DESC LIMIT 60`).all()
+    .map((it) => ({ ...it, filteredBy: newsfeed.filterMatch(it, words) }));
+  res.render('admin/news_feeds', { title: 'Gujarat & India news', sources, items, words, topics: newsfeed.TOPICS });
+});
+
+function sourceFields(body) {
+  const name = String(body.name || '').trim().slice(0, 100);
+  const url = String(body.url || '').trim().slice(0, 500);
+  if (!name) throw new svc.UserError('Please give the source a name, e.g. "Divya Bhaskar: Gujarat".');
+  const problem = newsfeed.feedUrlProblem(url);
+  if (problem) throw new svc.UserError(problem);
+  return {
+    name, url,
+    lang: body.lang === 'gu' ? 'gu' : 'en',
+    topic: newsfeed.TOPICS.includes(body.topic) ? body.topic : 'India',
+  };
+}
+
+const checkResult = (req, name, result) => req.flash(result.ok ? 'success' : 'error', result.ok
+  ? `${name}: working, ${result.count} headlines found.`
+  : `${name}: not working. ${result.error}`);
+
+router.post('/news/feeds', async (req, res) => {
+  const { db } = req.app.locals;
+  const f = sourceFields(req.body);
+  if (db.prepare('SELECT 1 FROM news_sources WHERE url = ?').get(f.url)) throw new svc.UserError('That feed is already on the list.');
+  const id = Number(db.prepare('INSERT INTO news_sources (name, url, lang, topic) VALUES (?, ?, ?, ?)').run(f.name, f.url, f.lang, f.topic).lastInsertRowid);
+  checkResult(req, f.name, await newsfeed.fetchSource(db, db.prepare('SELECT * FROM news_sources WHERE id = ?').get(id)));
+  res.redirect('/admin/news/feeds');
+});
+
+router.post('/news/feeds/check-all', async (req, res) => {
+  const { db } = req.app.locals;
+  await newsfeed.refreshNews(db);
+  const failing = db.prepare('SELECT COUNT(*) AS n FROM news_sources WHERE enabled = 1 AND last_error IS NOT NULL').get().n;
+  req.flash(failing ? 'error' : 'success', failing ? `Checked all sources. ${failing} not working; see the list below.` : 'Checked all sources: all working.');
+  res.redirect('/admin/news/feeds');
+});
+
+router.post('/news/feeds/filter', (req, res) => {
+  const words = [...new Set(String(req.body.words || '').split(/[\n,]/).map((w) => w.trim()).filter(Boolean))].slice(0, 500);
+  setContent(req.app.locals.db, 'news_filter', words);
+  req.flash('success', `Filter saved: stories mentioning any of the ${words.length} words are hidden from members.`);
+  res.redirect('/admin/news/feeds#filter');
+});
+
+router.post('/news/feeds/:id/check', async (req, res) => {
+  const { db } = req.app.locals;
+  const source = db.prepare('SELECT * FROM news_sources WHERE id = ?').get(req.params.id);
+  if (!source) return notFound(res, 'News source');
+  checkResult(req, source.name, await newsfeed.fetchSource(db, source));
+  res.redirect('/admin/news/feeds');
+});
+
+router.post('/news/feeds/:id/edit', (req, res) => {
+  const { db } = req.app.locals;
+  const f = sourceFields(req.body);
+  if (db.prepare('SELECT 1 FROM news_sources WHERE url = ? AND id != ?').get(f.url, req.params.id)) throw new svc.UserError('That feed is already on the list.');
+  db.prepare('UPDATE news_sources SET name = ?, url = ?, lang = ?, topic = ?, enabled = ? WHERE id = ?')
+    .run(f.name, f.url, f.lang, f.topic, req.body.enabled ? 1 : 0, req.params.id);
+  req.flash('success', `${f.name} saved.`);
+  res.redirect('/admin/news/feeds');
+});
+
+router.post('/news/feeds/:id/delete', (req, res) => {
+  req.app.locals.db.prepare('DELETE FROM news_sources WHERE id = ?').run(req.params.id);
+  req.flash('success', 'News source removed, with its headlines.');
+  res.redirect('/admin/news/feeds');
+});
+
+// Hide one story from members (or show it again).
+router.post('/news/items/:id/hide', (req, res) => {
+  req.app.locals.db.prepare('UPDATE news_items SET hidden = ? WHERE id = ?').run(req.body.hidden === '0' ? 0 : 1, req.params.id);
+  req.flash('success', req.body.hidden === '0' ? 'Story shown to members again.' : 'Story hidden from members.');
+  res.redirect('/admin/news/feeds#stories');
 });
 
 // ---------- Payments & plans ----------

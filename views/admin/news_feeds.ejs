@@ -1,0 +1,88 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1>News</h1></div>
+<%- include('news_tabs') %>
+<p class="muted">Members see headlines and short summaries from these news websites under <strong>News → Gujarat &amp; India news</strong>
+  and on their home page, with a link to read the full story on the newspaper's site. New headlines are fetched every hour.
+  Only switched-on sources are shown, and any story mentioning a <a href="#filter">filter word</a> is left out.</p>
+
+<div class="card">
+  <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0">News sources</h2>
+    <form method="post" action="/admin/news/feeds/check-all"><%- include('../partials/csrf') %><button class="btn secondary small">Check all now</button></form></div>
+  <% if (!sources.length) { %><p class="muted">No sources yet. Add one below.</p><% } %>
+  <% for (const s of sources) { %>
+    <details class="feed-source">
+      <summary>
+        <strong><%= s.name %></strong>
+        <span class="badge neutral"><%= s.lang === 'gu' ? 'Gujarati' : 'English' %> · <%= s.topic %></span>
+        <% if (!s.enabled) { %><span class="badge neutral">Switched off</span>
+        <% } else if (s.last_error) { %><span class="badge err">Not working</span>
+        <% } else if (s.last_ok_at) { %><span class="badge ok">Working · <%= s.item_count %> headline<%= s.item_count === 1 ? '' : 's' %></span>
+        <% } else { %><span class="badge warn">Not checked yet</span><% } %>
+      </summary>
+      <div class="stack" style="margin-top:10px">
+        <p class="small muted" style="margin:0"><%= s.url %><br>
+          <% if (s.last_checked_at) { %>Last checked <%= fmtDate(s.last_checked_at) %><% } %>
+          <% if (s.last_error) { %> — <span class="err-text"><%= s.last_error %></span><% } %></p>
+        <div class="actions">
+          <form method="post" action="/admin/news/feeds/<%= s.id %>/check"><%- include('../partials/csrf') %><button class="btn small">Check now</button></form>
+          <form method="post" action="/admin/news/feeds/<%= s.id %>/delete" onsubmit="return confirm('Remove <%= s.name.replace(/'/g, '') %> and its headlines?')"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form>
+        </div>
+        <form method="post" action="/admin/news/feeds/<%= s.id %>/edit" class="stack">
+          <%- include('../partials/csrf') %>
+          <%- include('news_source_fields', { s, topics }) %>
+          <label class="check"><input type="checkbox" name="enabled" value="1" <%= s.enabled ? 'checked' : '' %>> <span>Show this source to members</span></label>
+          <div><button class="btn secondary small">Save</button></div>
+        </form>
+      </div>
+    </details>
+  <% } %>
+</div>
+
+<div class="card">
+  <h2>Add a news source</h2>
+  <p class="muted small">Use the site's <strong>RSS feed</strong> address. Most newspapers list it on a page called "RSS" (often linked at the bottom of
+    their website); it usually ends in <code>/feed</code>, <code>.rss</code> or <code>.xml</code>. Choose a Gujarat or India section rather than the
+    whole paper, so world and US politics stay out. The app checks the address as soon as you add it.</p>
+  <form method="post" action="/admin/news/feeds" class="stack">
+    <%- include('../partials/csrf') %>
+    <%- include('news_source_fields', { s: { name: '', url: '', lang: 'gu', topic: 'Gujarat' }, topics }) %>
+    <div><button class="btn">Add and check</button></div>
+  </form>
+</div>
+
+<div class="card" id="filter">
+  <h2>Filter words</h2>
+  <p class="muted small">Stories that mention any of these words or names are never shown to members. This keeps the news to non-political,
+    uplifting reading: no US politics, no elections or political parties (a 501(c)(3) must stay out of campaigns) and no distressing crime stories.
+    One per line. Case doesn't matter. Lower-case words also catch longer forms ("vote" hides "voters"); names written with a capital letter
+    match whole words only ("Trump" doesn't hide "trumpet"). Add Gujarati words too, since Gujarati sources won't use the English ones.</p>
+  <form method="post" action="/admin/news/feeds/filter" class="stack">
+    <%- include('../partials/csrf') %>
+    <textarea name="words" rows="10" class="mono"><%= words.join('\n') %></textarea>
+    <div><button class="btn secondary">Save filter</button></div>
+  </form>
+</div>
+
+<div class="card" id="stories">
+  <h2>Latest headlines</h2>
+  <p class="muted small">Everything fetched recently, including what members don't see. Hide any single story that isn't suitable.</p>
+  <% if (!items.length) { %><p class="muted">No headlines yet. Use <strong>Check now</strong> on a source.</p><% } %>
+  <div class="feed-items">
+  <% for (const it of items) { %>
+    <div class="feed-item">
+      <div style="flex:1;min-width:0">
+        <a href="<%= it.link %>" target="_blank" rel="noopener noreferrer"><strong><%= it.title %></strong></a>
+        <div class="small muted"><%= it.source_name %> · <%= fmtDate(it.published_at) %></div>
+        <% if (it.hidden) { %><span class="badge neutral">Hidden by the committee</span>
+        <% } else if (it.filteredBy) { %><span class="badge neutral">Filtered out: “<%= it.filteredBy %>”</span>
+        <% } else if (!it.enabled) { %><span class="badge neutral">Source switched off</span>
+        <% } else { %><span class="badge ok">Shown to members</span><% } %>
+      </div>
+      <form method="post" action="/admin/news/items/<%= it.id %>/hide"><%- include('../partials/csrf') %>
+        <input type="hidden" name="hidden" value="<%= it.hidden ? '0' : '1' %>">
+        <button class="btn secondary small"><%= it.hidden ? 'Show again' : 'Hide' %></button></form>
+    </div>
+  <% } %>
+  </div>
+</div>
+<%- include('../partials/foot') %>

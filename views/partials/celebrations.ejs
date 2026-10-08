@@ -1,0 +1,18 @@
+<%# Birthdays and anniversaries members chose to share (month and day only, never a year or age). %>
+<section class="card celebrations" id="celebrations-week">
+  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0">🎉 <%= t('Celebrations this week') %></h2>
+    <a href="/profile#celebrations"><%= t('Share yours') %></a></div>
+  <% if (!celebrations.length) { %>
+    <p class="muted" style="margin:6px 0 0"><%= t('No birthdays or anniversaries shared for this week.') %></p>
+  <% } else { %>
+    <ul>
+      <% for (const c of celebrations) { %>
+        <li class="<%= c.inDays === 0 ? 'today' : '' %>">
+          <span class="celebration-icon" aria-hidden="true"><%= c.kind === 'birthday' ? '🎂' : '💐' %></span>
+          <span><strong><%= c.name %></strong><br><span class="muted"><%= c.kind === 'birthday' ? t('Birthday') : t('Wedding anniversary') %> · <%= c.when %></span></span>
+          <% if (c.inDays === 0) { %><span class="badge ok"><%= c.kind === 'birthday' ? t('Happy birthday!') : t('Happy anniversary!') %></span><% } %>
+        </li>
+      <% } %>
+    </ul>
+  <% } %>
+</section>

@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS users (
   language TEXT,                          -- 'en' | 'gu' (display preference)
   text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
   theme TEXT,                             -- 'auto' (follow the phone) | 'light' | 'dark'
+  -- Celebrations: members choose to share their birthday (month and day only) and wedding anniversary.
+  share_birthday INTEGER NOT NULL DEFAULT 0,
+  anniversary TEXT,                       -- YYYY-MM-DD
+  share_anniversary INTEGER NOT NULL DEFAULT 0,
   checkin_access INTEGER NOT NULL DEFAULT 0, -- door volunteer: may use the check-in scanner
   -- Family login: a spouse/child/parent with their own sign-in, covered by this member's membership.
   owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -45,7 +49,9 @@ CREATE TABLE IF NOT EXISTS household_members (
   email TEXT COLLATE NOCASE,                                         -- set by the member so this person can get their own login
   login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,     -- their login, once they've joined
   invite_token TEXT,                 -- private single-use link the member shares so this person can join
-  invite_expires TEXT
+  invite_expires TEXT,
+  birthday TEXT,                     -- MM-DD, only for the Celebrations list
+  share_birthday INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS membership_plans (
@@ -242,9 +248,37 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_household_invite ON household_members(invi
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
+
+-- Gujarat & India news: headlines and short summaries from news sites the committee chooses.
+CREATE TABLE IF NOT EXISTS news_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL UNIQUE,
+  lang TEXT NOT NULL DEFAULT 'en',        -- 'en' | 'gu'
+  topic TEXT NOT NULL DEFAULT 'India',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  last_checked_at TEXT,
+  last_ok_at TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS news_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id INTEGER NOT NULL REFERENCES news_sources(id) ON DELETE CASCADE,
+  guid TEXT NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  link TEXT NOT NULL,
+  published_at TEXT NOT NULL,             -- UTC, YYYY-MM-DD HH:MM:SS
+  fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+  hidden INTEGER NOT NULL DEFAULT 0,      -- hidden by the committee
+  UNIQUE (source_id, guid)
+);
+CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 9; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice
+const SCHEMA_VERSION = 10; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+// 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA)
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
@@ -261,6 +295,13 @@ const MIGRATIONS = {
     'ALTER TABLE household_members ADD COLUMN invite_expires TEXT',
   ],
   9: ['ALTER TABLE users ADD COLUMN theme TEXT'],
+  10: [
+    'ALTER TABLE users ADD COLUMN share_birthday INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN anniversary TEXT',
+    'ALTER TABLE users ADD COLUMN share_anniversary INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE household_members ADD COLUMN birthday TEXT',
+    'ALTER TABLE household_members ADD COLUMN share_birthday INTEGER NOT NULL DEFAULT 0',
+  ],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',
@@ -289,6 +330,8 @@ function openDb(file) {
     }
   }
   db.exec(SCHEMA);
+  // Suggested news sources, added once (new databases and the upgrade to v10). The committee can change them.
+  if (version < 10) require('./newsfeed').addDefaultSources(db);
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   return db;
 }

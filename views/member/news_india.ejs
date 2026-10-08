@@ -1,0 +1,36 @@
+<%- include('../partials/head') %>
+<div class="page-head"><h1><%= t('News') %></h1></div>
+<%- include('../partials/news-tabs') %>
+<p class="muted small news-note"><%= t('Headlines and short summaries from Indian news websites chosen by the GSA committee, updated through the day. Tap "Read the full story" to open the newspaper\'s website. GSA does not write or endorse these stories.') %></p>
+
+<%# Filter links keep the other choices; "all" means both languages. %>
+<% const link = (changes) => { const q = new URLSearchParams(Object.entries({ lang: lang || 'all', topic, ...changes }).filter(([, v]) => v)); return `/news/india?${q}`; }; %>
+<% if (choices.langs.length > 1) { %>
+  <nav class="pills wrap" aria-label="<%= t('Language') %>">
+    <a href="<%= link({ lang: 'all', page: '' }) %>" class="<%= lang === '' ? 'active' : '' %>"><%= t('Both languages') %></a>
+    <a href="<%= link({ lang: 'gu', page: '' }) %>" class="<%= lang === 'gu' ? 'active' : '' %>" lang="gu">ગુજરાતી</a>
+    <a href="<%= link({ lang: 'en', page: '' }) %>" class="<%= lang === 'en' ? 'active' : '' %>" lang="en">English</a>
+  </nav>
+<% } %>
+<% if (choices.topics.length > 1) { %>
+  <nav class="pills wrap" aria-label="<%= t('Topic') %>">
+    <a href="<%= link({ topic: '', page: '' }) %>" class="<%= topic === '' ? 'active' : '' %>"><%= t('All topics') %></a>
+    <% for (const tp of choices.topics) { %><a href="<%= link({ topic: tp, page: '' }) %>" class="<%= topic === tp ? 'active' : '' %>"><%= t(tp) %></a><% } %>
+  </nav>
+<% } %>
+
+<% if (!items.length) { %>
+  <div class="card"><p class="muted" style="margin:0"><%= t('No headlines right now. Please check again later today.') %></p></div>
+<% } %>
+<% for (const it of items) { %>
+  <article class="card news-story" id="n<%= it.id %>">
+    <div class="small muted"><strong><%= it.source_name %></strong> · <%= t(it.topic) %> · <%= it.when %></div>
+    <h2 lang="<%= it.lang %>"><%= it.title %></h2>
+    <% if (it.summary) { %><p lang="<%= it.lang %>"><%= it.summary %></p><% } %>
+    <a class="btn secondary small" href="<%= it.link %>" target="_blank" rel="noopener noreferrer"><%= t('Read the full story') %> ↗</a>
+  </article>
+<% } %>
+<% if (more) { %>
+  <p style="text-align:center"><a class="btn secondary" href="<%= link({ page: String(page + 1) }) %>#n<%= items[items.length - 1].id %>"><%= t('Show more headlines') %></a></p>
+<% } %>
+<%- include('../partials/foot') %>

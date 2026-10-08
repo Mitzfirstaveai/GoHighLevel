@@ -882,7 +882,68 @@ function markPaymentPaid(db, paymentId, { method, providerRef = null, recordedBy
   });
 }
 
+// ---------- Celebrations ----------
+
+const MONTH_DAY_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+// Birthdays and wedding anniversaries members chose to share, in the next `days` days (today first).
+// Only the month and day are used: members never see a year or an age.
+function celebrations(db, { from = today(), days = 7 } = {}) {
+  const start = new Date(`${from}T12:00:00Z`);
+  const upcoming = (monthDay) => {
+    if (!MONTH_DAY_RE.test(monthDay || '')) return null;
+    for (let d = 0; d < days; d++) {
+      const date = new Date(start.getTime() + d * 86400000);
+      const md = date.toISOString().slice(5, 10);
+      const leapDayInCommonYear = monthDay === '02-29' && md === '02-28' && new Date(Date.UTC(date.getUTCFullYear(), 1, 29)).getUTCMonth() !== 1;
+      if (md === monthDay || leapDayInCommonYear) return { date: date.toISOString().slice(0, 10), inDays: d };
+    }
+    return null;
+  };
+  // Signed-up members, or contacts with a membership (the same people the member directory lists).
+  const active = '(u.password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id))';
+  const list = [];
+  for (const u of db.prepare(`SELECT first_name, last_name, date_of_birth FROM users u WHERE share_birthday = 1 AND ${active}`).all()) {
+    const when = upcoming(u.date_of_birth?.slice(5, 10));
+    if (when) list.push({ kind: 'birthday', name: `${u.first_name} ${u.last_name}`, ...when });
+  }
+  for (const u of db.prepare(`SELECT u.first_name, u.last_name, u.anniversary,
+      (SELECT h.name FROM household_members h WHERE h.user_id = u.id AND h.relationship = 'Spouse' ORDER BY h.id LIMIT 1) AS spouse
+      FROM users u WHERE share_anniversary = 1 AND ${active}`).all()) {
+    const when = upcoming(u.anniversary?.slice(5, 10));
+    if (!when) continue;
+    const spouseFirst = u.spouse ? u.spouse.trim().split(/\s+/)[0] : '';
+    list.push({ kind: 'anniversary', name: spouseFirst ? `${u.first_name} & ${spouseFirst} ${u.last_name}` : `${u.first_name} ${u.last_name}`, ...when });
+  }
+  // Family members without their own login (those with a login share from their own profile).
+  for (const h of db.prepare(`SELECT h.name, h.birthday, u.last_name FROM household_members h JOIN users u ON u.id = h.user_id
+      WHERE h.share_birthday = 1 AND h.login_user_id IS NULL AND ${active}`).all()) {
+    const when = upcoming(h.birthday);
+    if (when) list.push({ kind: 'birthday', name: h.name.includes(' ') ? h.name : `${h.name} ${h.last_name}`, ...when });
+  }
+  return list.sort((a, b) => a.inDays - b.inDays || a.name.localeCompare(b.name));
+}
+
+// Saves the member's Celebrations choices: their birthday and anniversary, and their family members' birthdays.
+function updateCelebrations(db, userId, body) {
+  const anniversary = String(body.anniversary || '').trim();
+  if (anniversary && !/^\d{4}-\d{2}-\d{2}$/.test(anniversary)) throw new UserError('Please enter the anniversary as a full date.');
+  const user = db.prepare('SELECT date_of_birth, owner_id FROM users WHERE id = ?').get(userId);
+  const shareBirthday = body.share_birthday && user.date_of_birth ? 1 : 0;
+  db.prepare('UPDATE users SET share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
+    .run(shareBirthday, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
+  if (user.owner_id) return;
+  for (const h of db.prepare('SELECT id FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
+    const month = String(body[`birthday_month_${h.id}`] || '').padStart(2, '0');
+    const day = String(body[`birthday_day_${h.id}`] || '').padStart(2, '0');
+    const birthday = MONTH_DAY_RE.test(`${month}-${day}`) ? `${month}-${day}` : null;
+    db.prepare('UPDATE household_members SET birthday = ?, share_birthday = ? WHERE id = ?')
+      .run(birthday, birthday && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
+  }
+}
+
 module.exports = {
+  celebrations, updateCelebrations,
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,

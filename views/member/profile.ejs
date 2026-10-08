@@ -80,6 +80,48 @@
   <% } %>
 </div>
 
+<div class="card" id="celebrations">
+  <h2>🎉 <%= t('Celebrations') %></h2>
+  <p class="muted"><%= t('Share birthdays and your wedding anniversary so other GSA members can send good wishes. Members see them on the Home and News pages in the week of the day. Only the month and day are shown, never the year or age. Nothing is shared unless you tick the box.') %></p>
+  <form method="post" action="/profile/celebrations" class="stack">
+    <%- include('../partials/csrf') %>
+    <% if (profile.date_of_birth) { %>
+      <label class="check"><input type="checkbox" name="share_birthday" value="1" <%= profile.share_birthday ? 'checked' : '' %>>
+        <span><%= t('Share my birthday ({date})', { date: new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(profile.date_of_birth + 'T12:00:00Z')) }) %></span></label>
+    <% } else { %>
+      <p class="small muted"><%= t('To share your birthday, first add your date of birth under Personal & contact details above.') %></p>
+    <% } %>
+    <div class="fields">
+      <label><%= t('Wedding anniversary (optional)') %> <input type="date" name="anniversary" value="<%= profile.anniversary || '' %>"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="share_anniversary" value="1" <%= profile.share_anniversary ? 'checked' : '' %>> <span><%= t('Share our wedding anniversary') %></span></label>
+    <% const kids = owner ? [] : household.filter((h) => !h.login_user_id); %>
+    <% if (kids.length) { %>
+      <h3 style="margin-bottom:0"><%= t("Family members' birthdays") %></h3>
+      <% const months = Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, i, 15)))); %>
+      <% for (const h of kids) { %>
+        <% const [bm, bd] = (h.birthday || '-').split('-'); %>
+        <fieldset class="birthday-row">
+          <legend><strong><%= h.name %></strong> <span class="muted small">· <%= t.data(h.relationship) || '' %></span></legend>
+          <div class="actions">
+            <select name="birthday_month_<%= h.id %>" aria-label="<%= t('Birthday month for {name}', { name: h.name }) %>">
+              <option value=""><%= t('Month') %></option>
+              <% months.forEach((name, i) => { %><option value="<%= i + 1 %>" <%= Number(bm) === i + 1 ? 'selected' : '' %>><%= name %></option><% }) %>
+            </select>
+            <select name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
+              <option value=""><%= t('Day') %></option>
+              <% for (let d = 1; d <= 31; d++) { %><option value="<%= d %>" <%= Number(bd) === d ? 'selected' : '' %>><%= d %></option><% } %>
+            </select>
+            <label class="check"><input type="checkbox" name="share_birthday_<%= h.id %>" value="1" <%= h.share_birthday ? 'checked' : '' %>> <span><%= t('Share') %></span></label>
+          </div>
+        </fieldset>
+      <% } %>
+      <p class="small muted"><%= t('Family members with their own login share their birthday from their own profile.') %></p>
+    <% } %>
+    <div><button class="btn secondary"><%= t('Save celebration settings') %></button></div>
+  </form>
+</div>
+
 <div class="card" id="privacy">
   <h2><%= t('Directory settings') %></h2>
   <form method="post" action="/profile/privacy" class="stack">

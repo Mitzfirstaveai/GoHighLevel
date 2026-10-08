@@ -448,3 +448,29 @@ body.door-mode .topbar .brand-short { display: inline; }
 .perks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px 32px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
 .perks li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
 .perks .perk-icon { font-size: 1.5rem; line-height: 1.2; flex: none; }
+
+/* Gujarat & India news */
+.news-note { margin-top: -6px; }
+.news-story h2 { font-size: 1.25rem; margin: 6px 0 8px; line-height: 1.35; }
+.news-story p { margin: 0 0 12px; font-size: 1.05rem; line-height: 1.6; }
+.home-headlines ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.home-headlines li { padding: 10px 0; border-top: 1px solid var(--border); line-height: 1.4; }
+.home-headlines li:first-child { border-top: 0; }
+.home-headlines li a { font-weight: 600; color: var(--text); text-decoration: none; }
+.home-headlines li a:hover { color: var(--brand); text-decoration: underline; }
+
+.feed-source { border-top: 1px solid var(--border); padding: 10px 0; }
+.feed-source:first-of-type { border-top: 0; }
+.feed-source > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.feed-item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.err-text { color: var(--err); }
+
+/* Celebrations (shared birthdays and anniversaries) */
+.celebrations ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.celebrations li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.celebrations li:first-child { border-top: 0; }
+.celebrations li > span:nth-child(2) { flex: 1; min-width: 160px; }
+.celebrations li.today strong { color: var(--brand); }
+.celebration-icon { font-size: 1.6rem; line-height: 1; }
+.birthday-row { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px 12px; margin: 0; }
+.birthday-row select { width: auto; flex: 1 1 140px; }

@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware');
 const svc = require('../services');
 const { parseIntInRange, nowLocal, weekdayName } = require('../util');
 const { receiptNumber } = require('./donations');
+const newsfeed = require('../newsfeed');
 
 const router = express.Router();
 
@@ -30,12 +31,13 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const membership = svc.membershipStatus(db, req.user.id);
   const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
+  const headlines = newsfeed.visibleNews(db, { lang: defaultNewsLang(req), limit: 3 }).items;
   const upcoming = db.prepare(`
     SELECT * FROM events WHERE status = 'published' AND starts_at >= ?
     AND id NOT IN (SELECT event_id FROM rsvps WHERE user_id = ? AND status != 'cancelled')
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
-  res.render('member/dashboard', { title: 'My dashboard', membership, myRsvps, upcoming, latestNews });
+  res.render('member/dashboard', { title: 'My dashboard', membership, myRsvps, upcoming, latestNews, headlines, celebrations: celebrationList(req, res) });
 });
 
 // ---------- Profile ----------
@@ -103,6 +105,21 @@ router.post('/profile/password', requireAuth, (req, res) => {
   res.redirect('/profile');
 });
 
+router.post('/profile/celebrations', requireAuth, (req, res) => {
+  svc.updateCelebrations(req.app.locals.db, req.user.id, req.body);
+  req.flash('success', 'Celebration settings saved.');
+  res.redirect('/profile#celebrations');
+});
+
+// Shared birthdays and anniversaries this week, with "Today", "Tomorrow" or the day and date.
+function celebrationList(req, res) {
+  const fmt = new Intl.DateTimeFormat(req.lang === 'gu' ? 'gu-IN' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const { t } = res.locals;
+  return svc.celebrations(req.app.locals.db).map((c) => ({
+    ...c, when: c.inDays === 0 ? t('Today') : c.inDays === 1 ? t('Tomorrow') : fmt.format(new Date(`${c.date}T12:00:00Z`)),
+  }));
+}
+
 router.post('/profile/privacy', requireAuth, (req, res) => {
   const listed = req.body.directory_listed ? 1 : 0;
   req.app.locals.db.prepare('UPDATE users SET directory_listed = ?, directory_contact = ? WHERE id = ?')
@@ -129,7 +146,34 @@ router.get('/directory', requireAuth, (req, res) => {
 router.get('/news', requireAuth, (req, res) => {
   const posts = req.app.locals.db.prepare(`SELECT n.*, u.first_name, u.last_name FROM news_posts n
     LEFT JOIN users u ON u.id = n.author_id ORDER BY n.created_at DESC, n.id DESC`).all();
-  res.render('member/news', { title: 'News', posts });
+  res.render('member/news', { title: 'News', posts, celebrations: celebrationList(req, res) });
+});
+
+// "2 hours ago", "Yesterday" or the date, for a story's UTC publish time.
+function newsWhen(res, utc) {
+  const { t, plural, fmtDay } = res.locals;
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(`${utc.replace(' ', 'T')}Z`).getTime()) / 60000));
+  if (minutes < 2) return t('Just now');
+  if (minutes < 60) return plural(minutes, '1 minute ago', '{n} minutes ago');
+  if (minutes < 24 * 60) return plural(Math.floor(minutes / 60), '1 hour ago', '{n} hours ago');
+  if (minutes < 48 * 60) return t('Yesterday');
+  return fmtDay(utc);
+}
+
+// English readers see English sources by default; Gujarati readers see both languages.
+const defaultNewsLang = (req) => (req.lang === 'gu' ? '' : 'en');
+
+// Gujarat & India news: headlines with a short "quick read", and a link to the full story on the newspaper's site.
+router.get('/news/india', requireAuth, (req, res) => {
+  const { db } = req.app.locals;
+  const choices = newsfeed.newsChoices(db);
+  const lang = req.query.lang === 'all' ? '' : ['gu', 'en'].includes(req.query.lang) ? req.query.lang : defaultNewsLang(req);
+  const topic = choices.topics.includes(req.query.topic) ? req.query.topic : '';
+  const page = parseIntInRange(req.query.page, 1, 20) || 1;
+  const perPage = 15;
+  let { items, more } = newsfeed.visibleNews(db, { lang: choices.langs.includes(lang) ? lang : '', topic, limit: perPage * page });
+  items = items.map((it) => ({ ...it, when: newsWhen(res, it.published_at) }));
+  res.render('member/news_india', { title: 'Gujarat & India news', items, more, page, lang, topic, choices });
 });
 
 // Phone "More" tab: everything that doesn't fit in the bottom bar.

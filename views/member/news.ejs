@@ -1,5 +1,7 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1><%= t('News') %></h1></div>
+<%- include('../partials/news-tabs') %>
+<%- include('../partials/celebrations') %>
 <% if (!posts.length) { %><div class="card"><p class="muted"><%= t('No announcements yet.') %></p></div><% } %>
 <% for (const p of posts) { %>
   <article class="card">

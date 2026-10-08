@@ -84,4 +84,22 @@ const SPONSORS = [
   { tier: 'Platinum', names: ['Stone Bank', 'PremSupply — Your Premier HVAC Solutions Provider', 'Ecolab', 'Lumber One Home Center', 'Central Laundry Equipment'] },
 ];
 
-module.exports = { ORG, ABOUT, ABOUT_GU, COMMITTEE, SPONSORS };
+// Gujarat & India news: stories mentioning any of these are never shown to members. Matching ignores case; words in
+// lower case also catch longer forms ("vote" hides "voters"), names written with a capital letter match whole words.
+// The committee edits this list in the admin area.
+// It keeps the feed to non-political, uplifting reading that suits a 501(c)(3) community organization.
+const NEWS_FILTER = [
+  // US politics
+  'Trump', 'Biden', 'Kamala Harris', 'Obama', 'JD Vance', 'White House', 'Republican', 'Democrat', 'GOP', 'MAGA',
+  'Capitol Hill', 'US Senate', 'U.S. Senate',
+  'ટ્રમ્પ', 'બાઇડન', 'બાઈડન', 'વ્હાઇટ હાઉસ', 'રિપબ્લિકન', 'ડેમોક્રેટ',
+  // Elections, campaigns and political parties (a 501(c)(3) must stay out of campaigns)
+  'election', 'electoral', 'exit poll', 'opinion poll', 'bypoll', 'by-poll', 'polling booth', 'vote', 'voting', 'voter',
+  'candidate', 'campaign', 'manifesto', 'BJP', 'Congress', 'congressional', 'AAP', 'Aam Aadmi', 'Lok Sabha', 'Vidhan Sabha',
+  'ચૂંટણી', 'મતદાન', 'મતદાર', 'ઉમેદવાર', 'ભાજપ', 'કોંગ્રેસ', 'આમ આદમી',
+  // Distressing stories
+  'murder', 'rape', 'suicide', 'killed', 'lynch', 'terror', 'riot', 'communal', 'massacre',
+  'હત્યા', 'બળાત્કાર', 'આત્મહત્યા', 'આતંક', 'રમખાણ',
+];
+
+module.exports = { ORG, ABOUT, ABOUT_GU, COMMITTEE, SPONSORS, NEWS_FILTER };

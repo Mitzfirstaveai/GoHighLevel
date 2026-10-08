@@ -1,0 +1,5 @@
+<%# The two kinds of news: GSA's own announcements, and headlines from Gujarat & India. %>
+<nav class="pills wrap news-tabs" aria-label="<%= t('News') %>">
+  <a href="/news" class="<%= path === '/news' ? 'active' : '' %>"<%- path === '/news' ? ' aria-current="page"' : '' %>>📢 <%= t('GSA announcements') %></a>
+  <a href="/news/india" class="<%= path === '/news/india' ? 'active' : '' %>"<%- path === '/news/india' ? ' aria-current="page"' : '' %>>📰 <%= t('Gujarat & India news') %></a>
+</nav>

@@ -29,6 +29,7 @@ function loadConfig(overrides = {}) {
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
     // Demo payments let you try the full flow without Stripe. Never on in production
     // unless explicitly enabled.
+    newsRefreshMinutes: env.NEWS_REFRESH_MINUTES === undefined ? 60 : Number(env.NEWS_REFRESH_MINUTES),
     allowDemoPayments: env.ALLOW_DEMO_PAYMENTS
       ? env.ALLOW_DEMO_PAYMENTS === 'true'
       : !isProduction,

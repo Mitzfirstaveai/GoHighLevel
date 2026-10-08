@@ -1,5 +1,6 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>News &amp; announcements</h1></div>
+<div class="page-head"><h1>News</h1></div>
+<%- include('news_tabs') %>
 <div class="card">
   <h2>Post an announcement</h2>
   <form method="post" action="/admin/news?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">

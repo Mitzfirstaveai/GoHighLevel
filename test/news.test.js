@@ -1,0 +1,178 @@
+// Gujarat & India news (headlines from outside feeds) and Celebrations (shared birthdays and anniversaries).
+const { test, before, after } = require('node:test');
+const assert = require('node:assert/strict');
+const { startTestApp } = require('./helpers');
+const newsfeed = require('../src/newsfeed');
+const { NEWS_FILTER } = require('../src/content');
+const svc = require('../src/services');
+
+let t;
+let admin;
+
+before(async () => {
+  t = await startTestApp();
+  admin = await t.adminLogin();
+});
+after(() => t.close());
+
+const LONG = 'Thousands of families gathered at the riverfront for garba. '.repeat(20);
+const RSS = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Sample</title>
+<item><title><![CDATA[Navratri lights up Ahmedabad &amp; Vadodara]]></title><link>https://news.example.com/a?x=1&amp;y=2</link>
+  <description><![CDATA[<p>${LONG}</p><script>alert(1)</script><img src="x.jpg">]]></description>
+  <pubDate>Wed, 07 Oct 2026 10:00:00 +0530</pubDate><guid>story-a</guid></item>
+<item><title>Voters queue up in Surat</title><link>https://news.example.com/b</link><description>Polling day.</description><guid>story-b</guid></item>
+<item><title>Sneaky link</title><link>javascript:alert(1)</link><guid>story-c</guid></item>
+<item><title>Escaped &lt;b&gt;markup&lt;/b&gt; &#8211; handled</title><link>https://news.example.com/d</link>
+  <description>&lt;p&gt;Rain &amp;amp; relief for farmers in Saurashtra.&lt;/p&gt;</description><guid>story-d</guid></item>
+</channel></rss>`;
+const ATOM = `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>ગુજરાતમાં સારો વરસાદ</title>
+  <link rel="alternate" href="https://gu.example.com/1"/><id>tag:gu-1</id><updated>2026-10-06T08:00:00Z</updated><summary>ખેડૂતો ખુશ છે.</summary></entry></feed>`;
+
+test('feeds are read safely: plain text only, ordinary web links only, a short summary', () => {
+  const items = newsfeed.parseFeed(RSS, new Date('2026-10-08T12:00:00Z'));
+  assert.deepEqual(items.map((i) => i.guid), ['story-a', 'story-b', 'story-d'], 'the javascript: link is dropped');
+  const [a, , d] = items;
+  assert.equal(a.title, 'Navratri lights up Ahmedabad & Vadodara');
+  assert.equal(a.link, 'https://news.example.com/a?x=1&y=2');
+  assert.equal(a.published, '2026-10-07 04:30:00');
+  assert.ok(a.summary.length <= 700 && a.summary.length > 300, 'a quick read, not the whole article');
+  assert.doesNotMatch(a.summary, /<|alert|script/);
+  assert.equal(d.title, 'Escaped markup – handled');
+  assert.equal(d.summary, 'Rain & relief for farmers in Saurashtra.');
+  const [g] = newsfeed.parseFeed(ATOM);
+  assert.deepEqual([g.title, g.link, g.summary], ['ગુજરાતમાં સારો વરસાદ', 'https://gu.example.com/1', 'ખેડૂતો ખુશ છે.']);
+});
+
+test('the filter keeps out US politics, elections and distressing stories, without false alarms', () => {
+  const hit = (title) => newsfeed.filterMatch({ title, summary: '' }, NEWS_FILTER);
+  for (const title of ['Trump says…', 'Voters queue up', 'BJP and Congress trade barbs', 'ચૂંટણીની તારીખો જાહેર', 'Exit poll results',
+    'Man killed in accident', 'White House statement']) assert.ok(hit(title), title);
+  for (const title of ['Trumpet recital at Sabarmati', 'Map of new metro line', 'Pollution drops in Ahmedabad', 'India beat Australia',
+    'Garba classes begin']) assert.equal(hit(title), null, title);
+});
+
+test('admins can only add public news websites', () => {
+  for (const url of ['http://localhost:3000/feed', 'https://10.0.0.5/rss', 'file:///etc/passwd', 'ftp://x.com/a', 'intranet/feed']) {
+    assert.ok(newsfeed.feedUrlProblem(url), url);
+  }
+  assert.equal(newsfeed.feedUrlProblem('https://www.thehindu.com/news/national/feeder/default.rss'), null);
+});
+
+// A stand-in for the news websites (the test never goes on the internet).
+function fakeFetch(feeds) {
+  return async (url) => (feeds[url] ? new Response(feeds[url], { status: 200 }) : new Response('nope', { status: 404 }));
+}
+
+test('fetching saves stories and records whether each source works', async () => {
+  const { db } = t;
+  const id = Number(db.prepare(`INSERT INTO news_sources (name, url, lang, topic) VALUES ('Sample Gujarat', 'https://news.example.com/feed', 'en', 'Gujarat')`).run().lastInsertRowid);
+  const source = db.prepare('SELECT * FROM news_sources WHERE id = ?').get(id);
+  let result = await newsfeed.fetchSource(db, source, { fetchImpl: fakeFetch({ 'https://news.example.com/feed': RSS }) });
+  assert.deepEqual(result, { ok: true, count: 3 });
+  // Fetching again doesn't duplicate stories.
+  await newsfeed.fetchSource(db, source, { fetchImpl: fakeFetch({ 'https://news.example.com/feed': RSS }) });
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM news_items WHERE source_id = ?').get(id).n, 3);
+  // Redirects are followed only to public websites.
+  const redirect = async (url) => (url === 'https://news.example.com/moved'
+    ? new Response(null, { status: 301, headers: { location: 'https://news.example.com/feed' } })
+    : url === 'https://news.example.com/sneaky' ? new Response(null, { status: 302, headers: { location: 'http://127.0.0.1:3000/admin' } })
+    : fakeFetch({ 'https://news.example.com/feed': RSS })(url));
+  assert.equal((await newsfeed.fetchSource(db, { ...source, url: 'https://news.example.com/moved' }, { fetchImpl: redirect })).ok, true);
+  result = await newsfeed.fetchSource(db, { ...source, url: 'https://news.example.com/sneaky' }, { fetchImpl: redirect });
+  assert.match(result.error, /not a computer or IP address/);
+  // Oversized feeds are cut off.
+  const huge = async () => new Response(`<rss>${'x'.repeat(3.5 * 1024 * 1024)}</rss>`);
+  assert.match((await newsfeed.fetchSource(db, source, { fetchImpl: huge })).error, /too large/);
+  result = await newsfeed.fetchSource(db, { ...source, url: 'https://news.example.com/missing' }, { fetchImpl: fakeFetch({}) });
+  assert.equal(result.ok, false);
+  assert.match(db.prepare('SELECT last_error FROM news_sources WHERE id = ?').get(id).last_error, /error 404/);
+});
+
+test('members read headlines and quick reads, and open the full story on the newspaper site', async () => {
+  const { db } = t;
+  const gu = Number(db.prepare(`INSERT INTO news_sources (name, url, lang, topic) VALUES ('Sample ગુજરાતી', 'https://gu.example.com/feed', 'gu', 'India')`).run().lastInsertRowid);
+  await newsfeed.fetchSource(db, db.prepare('SELECT * FROM news_sources WHERE id = ?').get(gu), { fetchImpl: fakeFetch({ 'https://gu.example.com/feed': ATOM }) });
+  const m = await t.register('reader@test.org', 'Reader');
+
+  let res = await m.get('/news/india');
+  assert.match(res.text, /Navratri lights up Ahmedabad &amp; Vadodara/);
+  assert.match(res.text, /Thousands of families gathered/);
+  assert.match(res.text, /href="https:\/\/news\.example\.com\/a\?x=1&amp;y=2" target="_blank" rel="noopener noreferrer">Read the full story/);
+  assert.doesNotMatch(res.text, /Voters queue up/, 'filtered: elections');
+  assert.doesNotMatch(res.text, /ગુજરાતમાં સારો વરસાદ/, 'English readers see English sources by default');
+  assert.match(res.text, /GSA does not write or endorse these stories/);
+  res = await m.get('/news/india?lang=all');
+  assert.match(res.text, /ગુજરાતમાં સારો વરસાદ/);
+  assert.match((await m.get('/dashboard')).text, /Gujarat &amp; India news[\s\S]*Navratri lights up Ahmedabad/);
+
+  // The committee hides one story and switches a source off; the filter can be changed.
+  const story = db.prepare(`SELECT id FROM news_items WHERE guid = 'story-d'`).get().id;
+  await admin.post(`/admin/news/items/${story}/hide`, { hidden: '1' });
+  assert.doesNotMatch((await m.get('/news/india')).text, /Rain &amp; relief/);
+  await admin.post('/admin/news/feeds/filter', { words: 'Navratri\nvote' });
+  res = await m.get('/news/india');
+  assert.doesNotMatch(res.text, /Navratri lights up/);
+  assert.match(res.text, /ગુજરાતમાં સારો વરસાદ/, 'with nothing left in English, both languages are shown');
+  await admin.post('/admin/news/feeds/filter', { words: NEWS_FILTER.join('\n') });
+  await admin.post(`/admin/news/feeds/${gu}/edit`, { name: 'Sample ગુજરાતી', url: 'https://gu.example.com/feed', lang: 'gu', topic: 'India' }); // no "enabled": off
+  res = await m.get('/news/india?lang=all');
+  assert.doesNotMatch(res.text, /ગુજરાતમાં સારો વરસાદ/);
+  res = await m.get('/news/india?lang=gu');
+  assert.doesNotMatch(res.text, /ગુજરાતમાં સારો વરસાદ/);
+  assert.match(res.text, /Navratri lights up/, 'no Gujarati stories left, so English ones are shown rather than an empty page');
+
+  // The admin page shows everything, with the reason a story is hidden.
+  res = await admin.get('/admin/news/feeds');
+  assert.match(res.text, /Voters queue up in Surat[\s\S]*?Filtered out: “vote”/);
+  assert.match(res.text, /Hidden by the committee/);
+  // Members can't manage news sources.
+  assert.equal((await m.post('/admin/news/feeds/filter', { words: '' })).status, 403);
+});
+
+test('adding a source checks it straight away; unsafe addresses are refused', async () => {
+  const realFetch = global.fetch;
+  global.fetch = (url, opts) => (String(url).startsWith('https://added.example.com') ? fakeFetch({ 'https://added.example.com/rss': RSS })(url) : realFetch(url, opts));
+  try {
+    let res = await admin.follow(await admin.post('/admin/news/feeds', { name: 'Added paper', url: 'https://added.example.com/rss', lang: 'en', topic: 'Gujarat' }));
+    assert.match(res.text, /Added paper: working, 3 headlines found/);
+    res = await admin.follow(await admin.post('/admin/news/feeds', { name: 'Sneaky', url: 'http://localhost:22/', lang: 'en', topic: 'India' }));
+    assert.match(res.text, /not a computer or IP address/);
+    assert.equal(t.db.prepare(`SELECT COUNT(*) AS n FROM news_sources WHERE name = 'Sneaky'`).get().n, 0);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('celebrations: only what members choose to share, month and day only', async () => {
+  const { db } = t;
+  const m = await t.register('celebrate@test.org', 'Asha', 0);
+  const uid = db.prepare(`SELECT id FROM users WHERE email = 'celebrate@test.org'`).get().id;
+  const today = require('../src/util').today();
+  const md = (days) => new Date(Date.parse(`${today}T12:00:00Z`) + days * 86400000).toISOString().slice(5, 10);
+  await m.post('/profile', { first_name: 'Asha', last_name: 'Member', date_of_birth: `1961-${md(0)}` });
+  await m.post('/profile/household', { name: 'Kiran', relationship: 'Spouse' });
+  await m.post('/profile/household', { name: 'Tara Member', relationship: 'Daughter' });
+  const tara = db.prepare(`SELECT id FROM household_members WHERE name = 'Tara Member'`).get().id;
+
+  // Nothing is shown until they choose to share.
+  assert.doesNotMatch((await m.get('/news')).text, /Asha Member/);
+  const [mm, dd] = md(3).split('-');
+  await m.post('/profile/celebrations', {
+    share_birthday: '1', anniversary: `1990-${md(1)}`, share_anniversary: '1',
+    [`birthday_month_${tara}`]: String(Number(mm)), [`birthday_day_${tara}`]: String(Number(dd)), [`share_birthday_${tara}`]: '1',
+  });
+  const list = svc.celebrations(db).filter((c) => /Asha|Tara/.test(c.name));
+  assert.deepEqual(list.map((c) => [c.kind, c.name, c.inDays]),
+    [['birthday', 'Asha Member', 0], ['anniversary', 'Asha & Kiran Member', 1], ['birthday', 'Tara Member', 3]]);
+
+  const other = await t.register('friend@test.org', 'Friend');
+  const res = await other.get('/dashboard');
+  assert.match(res.text, /Celebrations this week[\s\S]*Asha Member[\s\S]*Happy birthday!/);
+  assert.doesNotMatch(res.text, /1961|1990/, 'never a year or an age');
+  assert.match((await other.get('/news')).text, /Tara Member/);
+
+  // Unticking stops sharing; family logins can't change the family list.
+  await m.post('/profile/celebrations', { anniversary: `1990-${md(1)}` });
+  assert.equal(svc.celebrations(db).filter((c) => /Asha|Tara/.test(c.name)).length, 0);
+  assert.deepEqual({ ...db.prepare('SELECT share_birthday, share_anniversary FROM users WHERE id = ?').get(uid) }, { share_birthday: 0, share_anniversary: 0 });
+});

@@ -1,0 +1,6 @@
+<label>Name <input name="name" value="<%= s.name %>" required maxlength="100" placeholder="e.g. Divya Bhaskar: Gujarat"></label>
+<label>Feed address <input name="url" type="url" value="<%= s.url %>" required maxlength="500" placeholder="https://…"></label>
+<div class="grid grid-2" style="gap:12px">
+  <label>Language <select name="lang"><option value="gu" <%= s.lang === 'gu' ? 'selected' : '' %>>Gujarati</option><option value="en" <%= s.lang === 'en' ? 'selected' : '' %>>English</option></select></label>
+  <label>Topic <select name="topic"><% for (const tp of topics) { %><option <%= s.topic === tp ? 'selected' : '' %>><%= tp %></option><% } %></select></label>
+</div>
