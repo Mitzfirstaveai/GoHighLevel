@@ -38,18 +38,6 @@
   <div class="muted small" style="margin-top:4px"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
 </a>
 <% } %>
-<% if (celebrations.length) { %><%- include('../partials/celebrations') %><% } %>
-<% if (headlines.length) { %>
-<section class="card home-headlines">
-  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0">📰 <%= t('Gujarat & India news') %></h2><a href="/news/india"><%= t('More news') %> →</a></div>
-  <ul>
-    <% for (const h of headlines) { %>
-      <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
-    <% } %>
-  </ul>
-</section>
-<% } %>
-
 <div class="card">
   <h2><%= t('My upcoming events') %></h2>
   <% if (!myRsvps.length) { %><p class="muted"><%= t("You haven't RSVP'd to any upcoming events.") %></p><% } %>
@@ -71,6 +59,18 @@
   <% } %>
   </div>
 </div>
+<% if (celebrations.length) { %><%- include('../partials/celebrations') %><% } %>
+<% if (headlines.length) { %>
+<section class="card home-headlines">
+  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0">📰 <%= t('Gujarat & India news') %></h2><a href="/news/india"><%= t('More news') %> →</a></div>
+  <ul>
+    <% for (const h of headlines) { %>
+      <li><a href="/news/india#n<%= h.id %>" lang="<%= h.lang %>"><%= h.title %></a> <span class="muted small">· <%= h.source_name %></span></li>
+    <% } %>
+  </ul>
+</section>
+<% } %>
+
 
 <div class="card">
   <div class="page-head"><h2 style="margin:0"><%= t('Coming up') %></h2><a href="/events"><%= t('All events') %> →</a></div>
