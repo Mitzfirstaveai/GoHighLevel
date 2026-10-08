@@ -19,7 +19,6 @@ module.exports = {
   'More': 'વધુ',
   'Admin': 'એડમિન',
   'Committee': 'સમિતિ',
-  'GSA Committee': 'GSA સમિતિ',
   'Sponsors': 'પ્રાયોજકો',
   'Contact': 'સંપર્ક',
   'Sign in': 'લોગ ઇન',

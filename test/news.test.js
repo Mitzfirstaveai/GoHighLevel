@@ -177,11 +177,11 @@ test('celebrations: only what members choose to share, month and day only', asyn
   assert.deepEqual({ ...db.prepare('SELECT share_birthday, share_anniversary FROM users WHERE id = ?').get(uid) }, { share_birthday: 0, share_anniversary: 0 });
 });
 
-test('announcements show as from the GSA Committee; only the committee sees who posted', async () => {
+test('announcements show only their date to members; only the committee sees who posted', async () => {
   await admin.post('/admin/news', { title: 'Diwali volunteers needed', body: 'Please sign up at the desk.' });
   const m = await t.register('announce@test.org', 'Reader');
   const res = await m.get('/news');
-  assert.match(res.text, /Diwali volunteers needed<\/h2>\s*<p class="muted small"[^>]*>GSA Committee · /);
-  assert.doesNotMatch(res.text, /Admin User/);
+  assert.match(res.text, /Diwali volunteers needed<\/h2>\s*(<%[^>]*>\s*)?<p class="muted small"[^>]*>[^<·]+<\/p>/);
+  assert.doesNotMatch(res.text, /Admin User|GSA Committee/);
   assert.match((await admin.get('/admin/news')).text, /Diwali volunteers needed[\s\S]*?posted by Admin User/);
 });

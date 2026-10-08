@@ -453,7 +453,7 @@ router.post('/rsvps/:id/record-payment', (req, res) => {
 // ---------- News ----------
 
 router.get('/news', (req, res) => {
-  // The committee sees who posted each announcement; members see it as from the GSA Committee.
+  // The committee sees who posted each announcement; members see only the date.
   const posts = req.app.locals.db.prepare(`SELECT n.*, u.first_name, u.last_name FROM news_posts n
     LEFT JOIN users u ON u.id = n.author_id ORDER BY n.created_at DESC, n.id DESC`).all();
   res.render('admin/news', { title: 'News', posts });
