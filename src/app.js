@@ -33,6 +33,8 @@ function createApp(config) {
   app.set('views', path.join(__dirname, '..', 'views'));
   app.set('trust proxy', 1);
   app.locals.db = db;
+  // Set by a demo reset: display choices remembered by a browser before then are forgotten (see i18n.js).
+  app.locals.prefsEpoch = db.prepare(`SELECT value FROM pages WHERE key = 'prefs_epoch'`).get()?.value || null;
   app.locals.config = config;
   app.locals.gateway = gateway;
   app.locals.imageUpload = imageUpload(config);

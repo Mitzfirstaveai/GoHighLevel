@@ -37,7 +37,12 @@ router.get('/', (req, res) => {
 
 router.post('/demo/reset', (req, res) => {
   if (!req.app.locals.config.demoMode) return res.sendStatus(404);
-  require('../demo').resetDemo(req.app.locals.db, { photosDir: req.app.locals.config.photosDir });
+  const { db } = req.app.locals;
+  require('../demo').resetDemo(db, { photosDir: req.app.locals.config.photosDir });
+  // Every phone and computer goes back to the starting look (dark, English, normal text), not just this one.
+  const epoch = String(Date.now());
+  db.prepare(`INSERT OR REPLACE INTO pages (key, value, updated_at) VALUES ('prefs_epoch', ?, datetime('now'))`).run(epoch);
+  req.app.locals.prefsEpoch = epoch;
   req.flash('success', 'Demo data has been reset. Event dates are relative to today.');
   res.redirect('/admin');
 });

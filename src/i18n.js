@@ -48,6 +48,12 @@ const COOKIE = { maxAge: 365 * 24 * 60 * 60 * 1000, sameSite: 'lax', httpOnly: f
 // Must run after the user is loaded: a signed-in member's saved choice wins, then the cookie.
 function i18nMiddleware(req, res, next) {
   const cookies = parseCookies(req.headers.cookie);
+  // After a demo reset, choices this browser remembered from before the reset no longer apply.
+  const epoch = req.app.locals.prefsEpoch;
+  if (epoch && cookies.prefs_v !== epoch) {
+    for (const k of ['lang', 'size', 'theme']) delete cookies[k];
+    res.cookie('prefs_v', epoch, COOKIE);
+  }
   const pick = (saved, cookie, allowed) => (allowed.includes(saved) ? saved : allowed.includes(cookie) ? cookie : allowed[0]);
   const lang = pick(req.user?.language, cookies.lang, LANGS);
   const size = pick(req.user?.text_size, cookies.size, SIZES);

@@ -63,3 +63,19 @@ test('the home page lists what members get as plain text, and the demo note poin
   assert.doesNotMatch(res.text, /<div class="card"><h2>📇/, 'no boxes that look like tabs');
   assert.match(res.text, /try it as a member, or &#34;Committee &amp; volunteer sign-in&#34; at the bottom of the page/);
 });
+
+test('resetting the demo puts every browser back to dark, English, normal text', async () => {
+  const phone = new t.Client(); // e.g. the presenter's phone, signed out, set to Light + Gujarati
+  await phone.get('/prefs?theme=light&lang=gu&size=large&back=/');
+  assert.match((await phone.get('/login')).text, /<html lang="gu" class="size-large" data-theme="light">/);
+
+  const admin = await t.adminLogin('admin@example.com', 'demo1234');
+  await admin.get('/prefs?theme=light&back=/admin');
+  await admin.post('/admin/demo/reset');
+  assert.match((await admin.get('/admin')).text, /data-theme="dark"/);
+  assert.match((await phone.get('/login')).text, /<html lang="en" class="size-normal" data-theme="dark">/);
+
+  // Choices made after the reset stick as usual.
+  await phone.get('/prefs?theme=light&back=/');
+  assert.match((await phone.get('/login')).text, /data-theme="light"/);
+});
