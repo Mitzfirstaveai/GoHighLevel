@@ -365,6 +365,7 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   const canChange = mine && rsvp.status !== 'cancelled' && !rsvp.checked_in_at && svc.rsvpWindowOpen(event);
   res.render('member/ticket', {
     title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl, event, mine, canChange, prices: rsvpPrices(event),
+    ticketCode: rsvp.qr_token ? svc.shortCode(rsvp.qr_token) : null,
     names: svc.attendeeNames(db, rsvp),
     people: canChange ? svc.eventPeople(db, event, req.user.id) : [],
   });

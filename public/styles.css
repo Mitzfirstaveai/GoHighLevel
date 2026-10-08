@@ -614,3 +614,6 @@ body.admin-mode .menu-compact a { padding: 5px 9px; gap: 5px; }
 }
 /* Buttons inside tables keep their label on one line ("Check in", not "Check / in"). */
 td .btn { white-space: nowrap; }
+/* Short code under the QR code: easy to read out or type at the door. */
+.ticket-code { margin: 6px 0 0; color: var(--muted); }
+.ticket-code strong { color: var(--text); font-size: 1.35rem; letter-spacing: .12em; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }

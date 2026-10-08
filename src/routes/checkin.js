@@ -72,9 +72,14 @@ router.get('/', (req, res) => {
   res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers });
 });
 
-// Manual entry: accept either a bare token or a pasted ticket URL.
+// Manual entry: the short code under the QR code (K7Q-3MX), a bare token or a pasted ticket link.
 router.post('/lookup', (req, res) => {
   const raw = String(req.body.code || '').trim();
+  if (raw.replace(/[\s-]/g, '').length === 6) {
+    const found = svc.findTokenByShortCode(req.app.locals.db, raw, { today: nowLocal().slice(0, 10), days: SEARCH_DAYS });
+    if (!found) throw new svc.UserError('No ticket with code {code} for this week\'s events. Check the code, or find the family by name.', { code: raw.toUpperCase() });
+    return res.redirect(`/admin/checkin/${found}`);
+  }
   const token = raw.split('/').filter(Boolean).pop() || '';
   if (!TOKEN.test(token)) throw new svc.UserError('That does not look like a valid ticket code.');
   res.redirect(`/admin/checkin/${token}`);

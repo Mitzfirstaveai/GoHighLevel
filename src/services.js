@@ -672,6 +672,29 @@ function confirmRsvpIfPaid(db, rsvpId) {
 
 // ---------- Check-in ----------
 
+// A short code printed under the QR code, for volunteers to type when the code won't scan: "K7Q-3MX".
+// Letters and digits that can't be mixed up (no 0/O, 1/I/L). It comes from the QR token, so a new
+// QR code (after changing who's coming) also gets a new short code and the old one stops working.
+const SHORT_CODE_LETTERS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function shortCode(token) {
+  const bytes = crypto.createHash('sha256').update(String(token)).digest();
+  const s = [...bytes.subarray(0, 6)].map((b) => SHORT_CODE_LETTERS[b % SHORT_CODE_LETTERS.length]).join('');
+  return `${s.slice(0, 3)}-${s.slice(3)}`;
+}
+
+// The QR token (current or replaced) whose short code matches, among tickets for events from
+// yesterday through the next `days` days. Returns null if none, or if two tickets share the code.
+function findTokenByShortCode(db, code, { today, days }) {
+  const wanted = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z0-9]{6}$/.test(wanted)) return null;
+  const window = `substr(e.starts_at, 1, 10) BETWEEN date(:today, '-1 day') AND date(:today, '+' || :days || ' days')`;
+  const tokens = [
+    ...db.prepare(`SELECT r.qr_token AS token FROM rsvps r JOIN events e ON e.id = r.event_id WHERE r.qr_token IS NOT NULL AND ${window}`).all({ today, days }),
+    ...db.prepare(`SELECT t.token FROM retired_qr_tokens t JOIN rsvps r ON r.id = t.rsvp_id JOIN events e ON e.id = r.event_id WHERE ${window}`).all({ today, days }),
+  ].map((r) => r.token).filter((t) => shortCode(t).replace('-', '') === wanted);
+  return tokens.length === 1 ? tokens[0] : null;
+}
+
 function findRsvpByToken(db, token) {
   return db.prepare(`
     SELECT r.*, e.title AS event_title, e.starts_at, e.fee_cents,
@@ -952,6 +975,6 @@ module.exports = {
   eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,
-  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, checkIn,
+  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, shortCode, findTokenByShortCode, checkIn,
   createPayment, createEventPayment, createMembershipPayment, markPaymentPaid, campaignProgress, createDonationPayment,
 };

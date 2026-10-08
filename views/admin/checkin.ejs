@@ -59,9 +59,11 @@
   <summary><strong><%= t('Type a ticket code instead') %></strong></summary>
   <form method="post" action="/admin/checkin/lookup" class="actions" style="margin-top:12px">
     <%- include('../partials/csrf') %>
-    <input name="code" placeholder="<%= t('Ticket code or link') %>" aria-label="<%= t('Ticket code or link') %>" style="flex:1;min-width:200px" required>
+    <input name="code" placeholder="<%= t('Ticket code, e.g. K7Q-3MX') %>" aria-label="<%= t('Ticket code') %>" style="flex:1;min-width:200px" required
+      autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="btn secondary"><%= t('Look up') %></button>
   </form>
+  <p class="muted small"><%= t('The ticket code is printed under the QR code on the member\'s ticket.') %></p>
   <p class="muted small"><%= t("Tip: members' QR codes are links — you can also scan them with your phone's regular camera app while signed in here.") %></p>
 </details>
 

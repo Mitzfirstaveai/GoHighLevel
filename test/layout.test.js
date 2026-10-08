@@ -47,3 +47,32 @@ test('the phone bottom bar uses the top menu names and includes Donate', async (
   const more = (await m.get('/more')).text;
   assert.doesNotMatch(more.slice(more.indexOf('<main'), more.indexOf('</main>')), /href="\/donate"/);
 });
+
+test('tickets show a short code the door can type when the QR code will not scan', async () => {
+  const { shortCode } = require('../src/services');
+  const eventId = await t.createEvent(admin, { title: 'Sharad Purnima', starts_at: t.futureDate(2) });
+  const m = await t.register('shortcode@test.org', 'Short', 3);
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '4' });
+  const before = t.rsvpFor(eventId, 'shortcode@test.org');
+  const code = shortCode(before.qr_token);
+  assert.match(code, /^[2-9A-HJKMNP-Z]{3}-[2-9A-HJKMNP-Z]{3}$/, 'no 0/O or 1/I/L');
+  assert.match((await m.get(`/tickets/${before.id}`)).text, new RegExp(`<p class="ticket-code">Ticket code <strong>${code}</strong></p>`));
+
+  // Typed at the door: any case, with or without the dash.
+  for (const typed of [code, code.toLowerCase(), code.replace('-', ''), ` ${code.replace('-', ' ')} `]) {
+    const res = await admin.post('/admin/checkin/lookup', { code: typed });
+    assert.equal(res.location, `/admin/checkin/${before.qr_token}`, typed);
+  }
+
+  // Changing who's coming gives a new QR code and a new short code; the old one shows as replaced.
+  await m.post(`/events/${eventId}/rsvp`, { party_size: '2' });
+  const after = t.rsvpFor(eventId, 'shortcode@test.org');
+  assert.notEqual(shortCode(after.qr_token), code);
+  let res = await admin.follow(await admin.post('/admin/checkin/lookup', { code }));
+  assert.match(res.text, /Old QR code — replaced/);
+  res = await admin.post('/admin/checkin/lookup', { code: shortCode(after.qr_token) });
+  assert.equal(res.location, `/admin/checkin/${after.qr_token}`);
+
+  res = await admin.follow(await admin.post('/admin/checkin/lookup', { code: 'ZZZ-ZZZ' }));
+  assert.match(res.text, /No ticket with code ZZZ-ZZZ for this week&#39;s events/);
+});
