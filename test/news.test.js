@@ -259,14 +259,14 @@ test('home headlines take turns between sources instead of five from one paper',
   for (const id of wasOn) db.prepare('UPDATE news_sources SET enabled = 1 WHERE id = ?').run(id);
 });
 
-test('display settings sit at the bottom of Profile and More; Profile has no second Sign out', async () => {
+test('display settings sit at the bottom of Profile only; Profile has no second Sign out', async () => {
   const m = await t.register('settings@test.org', 'Settings');
   const profile = (await m.get('/profile')).text;
   const main = profile.slice(profile.indexOf('<main'), profile.indexOf('</main>'));
   assert.ok(main.indexOf('id="display"') > main.indexOf('Change password'), 'after Change password');
   assert.doesNotMatch(main, /action="\/logout"/, 'Sign out only in the header');
   const more = (await m.get('/more')).text;
-  assert.ok(more.indexOf('id="display"') > more.indexOf('Contact us'), 'after the About GSA links');
+  assert.doesNotMatch(more, /id="display"/, 'not repeated on More (the header buttons cover everyday switching)');
 });
 
 test('donate: a General fund box, and "Give to this fund" picks the fund in the form', async () => {

@@ -14,7 +14,6 @@
   <a href="/sponsors"><%- include('../partials/icon', { name: 'star' }) %><%= t('Sponsors') %></a>
   <a href="/contact"><%- include('../partials/icon', { name: 'phone' }) %><%= t('Contact us') %></a>
 </div>
-<%- include('../partials/display-settings') %>
 <form method="post" action="/logout" class="card menu-list"><%- include('../partials/csrf') %>
   <button><%- include('../partials/icon', { name: 'logout' }) %><%= t('Sign out') %></button>
 </form>
