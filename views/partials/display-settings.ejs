@@ -1,5 +1,5 @@
 <div class="card" id="display">
-  <h2><%= t('Language and text size') %></h2>
+  <h2><%= t('Language, text size and colors') %></h2>
   <div class="choice-row" role="group" aria-label="<%= t('Language') %>">
     <a class="choice <%= lang === 'gu' ? 'on' : '' %>" lang="gu" href="/prefs?lang=gu&back=<%= encodeURIComponent(url) %>">ગુજરાતી</a>
     <a class="choice <%= lang === 'en' ? 'on' : '' %>" lang="en" href="/prefs?lang=en&back=<%= encodeURIComponent(url) %>">English</a>
@@ -7,6 +7,11 @@
   <div class="choice-row" role="group" aria-label="<%= t('Text size') %>">
     <% for (const [size, label, scale] of [['normal', 'Normal', 1], ['large', 'Large', 1.15], ['xlarge', 'Extra large', 1.3]]) { %>
       <a class="choice <%= textSize === size ? 'on' : '' %>" href="/prefs?size=<%= size %>&back=<%= encodeURIComponent(url) %>"><span style="font-size:<%= scale %>em">A</span> <%= t(label) %></a>
+    <% } %>
+  </div>
+  <div class="choice-row" role="group" aria-label="<%= t('Colors') %>">
+    <% for (const [value, label, icon] of [['auto', 'Same as my phone', null], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']]) { %>
+      <a class="choice <%= theme === value ? 'on' : '' %>" href="/prefs?theme=<%= value %>&back=<%= encodeURIComponent(url) %>"><% if (icon) { %><%- include('icon', { name: icon }) %><% } %><%= t(label) %></a>
     <% } %>
   </div>
   <p class="muted small" style="margin-bottom:0"><%= t('Your choice is saved, so the app opens this way next time.') %></p>

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   source TEXT NOT NULL DEFAULT 'signup',  -- signup | admin | import
   language TEXT,                          -- 'en' | 'gu' (display preference)
   text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
+  theme TEXT,                             -- 'auto' (follow the phone) | 'light' | 'dark'
   checkin_access INTEGER NOT NULL DEFAULT 0, -- door volunteer: may use the check-in scanner
   -- Family login: a spouse/child/parent with their own sign-in, covered by this member's membership.
   owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -243,7 +244,7 @@ CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_kind ON payments(kind, status);
 `;
 
-const SCHEMA_VERSION = 8; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links
+const SCHEMA_VERSION = 9; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
@@ -259,6 +260,7 @@ const MIGRATIONS = {
     'ALTER TABLE household_members ADD COLUMN invite_token TEXT',
     'ALTER TABLE household_members ADD COLUMN invite_expires TEXT',
   ],
+  9: ['ALTER TABLE users ADD COLUMN theme TEXT'],
   3: [
     'ALTER TABLE users ADD COLUMN language TEXT',
     'ALTER TABLE users ADD COLUMN text_size TEXT',

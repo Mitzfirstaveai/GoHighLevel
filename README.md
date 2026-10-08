@@ -10,6 +10,9 @@ Organization details (About, Committee, Sponsors, Contact) live in `src/content.
   vision, event names and descriptions, and news can all be shown in Gujarati.
 - **Text size button (A+)** with Normal / Large / Extra large, also saved per member. Larger default text, darker grey
   text for contrast, and large buttons and tap targets throughout — designed with older members in mind.
+- **Light/dark button** (moon/sun) next to A+ for members, admins, door volunteers and visitors. Until someone picks,
+  the app follows their phone's own light/dark setting; their choice is then saved (on the profile when signed in,
+  on the device otherwise). *More → Language, text size and colors* also offers "Same as my phone".
 - Gujarati dictionary: `src/locales/gu.js` (please have a native speaker on the committee review it). Gujarati event
   and news text is entered by admins in the optional "Gujarati version" fields; the Gujarati About page is edited in
   **Admin → Website**. The admin area itself stays in English.
@@ -65,7 +68,7 @@ Other sample members use the password `demo1234`.
 
 **As a member (best shown on a phone)**
 1. Tap **ગુજરાતી** at the top — the whole member app switches to Gujarati. Tap **A+** to make the text bigger.
-   (Also under *More → Language and text size*.)
+   Tap the moon/sun button to switch between dark and light colors. (Also under *More → Language, text size and colors*.)
 2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
 3. *Tickets*: the Navratri Garba #1 QR ticket for Priya, Diya and Aarav — the names are on the ticket (and shown at the
    door). Tap **Change who's coming** to add or remove someone; a new QR code replaces the old one.

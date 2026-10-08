@@ -1,4 +1,4 @@
-// Language (English / Gujarati) and text-size preferences, plus the t() translation helper.
+// Language (English / Gujarati), text-size and light/dark preferences, plus the t() translation helper.
 // English text is the key; src/locales/gu.js maps it to Gujarati. Anything without a
 // translation falls back to English, and is recorded in `missing` so tests can catch gaps.
 const gu = require('./locales/gu');
@@ -6,6 +6,8 @@ const { formatDateTime, localDate } = require('./util');
 
 const LANGS = ['en', 'gu'];
 const SIZES = ['normal', 'large', 'xlarge'];
+// 'auto' follows the phone or computer's own light/dark setting.
+const THEMES = ['auto', 'light', 'dark'];
 const missing = new Set();
 
 // "a, b and c" — list values are passed as { list: [...] } so each part can be translated.
@@ -48,14 +50,16 @@ function i18nMiddleware(req, res, next) {
   const pick = (saved, cookie, allowed) => (allowed.includes(saved) ? saved : allowed.includes(cookie) ? cookie : allowed[0]);
   const lang = pick(req.user?.language, cookies.lang, LANGS);
   const size = pick(req.user?.text_size, cookies.size, SIZES);
+  const theme = pick(req.user?.theme, cookies.theme, THEMES);
   // Keep the cookie in step with the profile, so the choice survives signing out on this phone.
   if (cookies.lang !== lang) res.cookie('lang', lang, COOKIE);
   if (cookies.size !== size) res.cookie('size', size, COOKIE);
+  if ((cookies.theme || 'auto') !== theme) res.cookie('theme', theme, COOKIE);
   const t = translator(lang);
   req.t = t;
   req.lang = lang;
   Object.assign(res.locals, {
-    t, lang, textSize: size,
+    t, lang, textSize: size, theme,
     fmtDate: (value) => formatDateTime(value, lang === 'gu' ? 'gu-IN' : 'en-US'),
     // Date only, in local time, for stored timestamps (paid at, posted at, joined…).
     fmtDay: (value) => formatDateTime(localDate(value), lang === 'gu' ? 'gu-IN' : 'en-US'),
@@ -66,15 +70,17 @@ function i18nMiddleware(req, res, next) {
   next();
 }
 
-// GET /prefs?lang=gu or ?size=large (or size=next to cycle), then back to the page.
+// GET /prefs?lang=gu, ?size=large (or size=next to cycle) or ?theme=dark, then back to the page.
 function prefsRoute(db) {
   return (req, res) => {
     const updates = {};
     if (LANGS.includes(req.query.lang)) updates.language = req.query.lang;
     if (req.query.size === 'next') updates.text_size = SIZES[(SIZES.indexOf(res.locals.textSize) + 1) % SIZES.length];
     else if (SIZES.includes(req.query.size)) updates.text_size = req.query.size;
+    if (THEMES.includes(req.query.theme)) updates.theme = req.query.theme;
     if (updates.language) res.cookie('lang', updates.language, COOKIE);
     if (updates.text_size) res.cookie('size', updates.text_size, COOKIE);
+    if (updates.theme) res.cookie('theme', updates.theme, COOKIE);
     if (req.user && Object.keys(updates).length) {
       db.prepare(`UPDATE users SET ${Object.keys(updates).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
         .run(...Object.values(updates), req.user.id);
@@ -84,4 +90,4 @@ function prefsRoute(db) {
   };
 }
 
-module.exports = { LANGS, SIZES, translator, i18nMiddleware, prefsRoute, missing, interpolate, formatList };
+module.exports = { LANGS, SIZES, THEMES, translator, i18nMiddleware, prefsRoute, missing, interpolate, formatList };

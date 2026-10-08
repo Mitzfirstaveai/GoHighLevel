@@ -20,14 +20,45 @@
   --radius: 14px;
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.04);
 }
+/* Dark colors: used when the phone is in dark mode (unless the member chose Light), or when the member chose Dark.
+   The member's choice is saved on their profile and sets data-theme on <html>. */
+:root { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #171513; --surface: #221f1c; --text: #f3eee8; --muted: #cfc5bb; --border: #37312c;
     --brand: #F08A30; --brand-dark: #ffa65a; --brand-soft: #3a2614; --ok: #7dd477; --ok-bg: #1a3319;
     --warn: #f2c96b; --warn-bg: #3a2e12; --err: #ff8f86; --err-bg: #3d1a17; --info-bg: #1c2a3d;
+    --series-1: #D9702A; --series-2: #3987e5; --chart-grid: #383835; --chart-ink: #c3c2b7;
   }
-  .btn { color: #1a1310 !important; }
-  .btn.secondary { color: var(--brand) !important; }
+:root:not([data-theme="light"]) .btn { color: #1a1310 !important; }
+:root:not([data-theme="light"]) .btn.secondary { color: var(--brand) !important; }
+:root:not([data-theme="light"]) .menu-band a.active, :root:not([data-theme="light"]) .tile.primary, :root:not([data-theme="light"]) .tile.primary .icon, :root:not([data-theme="light"]) .tile.primary small { color: #1a1310; }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171513; --surface: #221f1c; --text: #f3eee8; --muted: #cfc5bb; --border: #37312c;
+    --brand: #F08A30; --brand-dark: #ffa65a; --brand-soft: #3a2614; --ok: #7dd477; --ok-bg: #1a3319;
+    --warn: #f2c96b; --warn-bg: #3a2e12; --err: #ff8f86; --err-bg: #3d1a17; --info-bg: #1c2a3d;
+    --series-1: #D9702A; --series-2: #3987e5; --chart-grid: #383835; --chart-ink: #c3c2b7;
+}
+:root[data-theme="dark"] .btn { color: #1a1310 !important; }
+:root[data-theme="dark"] .btn.secondary { color: var(--brand) !important; }
+:root[data-theme="dark"] .menu-band a.active, :root[data-theme="dark"] .tile.primary, :root[data-theme="dark"] .tile.primary .icon, :root[data-theme="dark"] .tile.primary small { color: #1a1310; }
+/* The light/dark button shows the switch away from the colors on screen. */
+.theme-btn { gap: 6px; }
+.theme-btn .icon { width: 20px; height: 20px; }
+.theme-btn.to-light { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme-btn.to-dark { display: none; } :root:not([data-theme="light"]) .theme-btn.to-light { display: inline-flex; } }
+:root[data-theme="dark"] .theme-btn.to-dark { display: none; }
+:root[data-theme="dark"] .theme-btn.to-light { display: inline-flex; }
+/* Phones: moon/sun icon only (its name is read out by screen readers), and slimmer header buttons. */
+@media (max-width: 520px) { .theme-word { display: none; } .theme-btn { padding: 4px 8px; } }
+@media (max-width: 400px) {
+  .prefs { gap: 4px; } .pref-btn { padding: 4px 8px; } .topbar .inner { gap: 8px; padding: 8px 10px; }
+  /* Narrow phones: header buttons stay at the normal size (the page itself keeps the chosen text size). */
+  .topbar .pref-btn { font-size: min(1rem, 17px); }
+  .brand img { width: 38px; height: 38px; }
 }
 * { box-sizing: border-box; }
 body {
@@ -78,7 +109,6 @@ h2 { font-size: 1.2rem; }
 .menu-band a:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
 .menu-band a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .menu-band a.active .icon { color: inherit; }
-@media (prefers-color-scheme: dark) { .menu-band a.active { color: #1a1310; } }
 /* Members: all nine in one row on a computer; two rows on narrower screens or with extra-large text. */
 .member-menu { --cols: 9; }
 @media (max-width: 1040px) { .member-menu { --cols: 5; } }
@@ -126,11 +156,12 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
 .grid { display: grid; gap: 16px; }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 16px; }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.grid > * { min-width: 0; } /* wide tables scroll inside their card instead of widening the page */
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); margin-bottom: 16px; }
+.stat { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
 .stat .label { color: var(--muted); font-size: .85rem; }
-.stat .value { font-size: 1.6rem; font-weight: 700; }
+.stat .value { font-size: 1.6rem; font-weight: 700; overflow-wrap: anywhere; }
 
 .flash { padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; }
 .flash.success { background: var(--ok-bg); color: var(--ok); }
@@ -201,7 +232,6 @@ tr.dim td { opacity: .55; }
 .scanner-card #scan-status { margin: 10px 0 6px; }
 .demo-banner { background: var(--warn-bg); color: var(--warn); text-align: center; padding: 6px; font-size: .85rem; }
 @media print { .topbar, .tabbar, .subnav, .site-footer, .demo-banner, .no-print { display: none !important; } }
-@media (prefers-color-scheme: dark) { .tile.primary, .tile.primary .icon, .tile.primary small { color: #1a1310; } }
 @media (max-width: 420px) { .brand span { font-size: .95rem; } }
 .demo-login { background: var(--brand-soft); border-radius: 10px; padding: 12px; margin: 14px 0; }
 .pills { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; scrollbar-width: none; }
@@ -271,7 +301,6 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 @media (max-width: 600px) { .calendar .day { min-height: 60px; } .cal-event { white-space: normal; font-size: .65rem; } }
 /* ---------- Charts (palette validated for CVD + contrast in light and dark) ---------- */
 :root { --series-1: #C8650F; --series-2: #2a78d6; --chart-grid: #ecebe7; --chart-ink: #52514e; }
-@media (prefers-color-scheme: dark) { :root { --series-1: #D9702A; --series-2: #3987e5; --chart-grid: #383835; --chart-ink: #c3c2b7; } }
 .chart { margin: 0; }
 .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 .chart .grid { stroke: var(--chart-grid); stroke-width: 1; }

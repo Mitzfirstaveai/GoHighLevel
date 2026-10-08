@@ -55,6 +55,40 @@ test('text size setting is saved and applied', async () => {
   assert.equal(res.location, '/');
 });
 
+test('light/dark choice: follows the phone until chosen, then saved for members, admins, volunteers and visitors', async () => {
+  const c = await signIn('raj.desai@example.com');
+  let res = await c.get('/dashboard');
+  assert.doesNotMatch(res.text, /data-theme=/, 'no choice yet: the phone decides');
+  // Both switches are sent; the stylesheet shows the one that fits the colors on screen.
+  assert.match(res.text, /class="pref-btn theme-btn to-dark" href="\/prefs\?theme=dark/);
+  assert.match(res.text, /class="pref-btn theme-btn to-light" href="\/prefs\?theme=light/);
+  await c.get('/prefs?theme=dark&back=/dashboard');
+  assert.match((await c.get('/dashboard')).text, /<html lang="en" class="size-normal" data-theme="dark">/);
+  assert.equal(t.db.prepare(`SELECT theme FROM users WHERE email = 'raj.desai@example.com'`).get().theme, 'dark');
+  // The Profile settings offer the three choices, with the current one ticked.
+  res = await c.get('/profile');
+  assert.match(res.text, /class="choice on" href="\/prefs\?theme=dark/);
+  assert.match(res.text, /href="\/prefs\?theme=auto[^"]*">Same as my phone/);
+  await c.get('/prefs?theme=nonsense&back=/dashboard'); // ignored
+  assert.match((await c.get('/dashboard')).text, /data-theme="dark"/);
+  await c.get('/prefs?theme=auto&back=/dashboard');
+  assert.doesNotMatch((await c.get('/dashboard')).text, /data-theme=/);
+
+  // Admin area and door check-in have the switch too.
+  const admin = await t.adminLogin('admin@example.com', 'demo1234');
+  res = await admin.get('/admin');
+  assert.match(res.text, /theme-btn to-dark/);
+  await admin.get('/prefs?theme=light&back=/admin');
+  assert.match((await admin.get('/admin/members')).text, /data-theme="light"/);
+  await admin.get('/prefs?theme=auto&back=/admin');
+
+  // Visitors (e.g. the committee & volunteer sign-in page) keep their choice in a cookie.
+  const v = new t.Client();
+  assert.match((await v.get('/admin/login')).text, /theme-btn to-light/);
+  await v.get('/prefs?theme=light&back=/admin/login');
+  assert.match((await v.get('/admin/login')).text, /data-theme="light"/);
+});
+
 test('visitors can switch language before signing in', async () => {
   const c = new t.Client();
   await c.get('/prefs?lang=gu&back=/');

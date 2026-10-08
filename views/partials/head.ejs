@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="<%= lang %>" class="size-<%= textSize %>">
+<html lang="<%= lang %>" class="size-<%= textSize %>"<% if (theme !== 'auto') { %> data-theme="<%= theme %>"<% } %>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -67,6 +67,10 @@
     <div class="prefs">
       <a class="pref-btn lang-btn" href="/prefs?lang=<%= lang === 'gu' ? 'en' : 'gu' %>&back=<%= back %>" lang="<%= lang === 'gu' ? 'en' : 'gu' %>"
          title="<%= lang === 'gu' ? 'Read in English' : 'ગુજરાતીમાં વાંચો' %>"><%= lang === 'gu' ? 'English' : 'ગુજરાતી' %></a>
+      <%# Light/dark: both buttons are sent and the stylesheet shows the one that switches away from the colors on screen
+          (with no choice saved yet, that depends on the phone's own setting, which only the browser knows). %>
+      <a class="pref-btn theme-btn to-dark" href="/prefs?theme=dark&back=<%= back %>" title="<%= t('Dark mode') %>" aria-label="<%= t('Dark mode') %>"><%- include('icon', { name: 'moon' }) %><span class="theme-word"><%= t('Dark') %></span></a>
+      <a class="pref-btn theme-btn to-light" href="/prefs?theme=light&back=<%= back %>" title="<%= t('Light mode') %>" aria-label="<%= t('Light mode') %>"><%- include('icon', { name: 'sun' }) %><span class="theme-word"><%= t('Light') %></span></a>
       <a class="pref-btn size-btn" href="/prefs?size=next&back=<%= back %>" title="<%= t(sizeLabels[textSize]) %>" aria-label="<%= t(sizeLabels[textSize]) %> — <%= t('tap to change') %>">A<span class="size-plus"><%= textSize === 'normal' ? '+' : textSize === 'large' ? '++' : '−' %></span></a>
       <% if (doorMode || adminMode) { %>
         <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pref-btn"><%= t('Sign out') %></button></form>
