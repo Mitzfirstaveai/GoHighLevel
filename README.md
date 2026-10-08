@@ -113,7 +113,8 @@ tickets; that member app has no Admin link and no access to other families' tick
    tickets that still owe money send the family to a committee member.
 2. **Sign out** returns to the committee & volunteer sign-in, ready for the next volunteer.
 3. The same person signing in on the normal member sign-in gets their ordinary member app — no check-in anywhere.
-4. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer**. Remove them from the same
+4. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer** (this also adds their
+   Volunteer tag; turning door access off later keeps the tag). Remove them from the same
    place or from the list on the Check-in page.
 
 ## Adding Stripe later

@@ -199,12 +199,20 @@ test('door access needs an email, and can be turned off again', async () => {
 
   await t.register('temp@test.org', 'Temp');
   const tempId = userId('temp@test.org');
+  t.db.prepare(`UPDATE users SET tags = 'Donor' WHERE id = ?`).run(tempId);
   await admin.post(`/admin/members/${tempId}/checkin-access`, { access: '1' });
+  // Door volunteers are tagged Volunteer automatically, keeping their other tags.
+  const tags = () => t.db.prepare('SELECT tags FROM users WHERE id = ?').get(tempId).tags;
+  assert.equal(tags(), 'Donor,Volunteer');
   const temp = await doorLogin('temp@test.org');
   assert.equal((await temp.get('/admin/checkin')).status, 200);
   res = await admin.post(`/admin/members/${tempId}/checkin-access`, { access: '0', return_to: '/admin/checkin' });
   assert.equal(res.location, '/admin/checkin');
   assert.equal((await temp.get('/admin/checkin')).status, 403);
+  assert.equal(tags(), 'Donor,Volunteer', 'turning door access off keeps the Volunteer tag');
+  await admin.post(`/admin/members/${tempId}/checkin-access`, { access: '1' });
+  assert.equal(tags(), 'Donor,Volunteer', 'no duplicate tag');
+  await admin.post(`/admin/members/${tempId}/checkin-access`, { access: '0' });
   // A volunteer can't give anyone else access.
   res = await volunteer.post(`/admin/members/${tempId}/checkin-access`, { access: '1' });
   assert.equal(res.location, '/admin/checkin');

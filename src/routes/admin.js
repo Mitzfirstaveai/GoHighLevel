@@ -194,11 +194,14 @@ router.post('/members/:id/role', (req, res) => {
 // Door volunteers can use the check-in scanner (and nothing else in the admin area).
 router.post('/members/:id/checkin-access', (req, res) => {
   const { db } = req.app.locals;
-  const contact = db.prepare('SELECT email, password_hash FROM users WHERE id = ?').get(req.params.id);
+  const contact = db.prepare('SELECT email, password_hash, tags FROM users WHERE id = ?').get(req.params.id);
   if (!contact) return notFound(res, 'Member');
   const grant = req.body.access === '1';
   if (grant && !contact.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
-  db.prepare('UPDATE users SET checkin_access = ? WHERE id = ?').run(grant ? 1 : 0, req.params.id);
+  // Door volunteers are also tagged Volunteer, so they show up when filtering contacts by that tag.
+  // Turning door access off leaves the tag: they may still volunteer in other ways.
+  const tags = grant ? cleanTags([...contact.tags.split(','), 'Volunteer']) : contact.tags;
+  db.prepare('UPDATE users SET checkin_access = ?, tags = ? WHERE id = ?').run(grant ? 1 : 0, tags, req.params.id);
   req.flash('success', grant
     ? `Door check-in turned on. They sign in at Committee & volunteer sign-in (link on the sign-in page) to open check-in.${contact.password_hash ? '' : ' They have no app login yet — use "Create app login" below.'}`
     : 'Door check-in turned off.');
