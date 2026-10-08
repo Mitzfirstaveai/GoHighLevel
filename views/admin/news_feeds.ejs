@@ -13,7 +13,7 @@
     <details class="feed-source">
       <summary>
         <strong><%= s.name %></strong>
-        <span class="badge neutral"><%= s.lang === 'gu' ? 'Gujarati' : 'English' %> · <%= s.topic %></span>
+        <span class="badge neutral"><%= { gu: 'Gujarati', en: 'English', both: 'Gujarati & English' }[s.lang] %> · <%= s.topic %></span>
         <% if (!s.enabled) { %><span class="badge neutral">Switched off</span>
         <% } else if (s.last_error) { %><span class="badge err">Not working</span>
         <% } else if (s.last_ok_at) { %><span class="badge ok">Working · <%= s.item_count %> headline<%= s.item_count === 1 ? '' : 's' %></span>
@@ -42,7 +42,8 @@
   <h2>Add a news source</h2>
   <p class="muted small">Use the site's <strong>RSS feed</strong> address. Most newspapers list it on a page called "RSS" (often linked at the bottom of
     their website); it usually ends in <code>/feed</code>, <code>.rss</code> or <code>.xml</code>. Choose a Gujarat or India section rather than the
-    whole paper, so world and US politics stay out. The app checks the address as soon as you add it.</p>
+    whole paper, so world and US politics stay out. If the site mixes Gujarati and English stories, choose <strong>Both</strong>: each headline is
+    then shown to members reading in its language. The app checks the address as soon as you add it.</p>
   <form method="post" action="/admin/news/feeds" class="stack">
     <%- include('../partials/csrf') %>
     <%- include('news_source_fields', { s: { name: '', url: '', lang: 'gu', topic: 'Gujarat' }, topics }) %>

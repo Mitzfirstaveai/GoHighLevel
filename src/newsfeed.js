@@ -4,7 +4,10 @@
 const { getContent } = require('./site');
 
 // Topics members can filter by. The committee picks one for each source.
-const TOPICS = ['Gujarat', 'India', 'Cricket & sports', 'Culture & faith', 'Health & lifestyle', 'Business'];
+const TOPICS = ['Gujarat', 'India', 'Cricket & sports', 'Culture & faith', 'Food & recipes', 'Health & lifestyle', 'Business'];
+
+// A source's language: Gujarati, English, or both (a feed that mixes them, like some Gujarat news sites).
+const LANGS = ['gu', 'en', 'both'];
 
 // Suggested starting sources. The committee can switch them off, remove them or add others (for example a
 // Gujarati newspaper's feed) on the admin News page, where "Check now" shows whether each one works.
@@ -161,25 +164,30 @@ function filterWords(db) {
   return Array.isArray(words) ? words : [];
 }
 
-// Stories members can see, newest first: enabled sources, not hidden by the committee, not caught by the filter.
-function visibleNews(db, { lang = '', topic = '', limit = 30, offset = 0 } = {}) {
+// A story's language. For a source that publishes in both, the headline's script decides: any Gujarati letters → Gujarati.
+const storyLang = (sourceLang, title) => (sourceLang !== 'both' ? sourceLang : /[\u0A80-\u0AFF]/.test(title) ? 'gu' : 'en');
+
+// Recent stories members may see: enabled sources, not hidden by the committee, not caught by the filter.
+function shownStories(db, topic = '') {
   const words = filterWords(db);
-  const rows = db.prepare(`
-    SELECT i.*, s.name AS source_name, s.lang, s.topic FROM news_items i JOIN news_sources s ON s.id = i.source_id
-    WHERE s.enabled = 1 AND i.hidden = 0 AND (? = '' OR s.lang = ?) AND (? = '' OR s.topic = ?)
+  return db.prepare(`
+    SELECT i.*, s.name AS source_name, s.lang AS source_lang, s.topic FROM news_items i JOIN news_sources s ON s.id = i.source_id
+    WHERE s.enabled = 1 AND i.hidden = 0 AND (? = '' OR s.topic = ?)
     ORDER BY i.published_at DESC, i.id DESC LIMIT 400
-  `).all(lang, lang, topic, topic);
-  const visible = rows.filter((r) => !filterMatch(r, words));
+  `).all(topic, topic)
+    .filter((r) => !filterMatch(r, words))
+    .map((r) => ({ ...r, lang: storyLang(r.source_lang, r.title) }));
+}
+
+// Stories for the news page, newest first, optionally in one language ('gu' or 'en') and one topic.
+function visibleNews(db, { lang = '', topic = '', limit = 30, offset = 0 } = {}) {
+  const visible = shownStories(db, topic).filter((r) => !lang || r.lang === lang);
   return { items: visible.slice(offset, offset + limit), more: visible.length > offset + limit };
 }
 
 // Topics and languages that currently have stories, for the filter buttons.
 function newsChoices(db) {
-  const words = filterWords(db);
-  const rows = db.prepare(`
-    SELECT i.title, i.summary, s.lang, s.topic FROM news_items i JOIN news_sources s ON s.id = i.source_id
-    WHERE s.enabled = 1 AND i.hidden = 0 ORDER BY i.published_at DESC LIMIT 400
-  `).all().filter((r) => !filterMatch(r, words));
+  const rows = shownStories(db);
   return {
     topics: TOPICS.filter((topic) => rows.some((r) => r.topic === topic)),
     langs: ['gu', 'en'].filter((lang) => rows.some((r) => r.lang === lang)),
@@ -265,6 +273,6 @@ function startNewsRefresh(db, minutes = 60) {
 }
 
 module.exports = {
-  TOPICS, DEFAULT_SOURCES, addDefaultSources, parseFeed, cleanText, safeLink, feedUrlProblem, filterMatch, filterWords,
+  TOPICS, LANGS, DEFAULT_SOURCES, addDefaultSources, parseFeed, cleanText, safeLink, feedUrlProblem, filterMatch, filterWords,
   visibleNews, newsChoices, fetchSource, refreshNews, startNewsRefresh,
 };

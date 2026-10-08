@@ -709,6 +709,7 @@ module.exports = {
   'Cricket & sports': 'ક્રિકેટ અને રમતગમત',
   'Culture & faith': 'સંસ્કૃતિ અને ધર્મ',
   'Health & lifestyle': 'આરોગ્ય અને જીવનશૈલી',
+  'Food & recipes': 'ભોજન અને વાનગીઓ',
   'Business': 'વેપાર-ધંધો',
   'No headlines right now. Please check again later today.': 'અત્યારે કોઈ સમાચાર નથી. કૃપા કરીને આજે થોડી વાર પછી ફરી જુઓ.',
   'Read the full story': 'આખા સમાચાર વાંચો',

@@ -185,3 +185,29 @@ test('announcements show only their date to members; only the committee sees who
   assert.doesNotMatch(res.text, /Admin User|GSA Committee/);
   assert.match((await admin.get('/admin/news')).text, /Diwali volunteers needed[\s\S]*?posted by Admin User/);
 });
+
+test('a source in both languages: each story goes to readers of its own language', async () => {
+  const { db } = t;
+  const MIXED = `<rss><channel>
+    <item><title>Surat diamond market sparkles before Diwali</title><link>https://mixed.example.com/en</link><guid>m-en</guid></item>
+    <item><title>અમદાવાદમાં દિવાળીની તૈયારીઓ</title><link>https://mixed.example.com/gu</link><guid>m-gu</guid></item>
+  </channel></rss>`;
+  const realFetch = global.fetch;
+  global.fetch = (url, opts) => (String(url).startsWith('https://mixed.example.com') ? fakeFetch({ 'https://mixed.example.com/rss': MIXED })(url) : realFetch(url, opts));
+  try {
+    const res = await admin.follow(await admin.post('/admin/news/feeds', { name: 'Mixed paper', url: 'https://mixed.example.com/rss', lang: 'both', topic: 'Food & recipes' }));
+    assert.match(res.text, /Mixed paper: working, 2 headlines found/);
+    assert.match(res.text, /Gujarati &amp; English · Food &amp; recipes/);
+  } finally {
+    global.fetch = realFetch;
+  }
+  const titles = (lang) => newsfeed.visibleNews(db, { lang, topic: 'Food & recipes' }).items.map((i) => i.title);
+  assert.deepEqual(titles('en'), ['Surat diamond market sparkles before Diwali']);
+  assert.deepEqual(titles('gu'), ['અમદાવાદમાં દિવાળીની તૈયારીઓ']);
+  assert.equal(titles('').length, 2);
+  const m = await t.register('foodie@test.org', 'Foodie');
+  const page = await m.get('/news/india?lang=all&topic=Food+%26+recipes');
+  assert.match(page.text, /<h2 lang="gu">અમદાવાદમાં દિવાળીની તૈયારીઓ<\/h2>/);
+  assert.match(page.text, /<h2 lang="en">Surat diamond market/);
+  assert.match(page.text, /class="active">Food &amp; recipes</);
+});

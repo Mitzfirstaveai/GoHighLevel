@@ -500,7 +500,7 @@ function sourceFields(body) {
   if (problem) throw new svc.UserError(problem);
   return {
     name, url,
-    lang: body.lang === 'gu' ? 'gu' : 'en',
+    lang: newsfeed.LANGS.includes(body.lang) ? body.lang : 'en',
     topic: newsfeed.TOPICS.includes(body.topic) ? body.topic : 'India',
   };
 }
