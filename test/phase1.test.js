@@ -272,6 +272,18 @@ test('financial report, QuickBooks export and trends dashboard', async () => {
   assert.equal(res.status, 200);
   assert.match(res.text, /Income by month/);
   assert.match(res.text, /<svg/);
+  // Each breakdown box ends in a total row. The same person also gives to a second fund: counted once in the total.
+  const fund = Number(t.db.prepare(`INSERT INTO campaigns (title) VALUES ('Temple Fund')`).run().lastInsertRowid);
+  t.db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, paid_at, reference_id)
+                VALUES (?, 'donation', 'Donation — Temple Fund', 5000, 'paid', 'check', ?, ?)`).run(uid, `${year}-03-01 12:00:00`, fund);
+  const gifts = t.db.prepare(`SELECT SUM(amount_cents) AS cents, COUNT(DISTINCT user_id) AS donors FROM payments
+    WHERE kind = 'donation' AND status = 'paid' AND substr(datetime(paid_at, 'localtime'), 1, 4) = ?`).get(year);
+  res = await admin.get(`/admin/reports?year=${year}`);
+  const fundsBox = res.text.split('<h2>Donations by fund</h2>')[1].split('</table>')[0];
+  const perFund = [...fundsBox.matchAll(/<tbody>[\s\S]*?<\/tbody>/g)][0][0].matchAll(/(\d+) donors?</g);
+  assert.ok([...perFund].reduce((a, m) => a + Number(m[1]), 0) > gifts.donors, 'a donor to two funds appears under both');
+  const { formatMoney } = require('../src/util');
+  assert.match(fundsBox, new RegExp(`<tfoot><tr><th>Total<div class="muted small">${gifts.donors} donors</div></th><th class="num">\\${formatMoney(gifts.cents)}</th>`));
   res = await admin.get(`/admin/reports/quickbooks.csv?year=${year}`);
   assert.match(res.text, /^Date,Transaction Type,Num,Customer,Item,Memo,Payment Method,Ref No,Amount/);
   assert.match(res.text, new RegExp(`02/10/${year},Sales Receipt,GSA-\\d{6},Test Member,Donations,`));

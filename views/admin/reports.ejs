@@ -22,10 +22,12 @@
 <div class="grid grid-2">
   <div class="card table-wrap"><h2>Event fees by event</h2>
     <table><tbody><% for (const e of events) { %><tr><td><a href="/admin/events/<%= e.id %>"><%= e.title %></a><div class="muted small"><%= fmtDate(e.starts_at.slice(0, 10)) %></div></td><td class="num"><%= money(e.cents) %></td></tr><% } %>
-    <% if (!events.length) { %><tr><td class="muted">No event fees this year.</td></tr><% } %></tbody></table></div>
+    <% if (!events.length) { %><tr><td class="muted">No event fees this year.</td></tr><% } %></tbody>
+    <% if (events.length) { %><tfoot><tr><th>Total<div class="muted small"><%= events.length %> event<%= events.length === 1 ? '' : 's' %></div></th><th class="num"><%= money(eventsTotal) %></th></tr></tfoot><% } %></table></div>
   <div class="card table-wrap"><h2>Donations by fund</h2>
     <table><tbody><% for (const f of funds) { %><tr><td><%= f.title %><div class="muted small"><%= f.donors %> donor<%= f.donors === 1 ? '' : 's' %></div></td><td class="num"><%= money(f.cents) %></td></tr><% } %>
-    <% if (!funds.length) { %><tr><td class="muted">No donations this year.</td></tr><% } %></tbody></table></div>
+    <% if (!funds.length) { %><tr><td class="muted">No donations this year.</td></tr><% } %></tbody>
+    <% if (funds.length) { %><tfoot><tr><th>Total<div class="muted small"><%= donorCount %> donor<%= donorCount === 1 ? '' : 's' %></div></th><th class="num"><%= money(fundsTotal) %></th></tr></tfoot><% } %></table></div>
 </div>
 <p class="muted small">QuickBooks: in QuickBooks Online use <em>Settings → Import data → Sales receipts</em> (or an import app), and map "Item" to your income accounts — Membership dues, Event fees, Donations, Other income.</p>
 <%- include('../partials/foot') %>

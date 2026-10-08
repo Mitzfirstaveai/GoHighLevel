@@ -538,3 +538,6 @@ html { scroll-padding-top: 80px; }
 .tier-community-partner, .tier-sponsors { background: var(--brand-soft); color: var(--brand); }
 a.sponsor { text-decoration: none; color: var(--text); }
 a.sponsor:hover { border-color: var(--brand); color: var(--brand); }
+tfoot th .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+tfoot th { border-top: 2px solid var(--border); border-bottom: 0; }
+tfoot th.num { color: var(--text); font-size: 1rem; letter-spacing: 0; }

@@ -49,8 +49,13 @@ router.get('/reports', (req, res) => {
   const funds = db.prepare(`SELECT COALESCE(c.title, 'General fund') AS title, SUM(p.amount_cents) AS cents, COUNT(DISTINCT p.user_id) AS donors
     FROM payments p LEFT JOIN campaigns c ON c.id = p.reference_id
     WHERE p.kind = 'donation' AND p.status = 'paid' AND substr(datetime(p.paid_at, 'localtime'), 1, 4) = ? GROUP BY p.reference_id ORDER BY cents DESC`).all(year);
+  // A donor who gave to two funds is counted once in the total.
+  const donorCount = db.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM payments
+    WHERE kind = 'donation' AND status = 'paid' AND substr(datetime(paid_at, 'localtime'), 1, 4) = ?`).get(year).n;
+  const sum = (rows) => rows.reduce((a, r) => a + r.cents, 0);
   res.render('admin/reports', {
     title: `Financial report ${year}`, year, years, grid, monthTotals, totals, categories: CATEGORIES, months: MONTHS, events, funds,
+    eventsTotal: sum(events), fundsTotal: sum(funds), donorCount,
     grandTotal: monthTotals.reduce((a, b) => a + b, 0),
     chart: columnChart({
       title: `Income by month, ${year}`, series: ['Income'], format: compactMoney,
