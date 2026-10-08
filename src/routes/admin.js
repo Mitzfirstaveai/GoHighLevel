@@ -5,6 +5,7 @@ const { getContent } = require('../site');
 const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts } = require('../contacts');
 const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
+const { DEMO_ACCOUNTS } = require('../demo');
 const { parseMoney, parseIntInRange, nowLocal, toCsv, localTimestamp } = require('../util');
 
 const router = express.Router();
@@ -182,9 +183,21 @@ router.post('/members/:id', (req, res) => {
   res.redirect(`/admin/members/${req.params.id}`);
 });
 
+// In the demo, the accounts behind the "Admin (committee)" and "Door volunteer" sign-in buttons keep their access,
+// so those buttons always work during a presentation. (Other members can be changed freely to show these features.)
+function guardDemoButton(req, id, breaksButton) {
+  if (!req.app.locals.config.demoMode) return;
+  const email = req.app.locals.db.prepare('SELECT email FROM users WHERE id = ?').get(id)?.email;
+  const account = DEMO_ACCOUNTS.find((a) => a.staff && a.email === email);
+  if (account && breaksButton(account)) {
+    throw new svc.UserError('This person is behind the "{label}" demo sign-in button, so their access stays as it is in the demo. Try it with another member, such as Priya Shah.', { label: account.label });
+  }
+}
+
 router.post('/members/:id/role', (req, res) => {
   const { db } = req.app.locals;
   const role = req.body.role === 'admin' ? 'admin' : 'member';
+  guardDemoButton(req, req.params.id, (account) => (account.door ? role === 'admin' : role !== 'admin'));
   if (Number(req.params.id) === req.user.id && role !== 'admin') throw new svc.UserError('You cannot remove your own admin access.');
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
   req.flash('success', role === 'admin' ? 'Member is now an administrator.' : 'Admin access removed.');
@@ -197,6 +210,7 @@ router.post('/members/:id/checkin-access', (req, res) => {
   const contact = db.prepare('SELECT email, password_hash, tags FROM users WHERE id = ?').get(req.params.id);
   if (!contact) return notFound(res, 'Member');
   const grant = req.body.access === '1';
+  if (!grant) guardDemoButton(req, req.params.id, (account) => account.door);
   if (grant && !contact.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
   // Door volunteers are also tagged Volunteer, so they show up when filtering contacts by that tag.
   // Turning door access off leaves the tag: they may still volunteer in other ways.
