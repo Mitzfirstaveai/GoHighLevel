@@ -273,7 +273,7 @@ tr.dim td { opacity: .55; }
 @media (max-width: 640px) { .door-label { display: none; } }
 body.staff-mode main { padding-bottom: 24px; }
 /* Small phones with big text: the round logo alone leaves room for Sign in / Join or Sign out. */
-@media (max-width: 440px) { .topbar .brand span { display: none; } }
+@media (max-width: 440px) { .topbar .brand span { display: none !important; } } /* logo only: room for the header buttons */
 @media (max-width: 400px) { body:not(.signed-in) .topbar .nav .btn { display: none; } }
 @media (max-width: 760px) {
   body:not(.signed-in) .topbar .brand-full { display: none; }

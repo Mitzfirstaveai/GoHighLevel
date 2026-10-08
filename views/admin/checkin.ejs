@@ -86,7 +86,7 @@
 </div>
 <% } %>
 <script src="/vendor/html5-qrcode-2.3.8.min.js"></script>
-<script src="/checkin.js" data-msgs="<%= JSON.stringify({
+<script src="<%= asset('/checkin.js') %>" data-msgs="<%= JSON.stringify({
   unavailable: t('Camera scanner could not load. Find the family by name or type the code instead.'),
   notTicket: t('That QR code is not a ticket.'),
   opening: t('Found ticket — opening…'),

@@ -56,5 +56,5 @@ Anything we should know?"><%= questionsText %></textarea></label>
   </div>
   <div class="actions"><button class="btn">Save event</button><a href="<%= event.id ? `/admin/events/${event.id}` : '/admin/events' %>">Cancel</a></div>
 </form>
-<script src="/forms.js"></script>
+<script src="<%= asset('/forms.js') %>"></script>
 <%- include('../partials/foot') %>

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Gujarati:wght@400;600;700&display=swap">
   <% } %>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="<%= asset('/styles.css') %>">
 </head>
 <%
   const active = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));

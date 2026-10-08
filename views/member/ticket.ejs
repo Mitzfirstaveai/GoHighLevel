@@ -58,7 +58,7 @@
     <button class="btn big"><%= t('Save changes') %></button>
   </form>
 </div>
-<script src="/forms.js"></script>
+<script src="<%= asset('/forms.js') %>"></script>
 <% } else if (mine && !rsvp.checked_in_at && rsvp.status !== 'cancelled') { %>
   <p class="muted small" style="text-align:center"><%= t('RSVPs are closed for this event, so the ticket can no longer be changed.') %></p>
 <% } %>

@@ -1,4 +1,6 @@
 const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
@@ -41,6 +43,7 @@ function createApp(config) {
     money: (cents) => util.formatMoney(cents, config.currency),
     monthName: util.monthName,
     fmtDate: util.formatDateTime,
+    asset: assetUrl(path.join(__dirname, '..', 'public')),
   });
 
   app.use((req, res, next) => {
@@ -130,6 +133,20 @@ function createApp(config) {
   });
 
   return app;
+}
+
+// Stylesheet and script addresses carry a fingerprint of the file (/styles.css?v=1a2b3c4d), so after an update
+// phones fetch the new file straight away instead of using a copy their browser saved earlier.
+function assetUrl(publicDir) {
+  const versions = new Map();
+  return (file) => {
+    if (!versions.has(file)) {
+      let v = '';
+      try { v = crypto.createHash('sha1').update(fs.readFileSync(path.join(publicDir, file))).digest('hex').slice(0, 10); } catch { /* missing file: plain URL */ }
+      versions.set(file, v);
+    }
+    return versions.get(file) ? `${file}?v=${versions.get(file)}` : file;
+  };
 }
 
 // Redirect target for "go back to the form" that can never leave this site.

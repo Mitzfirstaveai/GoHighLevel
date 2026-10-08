@@ -91,3 +91,15 @@ test('security headers: no embedding, camera only for this site', async () => {
   assert.match(res.headers.get('permissions-policy'), /camera=\(self\)/);
   assert.match(res.headers.get('permissions-policy'), /microphone=\(\)/);
 });
+
+test('stylesheet and script addresses change with the file, so phones never keep an old copy', async () => {
+  const fs = require('node:fs');
+  const crypto = require('node:crypto');
+  const css = fs.readFileSync(require('node:path').join(__dirname, '..', 'public', 'styles.css'));
+  const v = crypto.createHash('sha1').update(css).digest('hex').slice(0, 10);
+  const res = await new t.Client().get('/login');
+  assert.match(res.text, new RegExp(`<link rel="stylesheet" href="/styles\\.css\\?v=${v}">`));
+  assert.match(res.text, /<script src="\/app\.js\?v=[0-9a-f]{10}" defer>/);
+  const file = await fetch(`${t.base}/styles.css?v=${v}`);
+  assert.equal(file.status, 200);
+});
