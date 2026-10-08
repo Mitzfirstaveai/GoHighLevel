@@ -58,6 +58,15 @@ test('tickets show a short code the door can type when the QR code will not scan
   assert.match(code, /^[2-9A-HJKMNP-Z]{3}-[2-9A-HJKMNP-Z]{3}$/, 'no 0/O or 1/I/L');
   assert.match((await m.get(`/tickets/${before.id}`)).text, new RegExp(`<p class="ticket-code">Ticket code <strong>${code}</strong></p>`));
 
+  // The downloaded QR image has the code underneath it too (a 150px band below the 600px QR code).
+  const png = await fetch(`${t.base}/tickets/${before.id}/qr.png`, { headers: { cookie: m.cookie } });
+  assert.equal(png.headers.get('content-type'), 'image/png');
+  const sharp = require('sharp');
+  const img = sharp(Buffer.from(await png.arrayBuffer()));
+  assert.deepEqual([(await img.metadata()).width, (await img.metadata()).height], [600, 750]);
+  const band = await img.extract({ left: 0, top: 640, width: 600, height: 110 }).stats();
+  assert.ok(band.channels[0].min < 50, 'dark code letters drawn below the QR code');
+
   // Typed at the door: any case, with or without the dash.
   for (const typed of [code, code.toLowerCase(), code.replace('-', ''), ` ${code.replace('-', ' ')} `]) {
     const res = await admin.post('/admin/checkin/lookup', { code: typed });

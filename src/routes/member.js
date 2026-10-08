@@ -376,7 +376,8 @@ router.get('/tickets/:id/qr.png', requireAuth, async (req, res) => {
   if (!rsvp || rsvp.status !== 'confirmed') return res.sendStatus(404);
   res.type('png');
   res.set('Content-Disposition', `inline; filename="ticket-${rsvp.id}.png"`);
-  res.send(await QRCode.toBuffer(ticketUrl(req.app.locals.config, rsvp.qr_token), { width: 600, margin: 2 }));
+  // With the short ticket code under the QR code, for the door to type if it won't scan.
+  res.send(await require('../ticketImage').ticketPng(ticketUrl(req.app.locals.config, rsvp.qr_token), svc.shortCode(rsvp.qr_token)));
 });
 
 // ---------- Membership & payments ----------
