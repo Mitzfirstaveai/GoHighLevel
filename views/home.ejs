@@ -8,14 +8,18 @@
     <a class="btn big-touch" href="/register"><%= t('Become a member') %></a>
     <a class="btn secondary big-touch" href="/login"><%= t('Member sign in') %></a>
   </div>
-  <% if (demoMode) { %><p class="small muted" style="margin-top:12px"><%= t('This is a demo site with sample data. Tap "Member sign in" to try it as an admin or a member.') %></p><% } %>
+  <% if (demoMode) { %><p class="small muted" style="max-width:640px;margin:12px auto 0"><%= t('This is a demo site with sample data. Tap "Member sign in" to try it as a member, or "Committee & volunteer sign-in" at the bottom of the page to try the admin or door check-in.') %></p><% } %>
 </section>
-<div class="grid grid-2">
-  <div class="card"><h2>📇 <%= t('Your family profile') %></h2><p class="muted"><%= t('Contact details, address, native place and family members in one place.') %></p></div>
-  <div class="card"><h2>🪔 <%= t('Events & RSVPs') %></h2><p class="muted"><%= t('Garba, Diwali, bhajans, picnics and more — RSVP for your family in seconds.') %></p></div>
-  <div class="card"><h2>🎟️ <%= t('QR check-in') %></h2><p class="muted"><%= t('Show your QR code at the door — no paper lists, no waiting.') %></p></div>
-  <div class="card"><h2>💳 <%= t('Membership dues') %></h2><p class="muted"><%= t('Pay or renew your membership securely online.') %></p></div>
-</div>
+<%# Plain information, not boxes: boxes looked like tabs people tried to tap. %>
+<section class="perks">
+  <h2><%= t('What members get') %></h2>
+  <ul>
+    <li><span class="perk-icon" aria-hidden="true">📇</span><span><strong><%= t('Your family profile') %></strong><br><span class="muted"><%= t('Contact details, address, native place and family members in one place.') %></span></span></li>
+    <li><span class="perk-icon" aria-hidden="true">🪔</span><span><strong><%= t('Events & RSVPs') %></strong><br><span class="muted"><%= t('Garba, Diwali, bhajans, picnics and more — RSVP for your family in seconds.') %></span></span></li>
+    <li><span class="perk-icon" aria-hidden="true">🎟️</span><span><strong><%= t('QR check-in') %></strong><br><span class="muted"><%= t('Show your QR code at the door — no paper lists, no waiting.') %></span></span></li>
+    <li><span class="perk-icon" aria-hidden="true">💳</span><span><strong><%= t('Membership dues') %></strong><br><span class="muted"><%= t('Pay or renew your membership securely online.') %></span></span></li>
+  </ul>
+</section>
 <div class="actions" style="justify-content:center;margin-top:8px">
   <a class="btn secondary small" href="/about"><%= t('About us') %></a>
   <a class="btn secondary small" href="/committee"><%= t('Committee members') %></a>

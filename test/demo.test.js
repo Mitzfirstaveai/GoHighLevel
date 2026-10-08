@@ -56,3 +56,10 @@ test("the demo's Admin and Door volunteer buttons keep working, whatever is chan
   await admin.post(`/admin/members/${priya}/checkin-access`, { access: '0' });
   assert.equal(t.db.prepare('SELECT checkin_access FROM users WHERE id = ?').get(priya).checkin_access, 0);
 });
+
+test('the home page lists what members get as plain text, and the demo note points to both sign-ins', async () => {
+  const res = await new t.Client().get('/');
+  assert.match(res.text, /<section class="perks">/);
+  assert.doesNotMatch(res.text, /<div class="card"><h2>📇/, 'no boxes that look like tabs');
+  assert.match(res.text, /try it as a member, or &#34;Committee &amp; volunteer sign-in&#34; at the bottom of the page/);
+});
