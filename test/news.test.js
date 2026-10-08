@@ -239,3 +239,20 @@ test('home: a "Today" banner with the QR ticket on event day; Donate tile; no du
   assert.doesNotMatch(res.text, /Events &amp; RSVP|href="\/directory"><svg[^]*?Find community members/);
   assert.match(res.text, /data-compact-menu hidden/);
 });
+
+test('home headlines take turns between sources instead of five from one paper', () => {
+  const { db } = t;
+  const add = (name) => Number(db.prepare(`INSERT INTO news_sources (name, url, lang, topic) VALUES (?, ?, 'en', 'India')`).run(name, `https://${name}.example.com/rss`).lastInsertRowid);
+  const wasOn = db.prepare('SELECT id FROM news_sources WHERE enabled = 1').all().map((r) => r.id);
+  db.prepare('UPDATE news_sources SET enabled = 0').run();
+  const busy = add('busy'); const quiet = add('quiet'); const third = add('third');
+  const story = db.prepare("INSERT INTO news_items (source_id, guid, title, link, published_at) VALUES (?, ?, ?, 'https://x.example.com', datetime('now', ?))");
+  for (let i = 1; i <= 6; i++) story.run(busy, `b${i}`, `Busy story ${i}`, `-${i} minutes`);
+  story.run(quiet, 'q1', 'Quiet story 1', '-2 hours');
+  story.run(third, 't1', 'Third story 1', '-3 hours');
+  story.run(third, 't2', 'Third story 2', '-4 hours');
+  assert.deepEqual(newsfeed.mixedHeadlines(db, { limit: 5 }).map((h) => h.title),
+    ['Busy story 1', 'Quiet story 1', 'Third story 1', 'Busy story 2', 'Third story 2']);
+  db.prepare('DELETE FROM news_sources WHERE id IN (?, ?, ?)').run(busy, quiet, third);
+  for (const id of wasOn) db.prepare('UPDATE news_sources SET enabled = 1 WHERE id = ?').run(id);
+});

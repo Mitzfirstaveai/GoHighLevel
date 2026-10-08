@@ -185,6 +185,22 @@ function visibleNews(db, { lang = '', topic = '', limit = 30, offset = 0 } = {})
   return { items: visible.slice(offset, offset + limit), more: visible.length > offset + limit };
 }
 
+// A few headlines for the Home page, taking turns between sources (newest story from each source first, then the
+// next from each…) so one busy newspaper doesn't fill the whole list.
+function mixedHeadlines(db, { lang = '', limit = 5 } = {}) {
+  const bySource = new Map();
+  for (const item of visibleNews(db, { lang, limit: 60 }).items) {
+    if (!bySource.has(item.source_id)) bySource.set(item.source_id, []);
+    bySource.get(item.source_id).push(item);
+  }
+  const queues = [...bySource.values()];   // in order of each source's newest story
+  const picked = [];
+  for (let round = 0; picked.length < limit && queues.some((q) => q.length > round); round++) {
+    for (const q of queues) if (q[round] && picked.length < limit) picked.push(q[round]);
+  }
+  return picked;
+}
+
 // Topics and languages that currently have stories, for the filter buttons.
 function newsChoices(db) {
   const rows = shownStories(db);
@@ -274,5 +290,5 @@ function startNewsRefresh(db, minutes = 60) {
 
 module.exports = {
   TOPICS, LANGS, DEFAULT_SOURCES, addDefaultSources, parseFeed, cleanText, safeLink, feedUrlProblem, filterMatch, filterWords,
-  visibleNews, newsChoices, fetchSource, refreshNews, startNewsRefresh,
+  visibleNews, mixedHeadlines, newsChoices, fetchSource, refreshNews, startNewsRefresh,
 };
