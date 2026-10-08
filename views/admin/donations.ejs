@@ -33,12 +33,14 @@
   <label class="small">To <input type="date" name="to" value="<%= filters.to %>"></label>
   <button class="btn">Filter</button><% if (exportQuery) { %><a href="/admin/donations">Clear</a><% } %>
 </form>
+<%# On phones each donation becomes two lines: donor and amount, then date · fund · method and the receipt. %>
 <div class="card table-wrap">
-  <table>
+  <table class="donation-table">
     <thead><tr><th>Date</th><th>Donor</th><th>Fund</th><th>Method</th><th class="num">Amount</th><th></th></tr></thead>
     <tbody><% for (const d of donations) { %>
-      <tr><td><%= fmtDay(d.paid_at) %></td><td><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
-        <td><%= d.campaign_title || 'General fund' %></td><td><%= d.method %></td><td class="num"><%= money(d.amount_cents) %></td><td class="num"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
+      <tr><td class="d-hide"><%= fmtDay(d.paid_at) %></td><td class="d-donor"><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a>
+          <div class="muted small d-meta"><%= fmtDay(d.paid_at) %> · <%= d.campaign_title || 'General fund' %> · <%= d.method %></div><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
+        <td class="d-hide"><%= d.campaign_title || 'General fund' %></td><td class="d-hide"><%= d.method %></td><td class="num d-amount"><%= money(d.amount_cents) %></td><td class="num d-receipt"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
     <% } %>
     <% if (!donations.length) { %><tr><td colspan="6" class="muted">No donations match.</td></tr><% } %></tbody>
   </table>

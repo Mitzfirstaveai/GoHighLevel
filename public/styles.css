@@ -541,3 +541,14 @@ a.sponsor:hover { border-color: var(--brand); color: var(--brand); }
 tfoot th .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
 tfoot th { border-top: 2px solid var(--border); border-bottom: 0; }
 tfoot th.num { color: var(--text); font-size: 1rem; letter-spacing: 0; }
+/* Donations list: a table on wide screens, two-line rows on phones (no sideways scrolling). */
+.donation-table .d-meta { display: none; }
+@media (max-width: 640px) {
+  .donation-table thead, .donation-table .d-hide { display: none; }
+  .donation-table tr { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .donation-table td { border: 0; padding: 0; }
+  .donation-table .d-donor { grid-row: span 2; }
+  .donation-table .d-amount { font-weight: 700; }
+  .donation-table .d-meta { display: block; }
+  .donation-table tbody tr:last-child { border-bottom: 0; }
+}
