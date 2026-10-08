@@ -30,7 +30,7 @@ test('language button switches to Gujarati and remembers it on the profile', asy
   res = await c.get('/dashboard');
   assert.match(res.text, /<html lang="gu"/);
   assert.match(res.text, /નમસ્તે, Priya/);
-  assert.match(res.text, /મારી QR ટિકિટો/);
+  assert.match(res.text, /તમારો આગામી કાર્યક્રમ/);
   assert.match(res.text, /નવરાત્રી ગરબા #1/); // Gujarati event title
   assert.match(res.text, />English<\/a>/);
   assert.equal(t.db.prepare(`SELECT language FROM users WHERE email = 'member@example.com'`).get().language, 'gu');

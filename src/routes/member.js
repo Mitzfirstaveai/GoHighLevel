@@ -32,9 +32,10 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
   const headlines = newsfeed.mixedHeadlines(db, { lang: defaultNewsLang(req), limit: 5 });
-  // Event-day banner: today's confirmed tickets, one per event (the member's own ticket first).
-  const todayTickets = myRsvps.filter((r) => r.status === 'confirmed' && r.starts_at.slice(0, 10) === today())
-    .filter((r, i, all) => all.findIndex((x) => x.event_id === r.event_id) === i);
+  // "Your next event" tile: the soonest ticket (the member's own first), and how many other events follow.
+  const nextTicket = myRsvps[0] || null;
+  const moreEvents = new Set(myRsvps.map((r) => r.event_id).filter((id) => id !== nextTicket?.event_id)).size;
+  const nextIsToday = Boolean(nextTicket && nextTicket.starts_at.slice(0, 10) === today());
   // Family logins: the membership is held (and renewed) by the member who added them.
   const holder = req.user.owner_id ? db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   // "Renew for 2027" on the Membership tile, once next year's dues can be paid (at most a year ahead).
@@ -46,7 +47,7 @@ router.get('/dashboard', requireAuth, (req, res) => {
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
   res.render('member/dashboard', {
-    title: 'My dashboard', membership, myRsvps, todayTickets, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
+    title: 'My dashboard', membership, nextTicket, moreEvents, nextIsToday, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
   });
 });
 

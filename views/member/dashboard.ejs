@@ -1,17 +1,7 @@
 <%- include('../partials/head') %>
-<%# Home, in order of what members need most: today's ticket, status tiles, their events, GSA announcement, celebrations,
-    what's on, then Gujarat & India headlines to read. %>
+<%# Home, in order of what members need most: their next event (green on the day), status tiles, GSA announcement,
+    celebrations, what's on, then Gujarat & India headlines to read. %>
 <div class="page-head"><h1><%= t('Namaste, {name}', { name: user.first_name }) %> 🙏</h1></div>
-<% for (const r of todayTickets) { %>
-  <section class="today-banner" aria-label="<%= t('Today') %>">
-    <div>
-      <div class="today-label"><%= t('Today') %> · <%= fmtTime(r.starts_at) %></div>
-      <strong><%= loc(r, 'title') %></strong>
-      <div class="small"><%= String(r.location || '').split(/[|,]/)[0].trim() %></div>
-    </div>
-    <a class="btn big-touch" href="/tickets/<%= r.id %>"><%- include('../partials/icon', { name: 'ticket' }) %> <%= t('Show QR ticket') %></a>
-  </section>
-<% } %>
 <div class="card install-card" id="install-card" hidden>
   <img src="/icon-192.png" alt="" width="48" height="48">
   <div style="flex:1">
@@ -22,48 +12,53 @@
   <button class="btn small" data-install hidden><%= t('Install') %></button>
   <button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button>
 </div>
-<div class="tiles">
-  <a class="tile primary" href="/tickets"><%- include('../partials/icon', { name: 'ticket' }) %><%= t('My QR tickets') %><small><%= t('{n} upcoming', { n: myRsvps.filter((r) => r.status === 'confirmed').length }) %></small></a>
+<div class="home-top">
+  <%# Your next event: replaces a separate ticket tile, event list and event-day banner. Turns green on the day. %>
+  <section class="card next-event<%= nextIsToday ? ' today' : '' %>" aria-label="<%= t('Your next event') %>">
+    <% if (!nextTicket) { %>
+      <div class="next-label"><%- include('../partials/icon', { name: 'ticket' }) %> <%= t('Your next event') %></div>
+      <p class="muted"><%= t("You haven't RSVP'd to any upcoming events.") %></p>
+      <div><a class="btn" href="/events"><%= t('See events') %></a></div>
+    <% } else { const r = nextTicket; %>
+      <div class="next-label"><%- include('../partials/icon', { name: 'ticket' }) %> <%= nextIsToday ? `${t('Today')} · ${fmtTime(r.starts_at)}` : t('Your next event') %></div>
+      <div class="next-main">
+        <%- include('../partials/date-chip', { when: r.starts_at }) %>
+        <div>
+          <a class="next-title" href="/events/<%= r.event_id %>"><%= loc(r, 'title') %></a> <%- include('../partials/rsvp-badge', { status: r.status }) %>
+          <%# On the day, the label already says "Today · 7:30 PM", so just the venue. %>
+          <div class="muted"><% if (nextIsToday) { %><%= String(r.location || '').split(/[|,]/)[0].trim() %><% } else { %><%- include('../partials/event-line', { event: r, showPrice: false }) %><% } %></div>
+          <div class="small">👥 <%= r.names.length ? r.names.map((n) => n.split(' ')[0]).join(', ') : plural(r.party_size, '1 person', '{n} people') %><%= r.names.length && r.guest_count ? ` + ${plural(r.guest_count, '1 guest', '{n} guests')}` : '' %><% if (!r.mine) { %> · <%= t("{name}'s ticket", { name: `${r.holder_first} ${r.holder_last}` }) %><% } %></div>
+        </div>
+      </div>
+      <div class="actions">
+        <% if (r.status === 'confirmed') { %><a class="btn<%= nextIsToday ? ' big-touch' : '' %>" href="/tickets/<%= r.id %>"><%- include('../partials/icon', { name: 'ticket' }) %> <%= t('Show QR ticket') %></a>
+        <% } else if (r.status === 'pending_payment') { %><a class="btn" href="/events/<%= r.event_id %>"><%= t('Complete payment') %></a><% } %>
+        <a class="btn secondary" href="/events/<%= r.event_id %>"><%= t('Details') %></a>
+      </div>
+      <% if (moreEvents) { %><a class="next-more" href="/tickets"><%= plural(moreEvents, '+ 1 more event', '+ {n} more events') %> → <%= t('My tickets') %></a><% } %>
+    <% } %>
+  </section>
+  <div class="tiles home-tiles">
   <%# Membership: status badge, level, dates and what to do next. Turns yellow when dues are owed. %>
   <% if (membership.active) { %>
-    <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %>
+    <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %><span class="tile-body">
       <span class="tile-title"><%= t('Membership') %> <span class="badge ok"><%= t('Active') %></span></span>
       <small><% if (membership.plan) { %><strong><%= loc(membership.plan, 'name') %></strong><br><% } %><%= t('Active until {date}', { date: fmtDate(membership.current.end_date) }) %></small>
       <% if (holder) { %><small><%= t('Held by {name}', { name: `${holder.first_name} ${holder.last_name}` }) %></small>
       <% } else if (canRenew) { %><small class="tile-action">▸ <%= renewYear ? t('Renew for {year}', { year: renewYear }) : t('Renew now') %></small><% } %>
-    </a>
+    </span></a>
   <% } else { %>
-    <a class="tile warn" href="/membership"><%- include('../partials/icon', { name: 'card' }) %>
+    <a class="tile warn" href="/membership"><%- include('../partials/icon', { name: 'card' }) %><span class="tile-body">
       <span class="tile-title"><%= holder ? t('Membership') : t('Pay dues') %> <span class="badge warn"><%= membership.current ? t('Expired') : t('Not active') %></span></span>
       <small><%= membership.current ? t('Expired {date}', { date: fmtDate(membership.current.end_date) }) : t('Not a paid member yet') %></small>
       <% if (holder) { %><small><%= t('{name} renews the family membership.', { name: holder.first_name }) %></small><% } %>
-    </a>
+    </span></a>
   <% } %>
-  <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %><%= t('My profile & family') %><small><%= t('Contact details, family members') %></small></a>
-  <a class="tile" href="/donate"><%- include('../partials/icon', { name: 'heart' }) %><%= t('Donate') %><small><%= t('Support GSA') %></small></a>
-</div>
-
-<div class="card">
-  <div class="page-head" style="margin-bottom:4px"><h2 style="margin:0"><%= t('My upcoming events') %></h2><a href="/tickets"><%= t('My tickets') %> →</a></div>
-  <% if (!myRsvps.length) { %><p class="muted" style="margin-bottom:0"><%= t("You haven't RSVP'd to any upcoming events.") %></p><% } %>
-  <div class="event-list">
-  <% for (const r of myRsvps) { %>
-    <div class="event-item">
-      <%- include('../partials/date-chip', { when: r.starts_at }) %>
-      <div style="flex:1">
-        <strong><%= loc(r, 'title') %></strong> <%- include('../partials/rsvp-badge', { status: r.status }) %>
-        <div class="muted small"><%- include('../partials/event-line', { event: r, showPrice: false }) %></div>
-        <%- include('../partials/ticket-names', { tk: r }) %>
-        <% if (!r.mine) { %><div class="small muted"><%= t("{name}'s ticket", { name: `${r.holder_first} ${r.holder_last}` }) %></div><% } %>
-        <div class="actions" style="margin-top:6px">
-          <% if (r.status === 'confirmed') { %><a class="btn small" href="/tickets/<%= r.id %>"><%= t('Show QR ticket') %></a><% } %>
-          <a class="btn secondary small" href="/events/<%= r.event_id %>"><%= r.status === 'pending_payment' ? t('Complete payment') : t('Details') %></a>
-        </div>
-      </div>
-    </div>
-  <% } %>
+  <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %><span class="tile-body"><span class="tile-title"><%= t('My profile & family') %></span><small><%= t('Contact details, family members') %></small></span></a>
+  <a class="tile" href="/donate"><%- include('../partials/icon', { name: 'heart' }) %><span class="tile-body"><span class="tile-title"><%= t('Donate') %></span><small><%= t('Support GSA') %></small></span></a>
   </div>
 </div>
+
 
 <%# The latest GSA announcement stays near the top: it's from GSA and often time-sensitive. %>
 <% if (latestNews) { %>
