@@ -13,6 +13,17 @@
     }, { rootMargin: `-${header ? header.offsetHeight : 0}px 0px 0px 0px` }).observe(bigMenu);
   }
 
+  // Donate: typing an "Other amount" selects "Other"; choosing a preset amount clears the typed one.
+  const otherAmount = document.querySelector('input[name="other_amount"]');
+  if (otherAmount) {
+    const otherChoice = otherAmount.form.querySelector('input[name="amount"][value="other"]');
+    otherAmount.addEventListener('input', () => { if (otherAmount.value.trim()) otherChoice.checked = true; });
+    otherAmount.form.querySelectorAll('input[name="amount"]').forEach((radio) => radio.addEventListener('change', () => {
+      if (radio === otherChoice) otherAmount.focus();
+      else otherAmount.value = '';
+    }));
+  }
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
     document.querySelectorAll('form[action="/logout"]').forEach((f) => f.addEventListener('submit', () => {

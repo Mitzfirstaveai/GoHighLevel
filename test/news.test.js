@@ -282,3 +282,17 @@ test('donate: a General fund box, and "Give to this fund" picks the fund in the 
   assert.match(res.text, /class="card fund-card chosen">\s*<h2>General fund/);
   assert.doesNotMatch(res.text, /<option value="\d+" selected>/);
 });
+
+test('donate: a typed "Other amount" is what gets charged, and Cancel returns to the Donate page', async () => {
+  const m = await t.register('typed@test.org', 'Typed');
+  await m.get('/donate');
+  // $51 still selected, but the member typed 75: the typed amount wins.
+  let res = await m.post('/donate', { campaign_id: '', amount: '5100', other_amount: '75', note: '' });
+  const payment = t.db.prepare(`SELECT p.* FROM payments p JOIN users u ON u.id = p.user_id WHERE u.email = 'typed@test.org' ORDER BY p.id DESC LIMIT 1`).get();
+  assert.equal(payment.amount_cents, 7500);
+  res = await m.get(`/pay/${payment.id}/cancelled`);
+  assert.equal(res.location, '/donate?campaign=general#give');
+  // A preset with the box left empty still works.
+  await m.post('/donate', { campaign_id: '', amount: '10100', other_amount: '', note: '' });
+  assert.equal(t.db.prepare(`SELECT amount_cents FROM payments p JOIN users u ON u.id = p.user_id WHERE u.email = 'typed@test.org' ORDER BY p.id DESC LIMIT 1`).get().amount_cents, 10100);
+});

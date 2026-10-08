@@ -27,7 +27,9 @@ router.get('/donate', requireAuth, (req, res) => {
 
 router.post('/donate', requireAuth, async (req, res) => {
   const { db, gateway } = req.app.locals;
-  const amountCents = req.body.amount === 'other' ? parseMoney(req.body.other_amount) : Number(req.body.amount);
+  // A typed "Other amount" always wins, even if a preset button was still selected (e.g. without JavaScript).
+  const typed = String(req.body.other_amount || '').trim();
+  const amountCents = req.body.amount === 'other' || typed ? parseMoney(typed) : Number(req.body.amount);
   const payment = svc.createDonationPayment(db, {
     userId: req.user.id, campaignId: Number(req.body.campaign_id) || null, amountCents, note: req.body.note,
   });

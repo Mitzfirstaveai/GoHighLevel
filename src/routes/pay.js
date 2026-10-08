@@ -64,7 +64,7 @@ router.post('/:id/demo', requireAuth, async (req, res) => {
   const payment = ownPendingPayment(req);
   if (!payment || payment.status === 'cancelled') {
     req.flash('error', 'This checkout has expired. Please start again.');
-    return res.redirect(payment?.kind?.startsWith('membership') ? '/membership' : '/dashboard');
+    return res.redirect(backFromCheckout(db, payment));
   }
   const result = await settlePayment(db, gateway, payment.id, { method: 'demo', providerRef: `demo_${payment.id}` });
   if (result === 'refund') req.flash('error', REFUNDED);
@@ -72,14 +72,20 @@ router.post('/:id/demo', requireAuth, async (req, res) => {
   res.redirect(redirectAfterPayment(db, payment));
 });
 
+// Where to go after leaving a checkout without paying: back to the page the payment started from.
+function backFromCheckout(db, payment) {
+  if (payment?.kind === 'event') {
+    const rsvp = db.prepare('SELECT event_id FROM rsvps WHERE id = ?').get(payment.reference_id);
+    if (rsvp) return `/events/${rsvp.event_id}`;
+  }
+  if (payment?.kind === 'donation') return `/donate?campaign=${payment.reference_id || 'general'}#give`;
+  return payment?.kind?.startsWith('membership') ? '/membership' : '/dashboard';
+}
+
 router.get('/:id/cancelled', requireAuth, (req, res) => {
   const payment = ownPendingPayment(req);
   req.flash('info', 'Payment was cancelled. You can try again any time.');
-  if (payment?.kind === 'event') {
-    const rsvp = req.app.locals.db.prepare('SELECT event_id FROM rsvps WHERE id = ?').get(payment.reference_id);
-    if (rsvp) return res.redirect(`/events/${rsvp.event_id}`);
-  }
-  res.redirect(payment?.kind?.startsWith('membership') ? '/membership' : '/dashboard');
+  res.redirect(backFromCheckout(req.app.locals.db, payment));
 });
 
 module.exports = router;
