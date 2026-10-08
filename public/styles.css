@@ -367,7 +367,9 @@ label.check { gap: 12px; padding: 6px 0; }
 .big-touch { padding: 14px 22px; font-size: 1.05rem; }
 .estimate { font-size: 1.1rem; font-weight: 700; }
 
-.tabbar a { font-size: .8rem; padding: 10px 2px 8px; }
+/* Six buttons: labels shrink a little on the narrowest phones and may wrap to two lines ("My tickets"). */
+.tabbar a { flex: 1 1 0; min-width: 0; font-size: min(.8rem, 3.4vw); line-height: 1.15; text-align: center; padding: 8px 1px 6px; }
+.tabbar a span { hyphens: manual; overflow-wrap: normal; } /* "Member-ship" breaks only at its soft hyphen */
 .tabbar a .icon { width: 26px; height: 26px; }
 @media (max-width: 820px) {
   body.signed-in main { padding-bottom: 110px; }

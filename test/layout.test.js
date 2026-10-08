@@ -35,3 +35,12 @@ test('a level named "... Membership" is not doubled in messages ("Your Individua
   assert.match(res.text, /Your Individual membership covers you only, so Asha can&#39;t be added/);
   assert.match((await m.get('/profile')).text, /Your Individual membership covers you only\./);
 });
+
+test('the phone bottom bar uses the top menu names and includes Donate', async () => {
+  const m = await t.register('bottombar@test.org');
+  const res = await m.get('/donate');
+  const bar = res.text.split('<nav class="tabbar')[1].split('</nav>')[0];
+  const labels = [...bar.matchAll(/<span>([^<]+)<\/span>/g)].map((x) => x[1].replace('\u00AD', ''));
+  assert.deepEqual(labels, ['Home', 'Events', 'My tickets', 'Membership', 'Donate', 'More']);
+  assert.match(bar, /class="active"[^>]*>[\s\S]*?<span>Donate<\/span>/);
+});

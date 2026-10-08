@@ -4,16 +4,18 @@
   const tabs = [
     ['/dashboard', 'Home', 'home', true],
     ['/events', 'Events', 'calendar'],
-    ['/tickets', 'Tickets', 'ticket'],
-    ['/membership', 'Dues', 'card'],
+    ['/tickets', 'My tickets', 'ticket'],
+    ['/membership', 'Membership', 'card'],
+    ['/donate', 'Donate', 'heart'],
     ['/more', 'More', 'more'],
   ];
-  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/photos', '/about', '/committee', '/sponsors', '/contact', '/donate'];
+  // Same names as the top menu; everything else is under More.
+  const moreSection = ['/more', '/profile', '/payments', '/directory', '/news', '/photos', '/about', '/committee', '/sponsors', '/contact'];
   const on = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));
 %>
 <nav class="tabbar mobile-only" aria-label="<%= t('Main menu') %>">
   <% for (const [href, label, icon, exact] of tabs) { %>
-    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.some((m) => path === m || path.startsWith(m + '/'))) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label) %></span></a>
+    <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.some((m) => path === m || path.startsWith(m + '/'))) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label).replace(/^Membership$/, 'Member\u00ADship') %></span></a>
   <% } %>
 </nav>
 <% } %>
