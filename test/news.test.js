@@ -298,3 +298,11 @@ test('donate: a typed "Other amount" is what gets charged, and Cancel returns to
   await m.post('/donate', { campaign_id: '', amount: '10100', other_amount: '', note: '' });
   assert.equal(t.db.prepare(`SELECT amount_cents FROM payments p JOIN users u ON u.id = p.user_id WHERE u.email = 'typed@test.org' ORDER BY p.id DESC LIMIT 1`).get().amount_cents, 10100);
 });
+
+test('main menu order: Home, Events, My tickets, Membership, Donate / Profile, Photos, News, Directory, About GSA', async () => {
+  const m = await t.register('menu@test.org', 'Menu');
+  const html = (await m.get('/dashboard')).text;
+  const menu = html.slice(html.indexOf('class="menu-band member-menu'), html.indexOf('</nav>', html.indexOf('class="menu-band member-menu')));
+  assert.deepEqual([...menu.matchAll(/<span>([^<]+)<\/span><\/a>/g)].map((x) => x[1]),
+    ['Home', 'Events', 'My tickets', 'Membership', 'Donate', 'Profile', 'Photos', 'News', 'Directory', 'About GSA']);
+});
