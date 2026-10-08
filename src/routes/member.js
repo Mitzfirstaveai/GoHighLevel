@@ -32,12 +32,19 @@ router.get('/dashboard', requireAuth, (req, res) => {
   const myRsvps = familyTickets(db, req.user.id);
   const latestNews = db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC LIMIT 1').get();
   const headlines = newsfeed.visibleNews(db, { lang: defaultNewsLang(req), limit: 3 }).items;
+  // Family logins: the membership is held (and renewed) by the member who added them.
+  const holder = req.user.owner_id ? db.prepare('SELECT first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
+  // "Renew for 2027" on the Membership tile, once next year's dues can be paid (at most a year ahead).
+  const canRenew = membership.active && !holder && membership.validUntil && !svc.renewalOpensOn(db, req.user.id);
+  const renewYear = canRenew && membership.plan?.calendar_year ? Number(membership.validUntil.slice(0, 4)) + 1 : null;
   const upcoming = db.prepare(`
     SELECT * FROM events WHERE status = 'published' AND starts_at >= ?
     AND id NOT IN (SELECT event_id FROM rsvps WHERE user_id = ? AND status != 'cancelled')
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
-  res.render('member/dashboard', { title: 'My dashboard', membership, myRsvps, upcoming, latestNews, headlines, celebrations: celebrationList(req, res) });
+  res.render('member/dashboard', {
+    title: 'My dashboard', membership, myRsvps, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
+  });
 });
 
 // ---------- Profile ----------

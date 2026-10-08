@@ -474,3 +474,10 @@ body.door-mode .topbar .brand-short { display: inline; }
 .celebration-icon { font-size: 1.6rem; line-height: 1; }
 .birthday-row { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px 12px; margin: 0; }
 .birthday-row select { width: auto; flex: 1 1 140px; }
+
+/* Home tiles: membership status at a glance */
+.tile-title { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tile .badge { font-size: .75rem; }
+.tile .tile-action { color: var(--brand); font-weight: 700; }
+.tile.warn { background: var(--warn-bg); border-color: var(--warn); }
+.tile.warn .icon, .tile.warn small { color: var(--warn); }

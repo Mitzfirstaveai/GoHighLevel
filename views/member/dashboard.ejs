@@ -13,8 +13,22 @@
 <div class="tiles">
   <a class="tile primary" href="/tickets"><%- include('../partials/icon', { name: 'ticket' }) %><%= t('My QR tickets') %><small><%= t('{n} upcoming', { n: myRsvps.filter((r) => r.status === 'confirmed').length }) %></small></a>
   <a class="tile" href="/events"><%- include('../partials/icon', { name: 'calendar' }) %><%= t('Events & RSVP') %><small><%= t("See what's coming up") %></small></a>
-  <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %><%= membership.active ? t('Membership') : t('Pay dues') %><small><%= membership.active ? t('Active until {date}', { date: fmtDate(membership.current.end_date) }) : t('Not active') %></small></a>
-  <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %><%= t('My family') %><small><%= t('Update your details') %></small></a>
+  <%# Membership: status badge, level, dates and what to do next. Turns yellow when dues are owed. %>
+  <% if (membership.active) { %>
+    <a class="tile" href="/membership"><%- include('../partials/icon', { name: 'card' }) %>
+      <span class="tile-title"><%= t('Membership') %> <span class="badge ok"><%= t('Active') %></span></span>
+      <small><% if (membership.plan) { %><strong><%= loc(membership.plan, 'name') %></strong><br><% } %><%= t('Active until {date}', { date: fmtDate(membership.current.end_date) }) %></small>
+      <% if (holder) { %><small><%= t('Held by {name}', { name: `${holder.first_name} ${holder.last_name}` }) %></small>
+      <% } else if (canRenew) { %><small class="tile-action">▸ <%= renewYear ? t('Renew for {year}', { year: renewYear }) : t('Renew now') %></small><% } %>
+    </a>
+  <% } else { %>
+    <a class="tile warn" href="/membership"><%- include('../partials/icon', { name: 'card' }) %>
+      <span class="tile-title"><%= holder ? t('Membership') : t('Pay dues') %> <span class="badge warn"><%= membership.current ? t('Expired') : t('Not active') %></span></span>
+      <small><%= membership.current ? t('Expired {date}', { date: fmtDate(membership.current.end_date) }) : t('Not a paid member yet') %></small>
+      <% if (holder) { %><small><%= t('{name} renews the family membership.', { name: holder.first_name }) %></small><% } %>
+    </a>
+  <% } %>
+  <a class="tile" href="/profile"><%- include('../partials/icon', { name: 'users' }) %><%= t('My profile & family') %><small><%= t('Contact details, family members') %></small></a>
 </div>
 <% if (latestNews) { %>
 <a class="card" href="/news" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--green)">
@@ -35,23 +49,6 @@
   </ul>
 </section>
 <% } %>
-<div class="grid grid-2">
-  <div class="card">
-    <h2><%= t('Membership') %></h2>
-    <% if (membership.active) { %>
-      <p><span class="badge ok"><%= t('Active') %></span> <%= membership.plan ? loc(membership.plan, 'name') : t('Member') %> — <%= t('valid until') %> <strong><%= fmtDate(membership.current.end_date) %></strong></p>
-      <a class="btn secondary small" href="/membership"><%= t('Renew or view history') %></a>
-    <% } else { %>
-      <p><span class="badge warn"><%= membership.current ? t('Expired') : t('Not a paid member yet') %></span></p>
-      <a class="btn" href="/membership"><%= t('Pay membership') %></a>
-    <% } %>
-  </div>
-  <div class="card">
-    <h2><%= t('My profile') %></h2>
-    <p class="muted"><%= t('Keep your contact information and family members up to date.') %></p>
-    <a class="btn secondary small" href="/profile"><%= t('Edit profile') %></a>
-  </div>
-</div>
 
 <div class="card">
   <h2><%= t('My upcoming events') %></h2>

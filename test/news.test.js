@@ -211,3 +211,16 @@ test('a source in both languages: each story goes to readers of its own language
   assert.match(page.text, /<h2 lang="en">Surat diamond market/);
   assert.match(page.text, /class="active">Food &amp; recipes</);
 });
+
+test('home tiles: membership status, level and renewal; a yellow Pay dues tile when not active; no duplicate boxes', async () => {
+  const m = await t.register('tiles@test.org', 'Tile', 1); // gets a Family membership for this year
+  let res = await m.get('/dashboard');
+  assert.match(res.text, /class="tile" href="\/membership"[\s\S]*?Membership <span class="badge ok">Active<\/span>[\s\S]*?<strong>Family<\/strong><br>Active until Dec 31, \d{4}/);
+  assert.match(res.text, new RegExp(`Renew for ${Number(require('../src/util').today().slice(0, 4)) + 1}`));
+  assert.match(res.text, /My profile &amp; family<small>Contact details, family members/);
+  assert.doesNotMatch(res.text, /Renew or view history|Edit profile|Keep your contact information/);
+
+  const n = await t.register('unpaid@test.org', 'Unpaid');
+  res = await n.get('/dashboard');
+  assert.match(res.text, /class="tile warn" href="\/membership"[\s\S]*?Pay dues <span class="badge warn">Not active<\/span>[\s\S]*?Not a paid member yet/);
+});
