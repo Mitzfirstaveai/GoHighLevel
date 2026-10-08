@@ -20,7 +20,7 @@ test('signed in to the admin area, member pages send the admin back to the admin
   }
   assert.equal((await a.get('/')).location, '/admin');
   const res = await a.get('/admin');
-  assert.match(res.text, /class="subnav"/);
+  assert.match(res.text, /class="subnav[ "]/);
   assert.doesNotMatch(res.text, /class="tabbar/, 'no member tab bar');
   assert.doesNotMatch(res.text, /href="\/profile"|href="\/membership"/, 'no member menu');
   assert.match(res.text, /<button class="pref-btn">Sign out<\/button>/);
@@ -35,7 +35,9 @@ test('an admin using the member sign-in gets a plain member app with no admin ac
   let res = await m.get('/dashboard');
   assert.equal(res.status, 200);
   assert.doesNotMatch(res.text, /href="\/admin"/, 'no Admin link in the member app');
-  assert.doesNotMatch(res.text, /class="subnav"/);
+  assert.match(res.text, /<button class="pref-btn">Sign out<\/button>/, 'Sign out is a worded button, not just an icon');
+  assert.match(res.text, /class="menu-band member-menu/);
+  assert.doesNotMatch(res.text, /class="subnav[ "]/);
   assert.equal((await m.get('/admin/checkin')).location, '/admin/login');
   res = await m.get('/admin/members');
   assert.equal(res.location, '/admin/login');

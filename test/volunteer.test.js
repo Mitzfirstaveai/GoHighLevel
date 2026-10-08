@@ -45,7 +45,7 @@ test('a door volunteer sees only check-in: no member menus and no other admin pa
   assert.match(res.text, />Sign out</);
   assert.doesNotMatch(res.text, /href="\/tickets"/); // no member menu
   assert.doesNotMatch(res.text, /class="tabbar/);
-  assert.doesNotMatch(res.text, /class="subnav"/); // no admin menu
+  assert.doesNotMatch(res.text, /class="subnav[ "]/); // no admin menu
   assert.doesNotMatch(res.text, /Door volunteers/); // the volunteer list is for admins
   // Everything else sends them back to check-in.
   for (const path of ['/', '/dashboard', '/tickets', '/profile', '/admin', '/admin/members', `/admin/members/${userId('door@test.org')}`,
@@ -106,7 +106,7 @@ test('the committee & volunteer sign-in turns ordinary members away and takes ad
   res = await a.post('/admin/login', { email: 'admin@test.org', password: 'adminpass1' });
   assert.equal(res.location, '/admin');
   res = await a.get('/admin');
-  assert.match(res.text, /class="subnav"/);
+  assert.match(res.text, /class="subnav[ "]/);
   assert.doesNotMatch(res.text, /door-mode/);
 });
 

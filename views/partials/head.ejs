@@ -71,7 +71,8 @@
       <% if (doorMode || adminMode) { %>
         <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pref-btn"><%= t('Sign out') %></button></form>
       <% } else if (user) { %>
-        <form method="post" action="/logout" class="desktop-only"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="linkish" title="<%= t('Sign out') %>"><%- include('icon', { name: 'logout' }) %><span class="sr-only"><%= t('Sign out') %></span></button></form>
+        <%# Worded, not just an icon: an arrow-and-door symbol means nothing to many members. %>
+        <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pref-btn"><%= t('Sign out') %></button></form>
       <% } %>
     </div>
   </div>
@@ -83,24 +84,27 @@
         <% } %>
       </div>
     </nav>
-  <% } else if (!doorMode && !adminMode) { %>
-    <%# The menu gets its own row, so it never runs into the logo, whatever the language or text size. %>
-    <nav class="nav mainnav desktop-only" aria-label="<%= t('Main menu') %>">
-      <div class="inner">
-        <% for (const [href, label, icon, exact] of memberTabs) { %>
-          <a href="<%= href %>" class="<%= active(href, exact) || (href === '/about' && aboutPaths.includes(path)) ? 'active' : '' %>"><%= t(label) %></a>
-        <% } %>
-      </div>
-    </nav>
   <% } %>
   <div class="stripe" aria-hidden="true"></div>
 </header>
 
+<%# Main menus: a band of large buttons (icon above the label) under the header. Members get it on
+    computers and tablets (phones use the bottom tab bar); the admin area gets it on every screen. %>
+<% if (user && !doorMode && !adminMode) { %>
+  <nav class="menu-band member-menu desktop-only" aria-label="<%= t('Main menu') %>">
+    <div class="inner">
+      <% for (const [href, label, icon, exact] of memberTabs) { %>
+        <% const on = active(href, exact) || (href === '/about' && aboutPaths.includes(path)); %>
+        <a href="<%= href %>" class="<%= on ? 'active' : '' %>"<%- on ? ' aria-current="page"' : '' %>><%- include('icon', { name: icon }) %><span><%= t(label) %></span></a>
+      <% } %>
+    </div>
+  </nav>
+<% } %>
 <% if (adminMode) { %>
-  <nav class="subnav" aria-label="Admin" lang="en">
+  <nav class="subnav menu-band admin-menu" aria-label="Admin" lang="en">
     <div class="inner">
       <% for (const [href, label, icon, exact] of adminTabs) { %>
-        <a href="<%= href %>" class="<%= active(href, exact) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><%= label %></a>
+        <a href="<%= href %>" class="<%= active(href, exact) ? 'active' : '' %>"<%- active(href, exact) ? ' aria-current="page"' : '' %>><%- include('icon', { name: icon }) %><span><%= label %></span></a>
       <% } %>
     </div>
   </nav>
