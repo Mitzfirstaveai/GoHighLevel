@@ -21,7 +21,7 @@
     </ul>
   <% } else { %>
   <% if (coverageParts) { %>
-    <p><%= t('Your {plan} membership covers {coverage}.', { plan: loc(membership.plan, 'name'), coverage: { list: coverageParts } }) %>
+    <p><%= t('Your {plan} membership covers {coverage}.', { plan: loc(membership.plan, 'name').replace(/\s+(membership|સભ્યપદ)$/i, ''), coverage: { list: coverageParts } }) %>
       <%= t('Family listed here can come with you to events.') %> <a href="/membership"><%= t('Change level') %></a></p>
   <% } else { %>
     <p class="muted"><%= t('List the family members your membership will cover (spouse, unmarried children, parents), then choose your membership level.') %> <a href="/membership"><%= t('Membership levels') %></a></p>

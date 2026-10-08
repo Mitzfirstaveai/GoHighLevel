@@ -159,7 +159,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
 .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); margin-bottom: 16px; }
 .stat { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
 .stat .label { color: var(--muted); font-size: .85rem; }
-.stat .value { font-size: 1.6rem; font-weight: 700; overflow-wrap: anywhere; }
+.stat { container-type: inline-size; }
+/* Shrinks with its box so amounts like $7,486.00 stay on one line on phones. */
+.stat .value { font-size: min(1.6rem, 17cqi); font-weight: 700; overflow-wrap: anywhere; }
 
 .flash { padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; }
 .flash.success { background: var(--ok-bg); color: var(--ok); }
@@ -167,6 +169,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
 .flash.info { background: var(--info-bg); }
 
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+td .badge { white-space: normal; max-width: 100%; } /* long level names wrap inside table cells */
 .badge.ok { background: var(--ok-bg); color: var(--ok); }
 .badge.warn { background: var(--warn-bg); color: var(--warn); }
 .badge.err { background: var(--err-bg); color: var(--err); }
@@ -177,6 +180,7 @@ form.stack { display: grid; gap: 12px; }
 label { display: grid; gap: 4px; font-weight: 600; font-size: 1rem; }
 label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
 input, select, textarea {
+  max-width: 100%; min-width: 0;
   font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
   background: var(--bg); color: var(--text); width: 100%; font-weight: 400;
 }
@@ -232,7 +236,7 @@ tr.dim td { opacity: .55; }
 @media print { .topbar, .tabbar, .subnav, .site-footer, .demo-banner, .no-print { display: none !important; } }
 @media (max-width: 420px) { .brand span { font-size: .95rem; } }
 .demo-login { background: var(--brand-soft); border-radius: 10px; padding: 12px; margin: 14px 0; }
-.pills { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; scrollbar-width: none; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; } /* wraps instead of hiding pills off-screen */
 .pills a { white-space: nowrap; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); text-decoration: none; font-weight: 500; font-size: .95rem; }
 .pills a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
@@ -296,7 +300,16 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
   color: var(--brand); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-event.mine { background: var(--ok-bg); color: var(--ok); font-weight: 600; }
 .cal-event.cancelled { text-decoration: line-through; opacity: .6; }
-@media (max-width: 600px) { .calendar .day { min-height: 60px; } .cal-event { white-space: normal; font-size: .65rem; } }
+.cal-event { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+/* Phones: the grid shows a dot per event; the month's events are listed in full underneath. */
+.cal-list { display: none; margin-top: 16px; }
+@media (max-width: 600px) {
+  .calendar .day { min-height: 52px; flex-flow: row wrap; align-content: flex-start; }
+  .calendar .num { flex-basis: 100%; }
+  .cal-event { width: 10px; height: 10px; padding: 0; border-radius: 50%; font-size: 0; background: var(--brand); }
+  .cal-event.mine { background: var(--ok); }
+  .cal-list { display: grid; }
+}
 /* ---------- Charts (palette validated for CVD + contrast in light and dark) ---------- */
 :root { --series-1: #C8650F; --series-2: #2a78d6; --chart-grid: #ecebe7; --chart-ink: #52514e; }
 .chart { margin: 0; }
@@ -324,6 +337,7 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 .receipt-head { display: flex; gap: 14px; align-items: center; border-bottom: 2px solid var(--saffron); padding-bottom: 12px; margin-bottom: 16px; }
 .receipt-head img { border-radius: 50%; }
 .receipt-no { margin-left: auto; text-align: right; }
+@media (max-width: 520px) { .receipt-head { flex-wrap: wrap; } .receipt-head > div { flex: 1 1 200px; min-width: 0; } .receipt-no { flex-basis: 100%; text-align: left; } }
 .card.dim { opacity: .6; }
 .amounts { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .amounts legend { font-weight: 600; font-size: .9rem; margin-bottom: 4px; }
@@ -552,3 +566,24 @@ tfoot th.num { color: var(--text); font-size: 1rem; letter-spacing: 0; }
   .donation-table .d-meta { display: block; }
   .donation-table tbody tr:last-child { border-bottom: 0; }
 }
+
+/* Narrowest phones (e.g. Fold cover screen): logo and header buttons side by side without overlapping. */
+@media (max-width: 440px) { .topbar .brand { flex: none; } }
+@media (max-width: 370px) {
+  .topbar .inner { padding: 8px 8px; gap: 6px; }
+  .brand img { width: 34px; height: 34px; }
+  .prefs { gap: 3px; }
+  .topbar .pref-btn { padding: 4px 7px; min-width: 40px; }
+}
+/* Tables that don't fit the screen become stacked cards (app.js adds each value's column name). */
+.cell-label { display: none; }
+table.stack thead { display: none; }
+table.stack tr { display: block; padding: 10px 0; border-bottom: 1px solid var(--border); }
+table.stack tbody tr:last-child { border-bottom: 0; }
+table.stack td, table.stack tfoot th { display: block; border: 0; padding: 3px 0; text-align: left; overflow-wrap: anywhere; }
+table.stack td:first-child, table.stack tfoot th:first-child { font-size: 1.05rem; font-weight: 600; }
+table.stack .labelled { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); column-gap: 12px; align-items: baseline; }
+table.stack .cell-label { display: block; font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+table.stack td:empty { display: none; }
+table.stack .cell-value, table.stack .cell-value * { text-align: left; }
+table.stack tfoot tr { border-top: 2px solid var(--border); border-bottom: 0; }

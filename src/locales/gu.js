@@ -171,6 +171,7 @@ module.exports = {
   'Coming up': 'આગામી',
   'All events': 'બધા કાર્યક્રમો',
   'No other events scheduled right now.': 'હાલમાં બીજો કોઈ કાર્યક્રમ નક્કી નથી.',
+  'No events this month.': 'આ મહિને કોઈ કાર્યક્રમ નથી.',
   'Member directory': 'સભ્ય ડિરેક્ટરી',
   'Find community members': 'સમાજના સભ્યો શોધો',
   'Announcements': 'જાહેરાતો',

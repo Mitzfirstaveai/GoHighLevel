@@ -7,7 +7,7 @@
 </div>
 <div class="grid grid-2">
   <div class="card">
-    <p><strong><%= t('When:') %></strong> <%= fmtDate(event.starts_at) %><%= event.ends_at ? ` – ${fmtDate(event.ends_at)}` : '' %></p>
+    <p><strong><%= t('When:') %></strong> <%= fmtDate(event.starts_at) %><%# Same-day events show just the end time: "7:30 PM – 11:30 PM". %><%= event.ends_at ? ` – ${event.ends_at.slice(0, 10) === event.starts_at.slice(0, 10) ? fmtTime(event.ends_at) : fmtDate(event.ends_at)}` : '' %></p>
     <% if (event.location) { %><p><strong><%= t('Where:') %></strong> <%= event.location %>
       <a class="small" href="https://maps.google.com/?q=<%= encodeURIComponent(event.location.replace('|', ',')) %>" target="_blank" rel="noopener"><%= t('Directions') %></a></p><% } %>
     <p><strong><%= t('Price:') %></strong> <%- include('../partials/event-prices', { event }) %><%= event.fee_cents || event.guest_fee_cents ? ` (${t('non-refundable')})` : '' %></p>

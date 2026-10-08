@@ -194,7 +194,8 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, overrid
     const problems = planProblems(plan, household);
     if (problems.length) {
       const better = suggestPlan(db, household);
-      const vars = { plan: plan.name, coverage: { list: planCoverageParts(plan) }, name, better: better?.name };
+      // "Individual Membership" would read "Your Individual Membership membership".
+      const vars = { plan: plan.name.replace(/\s+membership$/i, ''), coverage: { list: planCoverageParts(plan) }, name, better: better?.name };
       throw new UserError(better
         ? "Your {plan} membership covers {coverage}, so {name} can't be added. Upgrade to {better} on the Membership page to add them."
         : "Your {plan} membership covers {coverage}, so {name} can't be added.", vars);

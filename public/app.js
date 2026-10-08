@@ -53,3 +53,43 @@
     try { localStorage.setItem('gsa-install-dismissed', '1'); } catch { /* ignore */ }
   });
 })();
+
+// Tables that would need sideways scrolling become stacked cards instead (see table.stack in styles.css).
+// Each value is labelled with its column name; checked again when the screen turns or is resized.
+(function () {
+  const tables = [...document.querySelectorAll('.table-wrap table')].filter((t) => t.tHead && !t.classList.contains('donation-table'));
+  if (!tables.length) return;
+  for (const table of tables) {
+    const heads = [...table.tHead.rows[0].cells].map((th) => th.textContent.trim());
+    for (const row of table.querySelectorAll('tbody tr, tfoot tr')) {
+      let col = 0;
+      for (const cell of row.cells) {
+        // Shown only when stacked: "AMOUNT  $101.00". Wrapping the value keeps label and value side by side.
+        if (heads[col] && cell !== row.cells[0] && !cell.querySelector(':scope > .cell-label')) {
+          const value = document.createElement('div');
+          value.className = 'cell-value';
+          value.append(...cell.childNodes);
+          const label = document.createElement('span');
+          label.className = 'cell-label';
+          label.textContent = heads[col];
+          cell.append(label, value);
+          cell.classList.add('labelled');
+        }
+        col += cell.colSpan || 1;
+      }
+    }
+  }
+  const fit = () => {
+    for (const table of tables) {
+      table.classList.remove('stack');
+      const wrap = table.parentElement;
+      if (table.scrollWidth > wrap.clientWidth + 1) table.classList.add('stack');
+    }
+  };
+  fit();
+  // Measure again once the fonts and images have loaded (they change the table's width).
+  window.addEventListener('load', fit);
+  if (document.fonts) document.fonts.ready.then(fit);
+  let timer;
+  window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(fit, 150); });
+})();

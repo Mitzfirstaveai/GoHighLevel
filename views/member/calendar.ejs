@@ -15,10 +15,21 @@
       <div class="day <%= key === todayKey ? 'today' : '' %>">
         <span class="num"><%= d %></span>
         <% for (const e of byDay.get(d) || []) { %>
-          <a href="/events/<%= e.id %>" class="cal-event <%= e.my_status ? 'mine' : '' %> <%= e.status === 'cancelled' ? 'cancelled' : '' %>" title="<%= loc(e, 'title') %>"><%= e.starts_at.slice(11, 16) %> <%= loc(e, 'title') %></a>
+          <a href="/events/<%= e.id %>" class="cal-event <%= e.my_status ? 'mine' : '' %> <%= e.status === 'cancelled' ? 'cancelled' : '' %>" title="<%= loc(e, 'title') %>"><%= fmtTime(e.starts_at) %> <%= loc(e, 'title') %></a>
         <% } %>
       </div>
     <% } %>
+  </div>
+  <%# Phones: the grid shows dots, so the month's events are listed here in full. %>
+  <div class="cal-list event-list">
+    <% for (const [, events] of [...byDay].sort((a, b) => a[0] - b[0])) for (const e of events) { %>
+      <a class="event-item" href="/events/<%= e.id %>">
+        <%- include('../partials/date-chip', { when: e.starts_at }) %>
+        <div><strong<%- e.status === 'cancelled' ? ' style="text-decoration:line-through"' : '' %>><%= loc(e, 'title') %></strong><% if (e.my_status) { %> <%- include('../partials/rsvp-badge', { status: e.my_status }) %><% } %>
+          <div class="muted small"><%= fmtWeekday(e.starts_at) %> · <%= fmtTime(e.starts_at) %></div></div>
+      </a>
+    <% } %>
+    <% if (!byDay.size) { %><p class="muted"><%= t('No events this month.') %></p><% } %>
   </div>
   <p class="muted small"><%= t("Highlighted events are ones you've RSVP'd to.") %></p>
 </div>
