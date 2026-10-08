@@ -37,6 +37,7 @@ test('an admin using the member sign-in gets a plain member app with no admin ac
   assert.doesNotMatch(res.text, /href="\/admin"/, 'no Admin link in the member app');
   assert.match(res.text, /<button class="pref-btn">Sign out<\/button>/, 'Sign out is a worded button, not just an icon');
   assert.match(res.text, /class="menu-band member-menu/);
+  assert.match(res.text, /class="menu-band member-menu[\s\S]*?href="\/donate"[^>]*>[\s\S]*?<span>Donate<\/span>/, 'Donate is in the main menu');
   assert.doesNotMatch(res.text, /class="subnav[ "]/);
   assert.equal((await m.get('/admin/checkin')).location, '/admin/login');
   res = await m.get('/admin/members');

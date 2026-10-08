@@ -109,10 +109,8 @@ h2 { font-size: 1.2rem; }
 .menu-band a:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
 .menu-band a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .menu-band a.active .icon { color: inherit; }
-/* Members: all nine in one row on a computer; two rows on narrower screens or with extra-large text. */
-.member-menu { --cols: 9; }
-@media (max-width: 1040px) { .member-menu { --cols: 5; } }
-html.size-xlarge .member-menu { --cols: 5; }
+/* Members: two tidy rows of five, at every screen size and text size. */
+.member-menu { --cols: 5; }
 /* Admin: two rows of six; three rows of four on phones (three across with larger text). */
 .admin-menu { --cols: 6; }
 @media (max-width: 640px) {
