@@ -55,10 +55,12 @@ test('text size setting is saved and applied', async () => {
   assert.equal(res.location, '/');
 });
 
-test('light/dark choice: follows the phone until chosen, then saved for members, admins, volunteers and visitors', async () => {
+test('light/dark choice: dark by default on every device, then saved for members, admins, volunteers and visitors', async () => {
   const c = await signIn('raj.desai@example.com');
   let res = await c.get('/dashboard');
-  assert.doesNotMatch(res.text, /data-theme=/, 'no choice yet: the phone decides');
+  assert.match(res.text, /<html lang="en" class="size-normal" data-theme="dark">/, 'no choice yet: dark');
+  await c.get('/prefs?theme=light&back=/dashboard');
+  assert.match((await c.get('/dashboard')).text, /data-theme="light"/);
   // Both switches are sent; the stylesheet shows the one that fits the colors on screen.
   assert.match(res.text, /class="pref-btn theme-btn to-dark" href="\/prefs\?theme=dark/);
   assert.match(res.text, /class="pref-btn theme-btn to-light" href="\/prefs\?theme=light/);
@@ -71,6 +73,7 @@ test('light/dark choice: follows the phone until chosen, then saved for members,
   assert.match(res.text, /href="\/prefs\?theme=auto[^"]*">Same as my phone/);
   await c.get('/prefs?theme=nonsense&back=/dashboard'); // ignored
   assert.match((await c.get('/dashboard')).text, /data-theme="dark"/);
+  // "Same as my phone" leaves it to the phone's own setting.
   await c.get('/prefs?theme=auto&back=/dashboard');
   assert.doesNotMatch((await c.get('/dashboard')).text, /data-theme=/);
 
@@ -84,7 +87,8 @@ test('light/dark choice: follows the phone until chosen, then saved for members,
 
   // Visitors (e.g. the committee & volunteer sign-in page) keep their choice in a cookie.
   const v = new t.Client();
-  assert.match((await v.get('/admin/login')).text, /theme-btn to-light/);
+  assert.match((await v.get('/admin/login')).text, /data-theme="dark"[\s\S]*theme-btn to-light/);
+  assert.match((await v.get('/')).text, /data-theme="dark"/);
   await v.get('/prefs?theme=light&back=/admin/login');
   assert.match((await v.get('/admin/login')).text, /data-theme="light"/);
 });

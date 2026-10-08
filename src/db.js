@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   source TEXT NOT NULL DEFAULT 'signup',  -- signup | admin | import
   language TEXT,                          -- 'en' | 'gu' (display preference)
   text_size TEXT,                         -- 'normal' | 'large' | 'xlarge'
-  theme TEXT,                             -- 'auto' (follow the phone) | 'light' | 'dark'
+  theme TEXT,                             -- 'dark' (default) | 'light' | 'auto' (follow the phone)
   -- Celebrations: members choose to share their birthday (month and day only) and wedding anniversary.
   share_birthday INTEGER NOT NULL DEFAULT 0,
   anniversary TEXT,                       -- YYYY-MM-DD

@@ -7,7 +7,8 @@ const { formatDateTime, formatTime, weekdayName, localDate } = require('./util')
 const LANGS = ['en', 'gu'];
 const SIZES = ['normal', 'large', 'xlarge'];
 // 'auto' follows the phone or computer's own light/dark setting.
-const THEMES = ['auto', 'light', 'dark'];
+// Dark is the default on every device until someone picks Light or "Same as my phone" ('auto').
+const THEMES = ['dark', 'light', 'auto'];
 const missing = new Set();
 
 // "a, b and c" — list values are passed as { list: [...] } so each part can be translated.
@@ -54,7 +55,7 @@ function i18nMiddleware(req, res, next) {
   // Keep the cookie in step with the profile, so the choice survives signing out on this phone.
   if (cookies.lang !== lang) res.cookie('lang', lang, COOKIE);
   if (cookies.size !== size) res.cookie('size', size, COOKIE);
-  if ((cookies.theme || 'auto') !== theme) res.cookie('theme', theme, COOKIE);
+  if (cookies.theme !== theme) res.cookie('theme', theme, COOKIE);
   const t = translator(lang);
   req.t = t;
   req.lang = lang;
