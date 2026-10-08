@@ -23,7 +23,7 @@ test('signed in to the admin area, member pages send the admin back to the admin
   assert.match(res.text, /class="subnav[ "]/);
   // Phones get the admin bottom bar (not the member one); "More" lists the other admin pages.
   const bar = res.text.split('<nav class="tabbar mobile-only admin-tabbar"')[1].split('</nav>')[0];
-  assert.deepEqual([...bar.matchAll(/<span>([^<]+)<\/span>/g)].map((x) => x[1]), ['Overview', 'Check-in', 'Events', 'Contacts', 'More']);
+  assert.deepEqual([...bar.matchAll(/<span>([^<]+)<\/span>/g)].map((x) => x[1]), ['Overview', 'Check-in', 'Events', 'Members', 'More']);
   assert.match(res.text, /class="menu-compact desktop-only" aria-label="Admin"[^>]*data-compact-menu hidden/, 'slim pinned row on bigger screens');
   const more = await a.get('/admin/more');
   for (const page of ['Payments', 'Donations', 'Reports', 'Trends', 'Levels', 'News', 'Photos', 'Website']) assert.match(more.text, new RegExp(`<main[\\s\\S]*>\\s*${page}</a>`), page);

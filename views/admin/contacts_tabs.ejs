@@ -1,5 +1,5 @@
 <%# Contacts are split in two: members (and their families, donors, volunteers) and sponsors & vendors. %>
-<nav class="pills wrap" aria-label="Contacts">
+<nav class="pills wrap" aria-label="Members and sponsors">
   <a href="/admin/members" class="<%= active === 'member' ? 'active' : '' %>">Members (<%= counts.members %>)</a>
   <a href="/admin/members?type=business" class="<%= active === 'business' ? 'active' : '' %>">Sponsors &amp; vendors (<%= counts.businesses %>)</a>
 </nav>

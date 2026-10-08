@@ -1,7 +1,7 @@
 <%- include('../partials/head') %>
-<div class="page-head"><h1>Contacts</h1>
+<div class="page-head"><h1>Members</h1>
   <div class="actions">
-    <a class="btn" href="/admin/members/new">+ Add contact</a>
+    <a class="btn" href="/admin/members/new">+ Add member</a>
     <a class="btn secondary" href="/admin/import">Import from spreadsheet</a>
     <a class="btn secondary" href="/admin/members.csv<%= exportQuery ? `?${exportQuery}` : '' %>">Download CSV</a>
   </div>
@@ -11,7 +11,7 @@
 <form method="get" class="card filters">
   <input name="q" value="<%= filters.q %>" placeholder="Search name, email, phone, city, native place…" class="grow">
   <select name="status" aria-label="Membership status">
-    <option value="">All contacts</option>
+    <option value="">All members</option>
     <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active members</option>
     <option value="expired" <%= filters.status === 'expired' ? 'selected' : '' %>>Expired members</option>
     <option value="none" <%= filters.status === 'none' ? 'selected' : '' %>>Never a member</option>
@@ -53,7 +53,7 @@
           <% if (!m.password_hash) { %><span class="badge warn" title="Can't sign in to the app yet">No login</span><% } %></td>
       </tr>
     <% } %>
-    <% if (!members.length) { %><tr><td colspan="6" class="muted">No contacts match these filters.</td></tr><% } %>
+    <% if (!members.length) { %><tr><td colspan="6" class="muted">No members match these filters.</td></tr><% } %>
     </tbody>
   </table>
 </div>

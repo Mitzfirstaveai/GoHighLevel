@@ -111,7 +111,7 @@ router.get('/members', (req, res) => {
   }
   const filters = pickFilters(req.query);
   res.render('admin/members', {
-    title: 'Contacts', members: searchMembers(db, filters), filters, today: nowLocal().slice(0, 10), tags: TAGS, counts: contactCounts(db),
+    title: 'Members', members: searchMembers(db, filters), filters, today: nowLocal().slice(0, 10), tags: TAGS, counts: contactCounts(db),
     plans: db.prepare('SELECT id, name FROM membership_plans ORDER BY sort_order, amount_cents').all(),
     cities: db.prepare(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL AND city != '' ORDER BY city COLLATE NOCASE`).all().map((r) => r.city),
     exportQuery: new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString(),
@@ -148,7 +148,7 @@ router.get('/members/new', (req, res) => {
   if (req.query.type === 'business') {
     return res.render('admin/business_new', { title: 'Add sponsor or vendor', levels: SPONSOR_LEVELS, b: { tags: req.query.tag === 'Vendor' ? 'Vendor' : 'Sponsor' } });
   }
-  res.render('admin/member_new', { title: 'Add contact', tags: TAGS });
+  res.render('admin/member_new', { title: 'Add member', tags: TAGS });
 });
 
 router.post('/members/new', (req, res) => {
@@ -165,13 +165,13 @@ router.post('/members/new', (req, res) => {
 });
 
 router.get('/import', (req, res) => {
-  res.render('admin/import', { title: 'Import contacts', result: null });
+  res.render('admin/import', { title: 'Import members', result: null });
 });
 
 router.post('/import', csvUpload.single('file'), (req, res) => {
   if (!req.file) throw new svc.UserError('Please choose a CSV file to import.');
   const result = importContacts(req.app.locals.db, req.file.buffer.toString('utf8'));
-  res.render('admin/import', { title: 'Import contacts', result });
+  res.render('admin/import', { title: 'Import members', result });
 });
 
 router.get('/members/:id', (req, res) => {
@@ -234,7 +234,7 @@ router.post('/members/:id', (req, res) => {
   svc.updateProfile(db, req.params.id, req.body);
   const email = cleanEmail(req.body.email);
   if (email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, req.params.id)) {
-    throw new svc.UserError('Another contact already uses that email.');
+    throw new svc.UserError('That email is already used by someone else in the app.');
   }
   db.prepare('UPDATE users SET notes = ?, email = ?, tags = ? WHERE id = ?')
     .run(String(req.body.notes || '').slice(0, 2000) || null, email, cleanTags(req.body.tags), req.params.id);

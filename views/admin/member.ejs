@@ -1,5 +1,5 @@
 <%- include('../partials/head') %>
-<a class="back" href="/admin/members">← Contacts</a>
+<a class="back" href="/admin/members">← Members</a>
 <div class="page-head"><h1><%= member.first_name %> <%= member.last_name %></h1>
   <div class="actions"><% if (member.role === 'admin') { %><span class="badge neutral">Administrator</span><% } %><% if (member.checkin_access && member.role !== 'admin') { %><span class="badge neutral">Door volunteer</span><% } %>
   <% if (membership.active) { %><span class="badge ok">Member until <%= fmtDate(membership.current.end_date) %></span><% } else { %><span class="badge warn">No active membership</span><% } %></div>

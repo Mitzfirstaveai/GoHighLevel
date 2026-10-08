@@ -4,7 +4,7 @@ const ADMIN_MENU = [
   ['/admin', 'Overview', 'shield', true],
   ['/admin/checkin', 'Check-in', 'scan'],
   ['/admin/events', 'Events', 'calendar'],
-  ['/admin/members', 'Contacts', 'users'],
+  ['/admin/members', 'Members', 'users'],
   ['/admin/payments', 'Payments', 'dollar'],
   ['/admin/donations', 'Donations', 'heart'],
   ['/admin/reports', 'Reports', 'chart'],

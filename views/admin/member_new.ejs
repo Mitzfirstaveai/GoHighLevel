@@ -1,6 +1,6 @@
 <%- include('../partials/head') %>
-<a class="back" href="/admin/members">← Contacts</a>
-<div class="page-head"><h1>Add contact</h1></div>
+<a class="back" href="/admin/members">← Members</a>
+<div class="page-head"><h1>Add member</h1></div>
 <div class="card">
   <p class="muted">Add a member, donor or volunteer. Email is optional — but it's needed if they should sign in to the app.
     For a business or organization, use <a href="/admin/members/new?type=business">Add sponsor or vendor</a> instead.</p>
@@ -13,7 +13,7 @@
     </fieldset>
     <label>Notes (only admins see these) <textarea name="notes"></textarea></label>
     <label class="check"><input type="checkbox" name="create_login" value="1"> Create an app login now (shows a temporary password to give them)</label>
-    <div><button class="btn">Add contact</button></div>
+    <div><button class="btn">Add member</button></div>
   </form>
 </div>
 <%- include('../partials/foot') %>

@@ -1,6 +1,6 @@
 <%- include('../partials/head') %>
-<a class="back" href="/admin/members">← Contacts</a>
-<div class="page-head"><h1>Import contacts</h1></div>
+<a class="back" href="/admin/members">← Members</a>
+<div class="page-head"><h1>Import members</h1></div>
 <% if (result) { %>
   <div class="card">
     <h2>Import finished</h2>
@@ -18,13 +18,13 @@
   <h2>Upload a spreadsheet (CSV)</h2>
   <ol class="small">
     <li>In WildApricot: <strong>Contacts → Export contacts</strong> and choose CSV. (Any CSV with "First name" and "Last name" columns works.)</li>
-    <li>Upload the file here. Contacts already in this app (same email) are updated; everyone else is added.</li>
+    <li>Upload the file here. People already in this app (same email) are updated; everyone else is added.</li>
     <li>If a row has a <strong>Membership level</strong> matching one of ours and a <strong>Renewal due</strong> date, their membership is recorded too.</li>
   </ol>
   <form method="post" action="/admin/import?_csrf=<%= encodeURIComponent(csrf) %>" enctype="multipart/form-data" class="stack">
     <input type="file" name="file" accept=".csv,text/csv" required>
     <div><button class="btn">Import</button></div>
   </form>
-  <p class="muted small">Recognised columns: First name, Last name, Email, Phone, Address, City, State, Zip, Native place, Membership level, Membership status, Member since, Renewal due, Tags, Notes. Imported people get an app login when an admin creates one for them (from their contact page).</p>
+  <p class="muted small">Recognised columns: First name, Last name, Email, Phone, Address, City, State, Zip, Native place, Membership level, Membership status, Member since, Renewal due, Tags, Notes. Imported people get an app login when an admin creates one for them (from their page under Members).</p>
 </div>
 <%- include('../partials/foot') %>

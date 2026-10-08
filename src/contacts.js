@@ -31,7 +31,7 @@ function addContact(db, body) {
   const profile = cleanProfile(body);
   const email = cleanEmail(body.email);
   if (email && db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
-    throw new UserError('A contact with that email already exists.');
+    throw new UserError('That email is already used by someone else in the app.');
   }
   const temp = body.create_login && email ? temporaryPassword() : null;
   const id = Number(db.prepare(`INSERT INTO users (email, password_hash, role, ${PROFILE_FIELDS.join(', ')}, notes, tags, source)
@@ -207,7 +207,7 @@ function businessFields(body) {
 function addBusiness(db, body) {
   const fields = businessFields(body);
   const email = cleanEmail(body.email);
-  if (email && db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new UserError('A contact with that email already exists.');
+  if (email && db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new UserError('That email is already used by someone else in the app.');
   const cols = Object.keys(fields);
   return Number(db.prepare(`INSERT INTO users (email, last_name, contact_type, source, ${cols.join(', ')})
     VALUES (?, '', 'business', 'admin', ${cols.map(() => '?').join(', ')})`).run(email, ...Object.values(fields)).lastInsertRowid);
@@ -216,7 +216,7 @@ function addBusiness(db, body) {
 function updateBusiness(db, id, body) {
   const fields = businessFields(body);
   const email = cleanEmail(body.email);
-  if (email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, id)) throw new UserError('A contact with that email already exists.');
+  if (email && db.prepare('SELECT 1 FROM users WHERE email = ? AND id != ?').get(email, id)) throw new UserError('That email is already used by someone else in the app.');
   db.prepare(`UPDATE users SET email = ?, ${Object.keys(fields).map((k) => `${k} = ?`).join(', ')}, updated_at = datetime('now')
     WHERE id = ? AND contact_type = 'business'`).run(email, ...Object.values(fields), id);
 }
