@@ -504,4 +504,13 @@ body.door-mode .topbar .brand-short { display: inline; }
 .menu-compact a:hover { border-color: var(--brand); color: var(--brand); }
 .menu-compact a.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .menu-compact a.active .icon { color: inherit; }
+/* Links that jump down the page stop below the pinned header (and the slim menu on larger screens). */
+html { scroll-padding-top: 80px; }
 @media (min-width: 821px) { html { scroll-padding-top: 140px; } }
+
+/* Donate: one box per fund, each with a "Give to this fund" button */
+.fund-card { display: flex; flex-direction: column; }
+.fund-card .fund-give { margin-top: auto; align-self: flex-start; display: inline-flex; gap: 8px; align-items: center; }
+.fund-card .fund-give .icon { width: 20px; height: 20px; }
+.fund-card > :nth-last-child(2) { margin-bottom: 14px; }
+.fund-card.chosen { border: 2px solid var(--brand); }

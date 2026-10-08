@@ -266,3 +266,19 @@ test('display settings sit at the bottom of Profile and More; Profile has no sec
   const more = (await m.get('/more')).text;
   assert.ok(more.indexOf('id="display"') > more.indexOf('Contact us'), 'after the About GSA links');
 });
+
+test('donate: a General fund box, and "Give to this fund" picks the fund in the form', async () => {
+  const id = Number(t.db.prepare(`INSERT INTO campaigns (title, description, goal_cents, active) VALUES ('Baby fund', 'For future babies', 1000000, 1)`).run().lastInsertRowid);
+  const m = await t.register('giver@test.org', 'Giver');
+  let res = await m.get('/donate');
+  assert.match(res.text, /<h2>General fund<\/h2>\s*<p class="muted">Where GSA needs it most/);
+  assert.match(res.text, /raised this year/);
+  assert.match(res.text, new RegExp(`href="/donate\\?campaign=${id}#give"`));
+  assert.match(res.text, /href="\/donate\?campaign=general#give"/);
+  res = await m.get(`/donate?campaign=${id}`);
+  assert.match(res.text, new RegExp(`<option value="${id}" selected>Baby fund</option>`));
+  assert.match(res.text, /class="card fund-card chosen">\s*<h2>Baby fund/);
+  res = await m.get('/donate?campaign=general');
+  assert.match(res.text, /class="card fund-card chosen">\s*<h2>General fund/);
+  assert.doesNotMatch(res.text, /<option value="\d+" selected>/);
+});

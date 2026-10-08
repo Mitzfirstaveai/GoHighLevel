@@ -1,7 +1,7 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware');
 const svc = require('../services');
-const { parseMoney, toCsv, localDate } = require('../util');
+const { parseMoney, toCsv, localDate, today } = require('../util');
 
 const router = express.Router();
 const PRESETS = [2100, 5100, 10100, 25100, 50100]; // the customary "+1" amounts
@@ -15,9 +15,13 @@ function campaignsWithProgress(db, activeOnly) {
 
 router.get('/donate', requireAuth, (req, res) => {
   const { db } = req.app.locals;
+  // The General fund (gifts not for a particular fund) shows what it has raised this year.
+  const general = db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS cents, COUNT(DISTINCT user_id) AS donors FROM payments
+    WHERE kind = 'donation' AND status = 'paid' AND reference_id IS NULL AND paid_at >= ?`).get(`${today().slice(0, 4)}-01-01`);
   res.render('member/donate', {
-    title: 'Donate', campaigns: campaignsWithProgress(db, true), presets: PRESETS,
-    selected: Number(req.query.campaign) || null,
+    title: 'Donate', campaigns: campaignsWithProgress(db, true), presets: PRESETS, general,
+    // "Give to this fund" links (?campaign=3, or ?campaign=general) pick the fund in the form below.
+    selected: req.query.campaign === 'general' ? 'general' : Number(req.query.campaign) || null,
   });
 });
 

@@ -1,14 +1,22 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1><%= t('Donate') %></h1></div>
 <p class="muted"><%= t("Your gift supports GSA's cultural programs, festivals and community center. {org} is a 501(c)(3) nonprofit — you'll get a tax receipt right away.", { org: t.data(orgName) }) %></p>
-<% if (campaigns.length) { %>
+<%# One box per fund, the General fund first. "Give to this fund" picks it in the form below. %>
 <div class="grid grid-2">
+  <div class="card fund-card <%= selected === 'general' ? 'chosen' : '' %>">
+    <h2><%= t('General fund') %></h2>
+    <p class="muted"><%= t('Where GSA needs it most: festivals, the community center and day-to-day costs.') %></p>
+    <%- include('../partials/thermometer', { c: { progress: general, goal_cents: null, thisYear: true } }) %>
+    <a class="btn secondary fund-give" href="/donate?campaign=general#give"><%- include('../partials/icon', { name: 'heart' }) %> <%= t('Give to this fund') %></a>
+  </div>
   <% for (const c of campaigns) { %>
-    <div class="card"><h2><%= t.data(c.title) %></h2><% if (c.description) { %><p class="muted"><%= t.data(c.description) %></p><% } %><%- include('../partials/thermometer', { c }) %></div>
+    <div class="card fund-card <%= selected === c.id ? 'chosen' : '' %>">
+      <h2><%= t.data(c.title) %></h2><% if (c.description) { %><p class="muted"><%= t.data(c.description) %></p><% } %><%- include('../partials/thermometer', { c }) %>
+      <a class="btn secondary fund-give" href="/donate?campaign=<%= c.id %>#give"><%- include('../partials/icon', { name: 'heart' }) %> <%= t('Give to this fund') %></a>
+    </div>
   <% } %>
 </div>
-<% } %>
-<div class="card">
+<div class="card" id="give">
   <form method="post" action="/donate" class="stack">
     <%- include('../partials/csrf') %>
     <label><%= t('Give to') %>
