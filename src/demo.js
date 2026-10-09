@@ -150,7 +150,8 @@ function seedDemo(db, { photosDir } = {}) {
     for (const [email, days] of [['raj.desai@example.com', 2], ['meena.mehta@example.com', 1]]) {
       db.prepare(`UPDATE users SET date_of_birth = substr(date_of_birth, 1, 5) || ?, share_birthday = 1 WHERE email = ?`).run(monthDay(days), email);
     }
-    db.prepare(`UPDATE household_members SET birthday = ?, share_birthday = 1 WHERE name = 'Diya Shah'`).run(monthDay(4));
+    // Diya's (locked) birth month matches her birthday; she's 12 either way, so Garba prices don't change.
+    db.prepare(`UPDATE household_members SET birthday = ?, birth_month = ?, share_birthday = 1 WHERE name = 'Diya Shah'`).run(monthDay(4), Number(monthDay(4).slice(0, 2)));
     // Amit (Priya's husband) has his own family login, covered by Priya's Family membership.
     const amitRow = db.prepare(`SELECT id FROM household_members WHERE user_id = ? AND name = 'Amit Shah'`).get(userId['member@example.com']).id;
     userId['amit.shah@example.com'] = Number(db.prepare(`INSERT INTO users (email, password_hash, first_name, last_name, phone, city, state, owner_id)

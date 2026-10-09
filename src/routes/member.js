@@ -60,7 +60,7 @@ router.get('/profile', requireAuth, (req, res) => {
   const owner = req.user.owner_id ? db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   res.render('member/profile', {
     title: 'My profile', profile: req.user, household: svc.getHousehold(db, owner?.id ?? req.user.id), membership, owner,
-    baseUrl: req.app.locals.config.baseUrl, now: db.prepare(`SELECT datetime('now') AS n`).get().n,
+    baseUrl: req.app.locals.config.baseUrl, today: today(), now: db.prepare(`SELECT datetime('now') AS n`).get().n,
     coverageParts: membership.active && membership.plan ? svc.planCoverageParts(membership.plan) : null,
     relationships: Object.keys(svc.RELATIONSHIPS),
   });

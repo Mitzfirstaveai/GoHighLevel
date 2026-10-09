@@ -1103,12 +1103,25 @@ function updateCelebrations(db, userId, body) {
   const anniversary = String(body.anniversary || '').trim();
   if (anniversary && !/^\d{4}-\d{2}-\d{2}$/.test(anniversary)) throw new UserError('Please enter the anniversary as a full date.');
   const user = db.prepare('SELECT date_of_birth, owner_id FROM users WHERE id = ?').get(userId);
+  // Their date of birth can be added (or corrected) here too; it's the same one as in Personal details.
+  if ('date_of_birth' in body) {
+    const dob = String(body.date_of_birth || '').trim();
+    const parsed = new Date(`${dob}T12:00:00Z`);
+    if (dob && (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dob
+      || dob > today() || dob < '1900-01-01')) {
+      throw new UserError('Date of birth must be a valid date.');
+    }
+    db.prepare('UPDATE users SET date_of_birth = ? WHERE id = ?').run(dob || null, userId);
+    user.date_of_birth = dob || null;
+  }
+  if (body.share_birthday && !user.date_of_birth) throw new UserError('Add your date of birth to share your birthday.');
   const shareBirthday = body.share_birthday && user.date_of_birth ? 1 : 0;
   db.prepare('UPDATE users SET share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
     .run(shareBirthday, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
   if (user.owner_id) return;
-  for (const h of db.prepare('SELECT id FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
-    const month = String(body[`birthday_month_${h.id}`] || '').padStart(2, '0');
+  for (const h of db.prepare('SELECT id, birth_month FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
+    // A locked birth month (children) is also their birthday month.
+    const month = String(h.birth_month || body[`birthday_month_${h.id}`] || '').padStart(2, '0');
     const day = String(body[`birthday_day_${h.id}`] || '').padStart(2, '0');
     const birthday = MONTH_DAY_RE.test(`${month}-${day}`) ? `${month}-${day}` : null;
     db.prepare('UPDATE household_members SET birthday = ?, share_birthday = ? WHERE id = ?')
