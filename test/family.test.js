@@ -176,7 +176,7 @@ test('a family member gets their own login and can only add people not already r
   assert.doesNotMatch(res.text, new RegExp(`/admin/checkin/${spouseTicket.qr_token}`));
 
   // Family logins don't manage the family list or pay the dues.
-  res = await s.follow(await s.post('/profile/household', { name: 'Someone', relationship: 'Son' }));
+  res = await s.follow(await s.post('/profile/household', { name: 'Someone', relationship: 'Son', birth_month: '1', birth_year: '2015' }));
   assert.match(res.text, /Your family list is managed by the member who added you/);
   res = await s.follow(await s.post('/membership/pay', { plan_id: String(t.planId('Family')) }));
   assert.match(res.text, /part of your family membership/);

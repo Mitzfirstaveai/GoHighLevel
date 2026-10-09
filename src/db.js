@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS household_members (
   name TEXT NOT NULL,
   relationship TEXT,
   birth_year INTEGER,
+  birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12), -- with birth_year: required for children, locked once saved (admins can correct)
   email TEXT COLLATE NOCASE,                                         -- set by the member so this person can get their own login
   login_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,     -- their login, once they've joined
   invite_token TEXT,                 -- private single-use link the member shares so this person can join
@@ -105,7 +106,10 @@ CREATE TABLE IF NOT EXISTS events (
   capacity INTEGER,
   max_party_size INTEGER NOT NULL DEFAULT 10,
   members_only INTEGER NOT NULL DEFAULT 0,
-  guest_fee_cents INTEGER CHECK (guest_fee_cents >= 0), -- NULL = guests not allowed
+  guest_fee_cents INTEGER CHECK (guest_fee_cents >= 0), -- in-state non-members and guests; NULL = guests not allowed
+  out_of_state_fee_cents INTEGER CHECK (out_of_state_fee_cents >= 0), -- out-of-state guests; NULL = no such price
+  student_fee_cents INTEGER CHECK (student_fee_cents >= 0),           -- students with a school ID (one person each); NULL = none
+  child_free_age INTEGER CHECK (child_free_age >= 0),                 -- children this age and under come free; NULL = no rule
   max_guests INTEGER NOT NULL DEFAULT 4,
   early_fee_cents INTEGER CHECK (early_fee_cents >= 0), -- early-bird member price…
   early_until TEXT,                                     -- …until this date-time
@@ -122,6 +126,7 @@ CREATE TABLE IF NOT EXISTS rsvps (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   party_size INTEGER NOT NULL CHECK (party_size > 0), -- everyone coming, guests included
   guest_count INTEGER NOT NULL DEFAULT 0,               -- of whom non-family guests
+  guest_types TEXT NOT NULL DEFAULT '{}',               -- JSON counts by kind: instate, outofstate, student, child
   total_cents INTEGER NOT NULL DEFAULT 0,               -- price for this RSVP after discounts
   discount_cents INTEGER NOT NULL DEFAULT 0,
   coupon_code TEXT,
@@ -286,12 +291,21 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 13; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 14; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
-// 12: pay at the door; 13: PayPal and Venmo payment methods
+// 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  14: [
+    'ALTER TABLE household_members ADD COLUMN birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12)',
+    'ALTER TABLE events ADD COLUMN out_of_state_fee_cents INTEGER CHECK (out_of_state_fee_cents >= 0)',
+    'ALTER TABLE events ADD COLUMN student_fee_cents INTEGER CHECK (student_fee_cents >= 0)',
+    'ALTER TABLE events ADD COLUMN child_free_age INTEGER CHECK (child_free_age >= 0)',
+    "ALTER TABLE rsvps ADD COLUMN guest_types TEXT NOT NULL DEFAULT '{}'",
+    // Guests registered before guest types were all at the one guest (in-state) price.
+    `UPDATE rsvps SET guest_types = json_object('instate', guest_count) WHERE guest_count > 0`,
+  ],
   12: ['ALTER TABLE rsvps ADD COLUMN pay_at_door INTEGER NOT NULL DEFAULT 0'],
   // SQLite can't change a CHECK in place, so payments is rebuilt with PayPal and Venmo allowed
   // (openDb turns foreign keys off around this, as SQLite's docs advise for rebuilding a table).

@@ -26,6 +26,8 @@ const LEVELS = [
   ['Family with Parents', 'Married couple (or single parent) with their unmarried children, and one set of parents to be noted at renewal', 38500, 1, 1, 2, 0, 'માતા-પિતા સાથે પરિવાર'],
 ];
 
+const CHILD_BIRTH_MONTHS = { 'Diya Shah': 3, 'Aarav Shah': 8, 'Riya Bhatt': 12, 'Yash Bhatt': 2, 'Isha Joshi': 4, 'Mihir Trivedi': 11, 'Rohan Patel': 1 };
+
 // email, first, last, phone, city, vatan, dob, level (null = none, 'expired:Level' = lapsed), family [name, relationship, birth year]
 const PEOPLE = [
   ['admin@example.com', 'Kiran', 'Patel', '501-555-0100', 'Little Rock', 'Anand', '1975-04-12', 'Family',
@@ -109,8 +111,10 @@ function seedDemo(db, { photosDir } = {}) {
           `${100 + Object.keys(userId).length * 37} Main St`, city, '72201', vatan, dob).lastInsertRowid);
       userId[email] = id;
       for (const [name, relationship, birthYear] of family) {
-        db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (?, ?, ?, ?)')
-          .run(id, name, relationship, birthYear);
+        // Children have a (locked) birth month too, so ages set Garba prices: Aarav 9 and Riya 10 come free.
+        const birthMonth = ['Son', 'Daughter'].includes(relationship) ? (CHILD_BIRTH_MONTHS[name] ?? 6) : null;
+        db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year, birth_month) VALUES (?, ?, ?, ?, ?)')
+          .run(id, name, relationship, birthYear, birthMonth);
       }
       if (!level) continue;
       const expired = level.startsWith('expired:');
@@ -183,13 +187,15 @@ function seedDemo(db, { photosDir } = {}) {
 
     const garba1 = addEvent('Navratri Garba #1', 'Garba and dandiya raas with live music. Wear your best chaniya choli and kediyu!',
       localDateTime(2, '19:30'), localDateTime(2, '23:30'), 0, 600, 10);
-    set(garba1, { guest_fee_cents: 1000, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #1',
+    // Garba prices (as on the flyer): $5 paid members, children 10 and under free, $50 in-state non-members,
+    // $15 out-of-state guests, $15 students with a school ID.
+    set(garba1, { fee_cents: 500, guest_fee_cents: 5000, out_of_state_fee_cents: 1500, student_fee_cents: 1500, child_free_age: 10, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #1',
       description_gu: 'જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસ. તમારા સૌથી સુંદર ચણિયા ચોળી અને કેડિયું પહેરીને આવો!' });
     const garba2 = addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
       localDateTime(3, '19:30'), localDateTime(3, '23:30'), 0, 600, 10);
     const diwali = addEvent('Diwali Dinner & Cultural Program', 'Celebrate Diwali and the Gujarati new year with a cultural program and dinner. Dinner fee $15 per person.',
       localDateTime(24, '17:00'), localDateTime(24, '21:30'), 1500, 400, 10);
-    set(garba2, { guest_fee_cents: 1000, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #2',
+    set(garba2, { fee_cents: 500, guest_fee_cents: 5000, out_of_state_fee_cents: 1500, student_fee_cents: 1500, child_free_age: 10, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #2',
       description_gu: 'જીવંત સંગીત સાથે નવરાત્રી ગરબા અને દાંડિયા રાસની બીજી રાત.' });
     set(diwali, {
       title_gu: 'દિવાળી ભોજન અને સાંસ્કૃતિક કાર્યક્રમ',
@@ -214,9 +220,11 @@ function seedDemo(db, { photosDir } = {}) {
     // Each RSVP lists who it's for: the member, then family from their profile (or `extra.who`, by first name).
     const addAttendee = db.prepare('INSERT INTO rsvp_attendees (rsvp_id, event_id, person, name, relationship) VALUES (?, ?, ?, ?, ?)');
     const rsvp = (eventId, email, partySize, status, checkedIn, daysAgo = 18, extra = {}) => {
-      const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, answers, status,
-          qr_token, checked_in_at, checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(eventId, userId[email], partySize, extra.guests ?? 0, extra.total ?? 0, JSON.stringify(extra.answers ?? []), status, newToken(),
+      const guestTypes = extra.types ?? (extra.guests ? { instate: extra.guests } : {});
+      const id = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, guest_types, total_cents, answers, status,
+          pay_at_door, qr_token, checked_in_at, checked_in_by, checked_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId[email], partySize, extra.guests ?? 0, JSON.stringify(guestTypes), extra.total ?? 0, JSON.stringify(extra.answers ?? []), status,
+          extra.payAtDoor ? 1 : 0, newToken(),
           checkedIn ? localDateTime(-daysAgo, '18:20').replace('T', ' ') + ':00' : null,
           checkedIn ? admin : null, checkedIn ? checkedIn : null).lastInsertRowid);
       const u = db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(userId[email]);
@@ -247,12 +255,20 @@ function seedDemo(db, { photosDir } = {}) {
 
     // Navratri Garba #1 (free): the demo member has a ticket for herself and the kids — not Amit,
     // who can add himself from his own family login.
-    rsvp(garba1, 'member@example.com', 3, 'confirmed', null, 0, { who: ['Priya', 'Diya', 'Aarav'] });
-    rsvp(garba1, 'admin@example.com', 3, 'confirmed');
-    rsvp(garba1, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, total: 2000 });
-    rsvp(garba1, 'anjali.vyas@example.com', 2, 'confirmed');
-    rsvp(garba1, 'hemant.thakkar@example.com', 1, 'confirmed');
-    rsvp(garba1, 'dhruv.amin@example.com', 1, 'confirmed');
+    // Garba #1, at the flyer's prices ($5 members, children 10 and under free). Paid online, except the
+    // Joshis, who pay at the door (5 family at $5 + 2 out-of-state guests at $15).
+    const garbaPaid = (email, n, total, extra = {}) => {
+      const id = rsvp(garba1, email, n, 'confirmed', null, 0, { total, ...extra });
+      db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
+                  VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-1 days'))`)
+        .run(userId[email], id, `Navratri Garba #1 — ${n} ${n === 1 ? 'person' : 'people'}`, total, `demo_g${id}`);
+    };
+    garbaPaid('member@example.com', 3, 1000, { who: ['Priya', 'Diya', 'Aarav'] }); // Aarav is 9: free
+    garbaPaid('admin@example.com', 3, 1500);
+    rsvp(garba1, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, types: { outofstate: 2 }, total: 5500, payAtDoor: true });
+    garbaPaid('anjali.vyas@example.com', 2, 1000);
+    garbaPaid('hemant.thakkar@example.com', 1, 500);
+    garbaPaid('dhruv.amin@example.com', 1, 500);
 
     // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & Pay live.
     paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program', diet('Jain'));

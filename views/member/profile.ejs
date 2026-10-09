@@ -32,10 +32,23 @@
       <% const inviteOpen = !h.login_user_id && h.invite_token && h.invite_expires > now; %>
       <div class="family-row">
         <div class="family-head">
+          <% const locked = h.birth_year && h.birth_month; const child = ['Son', 'Daughter'].includes(h.relationship); %>
           <div><strong><%= h.name %></strong>
-            <div class="muted small"><%= t.data(h.relationship) || '' %><%= h.birth_year ? ` · ${t('Birth year')} ${h.birth_year}` : '' %></div></div>
+            <div class="muted small"><%= t.data(h.relationship) || '' %><% if (locked) { %> · <%= t('Born {date}', { date: new Date(Date.UTC(h.birth_year, h.birth_month - 1, 1)).toLocaleString(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }) %> 🔒<% } else if (h.birth_year) { %> · <%= t('Birth year') %> <%= h.birth_year %><% } %></div>
+            <% if (child && locked) { %><div class="muted small"><%= t('To change or remove, ask a committee member') %></div><% } %></div>
+          <% if (!(child && locked)) { %>
           <form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form>
+          <% } %>
         </div>
+        <% if (child && !locked) { %>
+          <%# Children added before birth dates were required: fill them in once (then locked). %>
+          <form method="post" action="/profile/household/<%= h.id %>/birth" class="birth-once needed">
+            <%- include('../partials/csrf') %>
+            <p class="small" style="margin:6px 0 4px"><%= t('Add {name}\'s birth month and year — needed for event prices (e.g. children free up to a certain age).', { name: h.name }) %></p>
+            <div class="fields"><%- include('../partials/birth-fields', { required: true, h }) %></div>
+            <div><button class="btn secondary small"><%= t('Save — can\'t be changed later') %></button></div>
+          </form>
+        <% } %>
         <div class="small" style="margin-top:6px">
           <% if (h.login_user_id) { %><span class="badge ok"><%= t('Has own login') %></span>
           <% } else if (!inviteOpen) { %>
@@ -71,8 +84,9 @@
           <% for (const r of relationships) { %><option value="<%= r %>"><%= t.data(r) %></option><% } %>
         </select>
       </label>
-      <label><%= t('Birth year (optional)') %> <input name="birth_year" inputmode="numeric" pattern="\d{4}"></label>
+      <%- include('../partials/birth-fields', { required: false }) %>
     </div>
+    <p class="small muted" style="margin:0"><%= t('Birth month and year are required for children (event prices depend on age). Once saved they can only be changed by a committee member.') %></p>
     <div><button class="btn secondary"><%= t('Add family member') %></button></div>
   </form>
   <% } %>

@@ -31,14 +31,21 @@
       <label>Member price per person (0 = free) <input name="fee" inputmode="decimal" value="<%= event.fee_cents ? (event.fee_cents / 100).toFixed(2) : '0' %>"></label>
       <label>Total capacity (blank = unlimited) <input name="capacity" type="number" min="1" value="<%= event.capacity || '' %>"></label>
       <label>Max family members per RSVP <input name="max_party_size" type="number" min="1" max="100" value="<%= event.max_party_size %>" required></label>
+      <label>Children free up to age (blank = no rule) <input name="child_free_age" type="number" min="0" max="17" placeholder="e.g. 10" value="<%= event.child_free_age ?? '' %>"></label>
     </div>
+    <p class="muted small" style="margin:0">Age on the event day, from the birth month and year on the family's profile (children counted as the younger age for their whole birthday month). Applies to members' and non-members' children and child guests.</p>
     <label class="check"><input type="checkbox" name="members_only" value="1" <%= event.members_only ? 'checked' : '' %>> Only members with an active (paid) membership can RSVP</label>
     <p class="muted small" style="margin:0">Members bring the family their membership level covers. When the event is full, people can join a waitlist and are moved in automatically when seats free up.</p>
 
-    <label class="check"><input type="checkbox" name="allow_guests" value="1" <%= event.guest_fee_cents !== null && event.guest_fee_cents !== undefined ? 'checked' : '' %> data-toggle="guest-fields"> Allow guests (friends, visiting relatives, non-members) at a guest price</label>
-    <div class="fields" id="guest-fields">
-      <label>Guest price per person (0 = free) <input name="guest_fee" inputmode="decimal" value="<%= event.guest_fee_cents != null ? (event.guest_fee_cents / 100).toFixed(2) : '' %>"></label>
-      <label>Max guests per RSVP <input name="max_guests" type="number" min="1" max="50" value="<%= event.max_guests || 4 %>"></label>
+    <label class="check"><input type="checkbox" name="allow_guests" value="1" <%= event.guest_fee_cents !== null && event.guest_fee_cents !== undefined ? 'checked' : '' %> data-toggle="guest-fields"> Allow non-members and guests (friends, visiting relatives)</label>
+    <div id="guest-fields" class="stack">
+      <div class="fields">
+        <label>In-state non-member / guest price (0 = free) <input name="guest_fee" inputmode="decimal" value="<%= event.guest_fee_cents != null ? (event.guest_fee_cents / 100).toFixed(2) : '' %>"></label>
+        <label>Out-of-state guest price (blank = not offered) <input name="out_of_state_fee" inputmode="decimal" value="<%= event.out_of_state_fee_cents != null ? (event.out_of_state_fee_cents / 100).toFixed(2) : '' %>"></label>
+        <label>Student price, with school ID (blank = not offered) <input name="student_fee" inputmode="decimal" value="<%= event.student_fee_cents != null ? (event.student_fee_cents / 100).toFixed(2) : '' %>"></label>
+        <label>Max guests per RSVP <input name="max_guests" type="number" min="1" max="50" value="<%= event.max_guests || 4 %>"></label>
+      </div>
+      <p class="muted small" style="margin:0">Non-members pay the in-state price for themselves and family their membership doesn't cover. Students count one person each (no families); the door is reminded to check student and out-of-state IDs.</p>
     </div>
 
     <div class="fields">

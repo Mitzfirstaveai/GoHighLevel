@@ -210,8 +210,9 @@ router.get('/members/:id', (req, res) => {
 // Admins can add family members beyond the member's level (e.g. agreed exceptions); they get a warning.
 router.post('/members/:id/household', (req, res) => {
   const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
+  const birthMonth = req.body.birth_month ? parseIntInRange(req.body.birth_month, 1, 12) : null;
   const { name, exceedsPlan } = svc.addHouseholdMember(req.app.locals.db, {
-    userId: Number(req.params.id), name: req.body.name, relationship: req.body.relationship, birthYear, override: true,
+    userId: Number(req.params.id), name: req.body.name, relationship: req.body.relationship, birthYear, birthMonth, override: true,
   });
   req.flash(exceedsPlan ? 'info' : 'success', exceedsPlan
     ? `${name} added. Note: this is more than the member's current level covers.`
@@ -219,8 +220,17 @@ router.post('/members/:id/household', (req, res) => {
   res.redirect(`/admin/members/${req.params.id}#family`);
 });
 
+// Admins can correct a family member's birth month and year (members can't once they're saved).
+router.post('/members/:id/household/:hid/birth', (req, res) => {
+  const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
+  const birthMonth = req.body.birth_month ? parseIntInRange(req.body.birth_month, 1, 12) : null;
+  const h = svc.setHouseholdBirth(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid), birthYear, birthMonth, byAdmin: true });
+  req.flash('success', `Birth month and year updated for ${h.name}.`);
+  res.redirect(`/admin/members/${req.params.id}#family`);
+});
+
 router.post('/members/:id/household/:hid/delete', (req, res) => {
-  svc.removeHouseholdMember(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid) });
+  svc.removeHouseholdMember(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid), byAdmin: true });
   res.redirect(`/admin/members/${req.params.id}#family`);
 });
 
@@ -337,6 +347,14 @@ router.post('/members/:id/payments', (req, res) => {
 
 // ---------- Events ----------
 
+// "2 out-of-state, 1 student" (and "self: student" for a non-member registering themselves).
+const GUEST_KIND_NAMES = { instate: 'in-state', outofstate: 'out-of-state', student: 'student', child: 'child' };
+function guestKindsText(json) {
+  const kinds = JSON.parse(json || '{}');
+  return [...Object.entries(GUEST_KIND_NAMES).filter(([k]) => kinds[k]).map(([k, label]) => `${kinds[k]} ${label}`),
+    ...(kinds.self ? [`self: ${GUEST_KIND_NAMES[kinds.self]}`] : [])].join(', ');
+}
+
 function parseEventForm(body) {
   const title = String(body.title || '').trim().slice(0, 200);
   const startsAt = String(body.starts_at || '');
@@ -346,6 +364,11 @@ function parseEventForm(body) {
   const guestFee = body.allow_guests ? parseMoney(body.guest_fee) : null;
   const maxGuests = body.allow_guests ? parseIntInRange(body.max_guests || 4, 1, 50) : 4;
   const earlyFee = String(body.early_fee || '').trim() ? parseMoney(body.early_fee) : null;
+  // Optional extra prices for guests (blank = not offered) and free entry for young children.
+  const optionalMoney = (v) => (body.allow_guests && String(v || '').trim() ? parseMoney(v) : null);
+  const outOfStateFee = optionalMoney(body.out_of_state_fee);
+  const studentFee = optionalMoney(body.student_fee);
+  const childFreeAge = String(body.child_free_age || '').trim() ? parseIntInRange(body.child_free_age, 0, 17) : null;
   const dt = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
   if (!title) throw new svc.UserError('Event title is required.');
   if (!dt.test(startsAt)) throw new svc.UserError('Please choose a start date and time.');
@@ -354,6 +377,8 @@ function parseEventForm(body) {
   if (Number.isNaN(fee)) throw new svc.UserError('Fee must be an amount like 15 or 15.50.');
   if (guestFee !== null && Number.isNaN(guestFee)) throw new svc.UserError('Guest price must be an amount like 20 or 20.00.');
   if (earlyFee !== null && Number.isNaN(earlyFee)) throw new svc.UserError('Early-bird price must be an amount like 12.');
+  if ([outOfStateFee, studentFee].some((v) => v !== null && Number.isNaN(v))) throw new svc.UserError('Guest prices must be amounts like 15 or 15.00.');
+  if (String(body.child_free_age || '').trim() && childFreeAge === null) throw new svc.UserError('Free-for-children age must be a number from 0 to 17.');
   if (earlyFee !== null && !dt.test(body.early_until || '')) throw new svc.UserError('Choose when the early-bird price ends.');
   if (body.capacity && !capacity) throw new svc.UserError('Capacity must be a positive number.');
   if (!maxParty) throw new svc.UserError('Max people per RSVP must be between 1 and 100.');
@@ -373,6 +398,9 @@ function parseEventForm(body) {
     members_only: body.members_only ? 1 : 0,
     status: ['draft', 'published', 'cancelled'].includes(body.status) ? body.status : 'published',
     guest_fee_cents: guestFee,
+    out_of_state_fee_cents: outOfStateFee,
+    student_fee_cents: studentFee,
+    child_free_age: childFreeAge,
     max_guests: maxGuests,
     early_fee_cents: earlyFee,
     early_until: earlyFee !== null ? body.early_until : null,
@@ -381,7 +409,8 @@ function parseEventForm(body) {
 }
 
 const EVENT_COLUMNS = ['title', 'description', 'title_gu', 'description_gu', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
-  'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'max_guests', 'early_fee_cents', 'early_until', 'questions'];
+  'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'out_of_state_fee_cents', 'student_fee_cents', 'child_free_age',
+  'max_guests', 'early_fee_cents', 'early_until', 'questions'];
 
 router.get('/events', (req, res) => {
   const { db } = req.app.locals;
@@ -467,6 +496,7 @@ function eventAttendees(db, event) {
 }
 
 router.get('/events/:id', (req, res) => {
+  res.locals.guestKindsText = guestKindsText;
   const { db } = req.app.locals;
   const event = svc.getEvent(db, req.params.id);
   if (!event) return notFound(res, 'Event');
@@ -486,10 +516,10 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   const event = svc.getEvent(db, req.params.id);
   if (!event) return notFound(res, 'Event');
   const questions = svc.eventQuestions(event);
-  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Names', 'Of whom guests', 'Total price',
+  const rows = [['First name', 'Last name', 'Email', 'Phone', 'Status', 'People registered', 'Names', 'Of whom guests', 'Guest types', 'Total price',
     'Paid', 'Coupon', ...questions.map((q) => q.label), 'Checked in at', 'People checked in', 'RSVP date']];
   for (const a of eventAttendees(db, event)) {
-    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.names.join(', '), a.guest_count, money(a.total_cents),
+    rows.push([a.first_name, a.last_name, a.email, a.phone, a.status, a.party_size, a.names.join(', '), a.guest_count, guestKindsText(a.guest_types), money(a.total_cents),
       money(a.paid_cents), a.coupon_code, ...questions.map((q, i) => a.answers[i]?.answer ?? ''),
       localTimestamp(a.checked_in_at), a.checked_in_count, localTimestamp(a.created_at)]);
   }

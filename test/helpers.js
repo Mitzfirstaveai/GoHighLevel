@@ -105,7 +105,7 @@ async function startTestApp(overrides = {}) {
     assert.equal(res.status, 302);
     await c.get('/profile');
     for (let i = 1; i <= familyMembers; i++) {
-      await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter' });
+      await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter', birth_month: '6', birth_year: '2008' });
     }
     if (familyMembers) {
       // Family members only count toward event guests while covered by a paid membership.
@@ -139,3 +139,19 @@ async function startTestApp(overrides = {}) {
 }
 
 module.exports = { startTestApp };
+
+// For upgrade tests: makes a database file look like an older version by dropping the columns
+// added since, then setting user_version (the next openDb runs the upgrades again).
+const ADDED_COLUMNS = {
+  12: [['rsvps', 'pay_at_door']],
+  14: [['household_members', 'birth_month'], ['events', 'out_of_state_fee_cents'], ['events', 'student_fee_cents'],
+    ['events', 'child_free_age'], ['rsvps', 'guest_types']],
+};
+function rewindSchema(raw, version) {
+  for (const [v, cols] of Object.entries(ADDED_COLUMNS)) {
+    if (Number(v) > version) for (const [table, col] of cols) raw.exec(`ALTER TABLE ${table} DROP COLUMN ${col}`);
+  }
+  raw.exec(`PRAGMA user_version = ${version}`);
+}
+module.exports.rewindSchema = rewindSchema;
+

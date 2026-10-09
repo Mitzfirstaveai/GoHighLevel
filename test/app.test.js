@@ -44,7 +44,7 @@ test('member edits profile and family; admin sees the details', async () => {
     first_name: 'Priya', last_name: 'Shah', phone: '555-1234', city: 'Edison', state: 'NJ', native_place: 'Surat',
   });
   assert.equal(res.status, 302);
-  await member.post('/profile/household', { name: 'Diya Shah', relationship: 'Daughter', birth_year: '2014' });
+  await member.post('/profile/household', { name: 'Diya Shah', relationship: 'Daughter', birth_month: '3', birth_year: '2014' });
 
   const admin = await adminLogin();
   res = await admin.get('/admin/members?q=Surat');
@@ -255,7 +255,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   await m.post(`/pay/${Number(res.location.match(/\/pay\/(\d+)\/demo/)[1])}/demo`);
 
   // Married Couple excludes children and parents.
-  res = await m.follow(await m.post('/profile/household', { name: 'Dev', relationship: 'Son' }));
+  res = await m.follow(await m.post('/profile/household', { name: 'Dev', relationship: 'Son', birth_month: '5', birth_year: '2012' }));
   assert.match(res.text, /Married Couple membership covers you and your spouse, so Dev can&#39;t be added\. Upgrade to Family/);
   res = await m.follow(await m.post('/profile/household', { name: 'Second Wife', relationship: 'Spouse' }));
   assert.match(res.text, /can&#39;t be added/);
@@ -278,8 +278,8 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   res = await m.get('/membership');
   assert.match(res.text, /<strong>Family<\/strong> — valid through/);
 
-  await m.post('/profile/household', { name: 'Dev', relationship: 'Son' });
-  await m.post('/profile/household', { name: 'Riya', relationship: 'Daughter' });
+  await m.post('/profile/household', { name: 'Dev', relationship: 'Son', birth_month: '5', birth_year: '2012' });
+  await m.post('/profile/household', { name: 'Riya', relationship: 'Daughter', birth_month: '9', birth_year: '2009' });
   res = await m.follow(await m.post('/profile/household', { name: 'Papa', relationship: 'Father' }));
   assert.match(res.text, /Upgrade to Family with Parents/);
   res = await m.get(`/events/${eventId}`);

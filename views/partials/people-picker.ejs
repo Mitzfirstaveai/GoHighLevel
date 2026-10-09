@@ -5,11 +5,22 @@
   <% for (const p of people) { %>
     <% const disabled = !p.canRegister || Boolean(p.taken); %>
     <label class="person-row<%= disabled ? ' dim' : '' %>">
-      <input type="checkbox" name="people" value="<%= p.key %>" data-rate="<%= p.member ? 'member' : 'nonmember' %>"
+      <input type="checkbox" name="people" value="<%= p.key %>" data-rate="<%= p.rate %>" data-cents="<%= p.cents %>"<%= p.self ? ' data-self=1' : '' %>
         <%= p.chosen || (!hasRsvp && !disabled && p.self) ? 'checked' : '' %> <%= disabled ? 'disabled' : '' %>>
       <span><strong><%= p.name %></strong><%= p.self ? ` (${t('you')})` : '' %><% if (p.relationship) { %><span class="muted"> · <%= t.data(p.relationship) %></span><% } %>
         <% if (p.taken) { %><br><span class="small muted"><%= t("Already registered on {holder}'s ticket", { holder: p.taken }) %></span>
-        <% } else if (!p.canRegister) { %><br><span class="small muted"><%= t('Not covered by your membership level') %></span><% } %>
+        <% } else if (!p.canRegister) { %><br><span class="small muted"><%= t('Not covered by your membership level') %></span>
+        <% } else if (typeof showPrices === 'undefined' || showPrices) { %>
+          <%# What this person pays: free children (by age), member price, or the non-member price. %>
+          <br><span class="small person-price">
+          <% if (p.rate === 'free') { %><span class="badge ok"><%= t('Free (age {n})', { n: p.age }) %></span>
+          <% } else if (p.rate === 'member') { %><%= p.cents ? t('{price} member price', { price: money(p.cents) }) : t('Free for members') %>
+          <% } else if (p.rate === 'student' || p.rate === 'outofstate') { %><%= t('{price}', { price: money(p.cents) }) %>
+          <% } else { %><%= p.cents ? t('{price} non-member price', { price: money(p.cents) }) : t('Free') %><% } %>
+          <% if (['Son', 'Daughter'].includes(p.relationship) && p.age === null && event.child_free_age != null) { %>
+            <span class="muted"> · <%= t('add their birth month and year on your profile for the child price') %></span><% } %>
+          </span>
+        <% } %>
       </span>
     </label>
   <% } %>

@@ -1,0 +1,21 @@
+<%# Guests by kind, with this event's prices. `prices` from rsvpPrices(); `rsvp` (optional) for current numbers.
+    Students are one person each (no families); the door checks student and out-of-state IDs. %>
+<% const gp = prices.guests; const now = rsvp ? JSON.parse(rsvp.guest_types || '{}') : {}; %>
+<% const labels = {
+     instate: gp.instate ? t('In-state non-member guests ({price} each)', { price: money(gp.instate) }) : t('Guests (free)'),
+     outofstate: t('Out-of-state guests ({price} each)', { price: money(gp.outofstate ?? 0) }),
+     student: t('Students with a school ID ({price} each)', { price: money(gp.student ?? 0) }),
+     child: t('Child guests age {n} and under (free)', { n: event.child_free_age }),
+   }; %>
+<% if (Object.keys(gp).length) { %>
+<div class="fields guest-fields">
+  <% for (const type of ['instate', 'outofstate', 'student', 'child']) { if (!(type in gp)) continue; %>
+    <label><%= labels[type] %>
+      <select name="guests_<%= type %>" data-cents="<%= gp[type] %>">
+        <% for (let i = 0; i <= event.max_guests; i++) { %><option <%= (now[type] || 0) === i ? 'selected' : '' %>><%= i %></option><% } %>
+      </select>
+    </label>
+  <% } %>
+</div>
+<% if ('student' in gp || 'outofstate' in gp) { %><p class="small muted" style="margin:0"><%= t('Students come one person each (no families). Please bring a school ID for students and an ID for out-of-state guests — the door will check.') %></p><% } %>
+<% } %>

@@ -136,10 +136,10 @@ test('upgrading to v13 keeps every payment and the memberships that point at the
   db.prepare(`INSERT INTO memberships (user_id, plan_id, start_date, end_date, payment_id) VALUES (?, 1, '2026-01-01', '2026-12-31', ?)`).run(uid, pid);
   db.close();
   const raw = new DatabaseSync(file);
-  raw.exec('PRAGMA user_version = 12');
+  require('./helpers').rewindSchema(raw, 12);
   raw.close();
   db = openDb(file);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
   assert.equal(db.prepare('SELECT method FROM payments WHERE id = ?').get(pid).method, 'cash');
   assert.equal(db.prepare('SELECT payment_id FROM memberships WHERE user_id = ?').get(uid).payment_id, pid);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);

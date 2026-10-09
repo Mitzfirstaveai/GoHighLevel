@@ -89,8 +89,7 @@ test('upgrading: contacts tagged Sponsor/Vendor without a membership move over; 
   openDb(file).close();
   const raw = new DatabaseSync(file);
   for (const col of ['contact_type', 'contact_person', 'website', 'sponsor_level', 'sponsor_year', 'show_on_website']) raw.exec(`ALTER TABLE users DROP COLUMN ${col}`);
-  raw.exec('ALTER TABLE rsvps DROP COLUMN pay_at_door'); // added in version 12
-  raw.exec('PRAGMA user_version = 10');
+  require('./helpers').rewindSchema(raw, 10);
   raw.exec(`INSERT INTO users (first_name, last_name, tags) VALUES ('Laura', 'Mitchell', 'Sponsor'), ('Nita', 'Desai', 'Sponsor,Donor')`);
   raw.exec(`INSERT INTO membership_plans (name, amount_cents, duration_months) VALUES ('Family', 33000, 12)`);
   raw.exec(`INSERT INTO memberships (user_id, plan_id, start_date, end_date) VALUES ((SELECT id FROM users WHERE first_name = 'Nita'), 1, '2026-01-01', '2026-12-31')`);

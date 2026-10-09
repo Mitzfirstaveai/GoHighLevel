@@ -78,13 +78,25 @@ function requireFamilyManager(req, res, next) {
   next();
 }
 
+const birthFields = (body) => {
+  const birthYear = body.birth_year ? parseIntInRange(body.birth_year, 1900, new Date().getFullYear()) : null;
+  if (body.birth_year && !birthYear) throw new svc.UserError('Birth year looks incorrect.');
+  const birthMonth = body.birth_month ? parseIntInRange(body.birth_month, 1, 12) : null;
+  return { birthYear, birthMonth };
+};
+
 router.post('/profile/household', requireAuth, requireFamilyManager, (req, res) => {
-  const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
-  if (req.body.birth_year && !birthYear) throw new svc.UserError('Birth year looks incorrect.');
   const { name } = svc.addHouseholdMember(req.app.locals.db, {
-    userId: req.user.id, name: req.body.name, relationship: req.body.relationship, birthYear,
+    userId: req.user.id, name: req.body.name, relationship: req.body.relationship, ...birthFields(req.body),
   });
   req.flash('success', '{name} added to your family.', { name });
+  res.redirect('/profile#family');
+});
+
+// Birth month and year for a family member added without them: can be filled in once, then locked.
+router.post('/profile/household/:id/birth', requireAuth, requireFamilyManager, (req, res) => {
+  const h = svc.setHouseholdBirth(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id), ...birthFields(req.body) });
+  req.flash('success', 'Birth month and year saved for {name}.', { name: h.name });
   res.redirect('/profile#family');
 });
 
@@ -274,8 +286,11 @@ router.get('/events/:id', requireAuth, (req, res) => {
 });
 
 // Per-person prices for the RSVP form's running estimate (forms.js).
+// Prices for the form's running total (cents): per person (by rate) and per guest (by kind).
 function rsvpPrices(event) {
-  return { member: svc.memberPrice(event), nonmember: event.guest_fee_cents ?? event.fee_cents, guest: event.guest_fee_cents ?? 0 };
+  const guests = svc.guestPrices(event);
+  return { member: svc.memberPrice(event), nonmember: event.guest_fee_cents ?? event.fee_cents, free: 0,
+    student: guests.student ?? null, outofstate: guests.outofstate ?? null, guests };
 }
 
 router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
@@ -287,7 +302,10 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
   const { rsvp, amountDue, qrReplaced, waitlisted } = svc.upsertRsvp(db, {
     eventId: Number(req.params.id), userId: req.user.id, people, keepAnswers: fromTicket,
     partySize: parseIntInRange(req.body.party_size, 1, 1000),
-    guests: req.body.guests ? parseIntInRange(req.body.guests, 0, 1000) ?? -1 : 0,
+    // Guests by kind: guests_instate, guests_outofstate, guests_student, guests_child (older forms: guests).
+    guests: Object.fromEntries(svc.GUEST_TYPES.map((k) => [k, req.body[`guests_${k}`] ?? (k === 'instate' ? req.body.guests : 0)])
+      .map(([k, v]) => [k, v ? parseIntInRange(v, 0, 1000) ?? -1 : 0])),
+    selfType: fromTicket ? undefined : (req.body.self_type || null),
     couponCode: String(req.body.coupon || '').trim(),
     body: req.body,
     joinWaitlist: Boolean(req.body.waitlist),

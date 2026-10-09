@@ -59,13 +59,7 @@
     <%- include('../partials/csrf') %>
     <input type="hidden" name="from" value="ticket">
     <%- include('../partials/people-picker', { people, hasRsvp: true }) %>
-    <% if (event.guest_fee_cents !== null && !event.members_only) { %>
-      <label><%= event.guest_fee_cents ? t('Guests ({price} each)', { price: money(event.guest_fee_cents) }) : t('Guests (free)') %>
-        <select name="guests">
-          <% for (let i = 0; i <= event.max_guests; i++) { %><option <%= (rsvp.guest_count || 0) === i ? 'selected' : '' %>><%= i %></option><% } %>
-        </select>
-      </label>
-    <% } %>
+    <%- include('../partials/guest-fields', { prices, rsvp, event }) %>
     <% if (event.fee_cents || event.guest_fee_cents) { %><p class="estimate" data-estimate style="margin:0"></p><% } %>
     <p class="muted small" style="margin:0"><%= t("Changing who's coming gives you a new QR code; the old one stops working.") %>
       <% if (event.fee_cents || event.guest_fee_cents) { %><%= t('Event fees are non-refundable, including if you reduce your number of guests.') %><% } %></p>

@@ -38,12 +38,21 @@
     <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered on this QR code') : t('people registered on this QR code') %><% if (rsvp.guest_count) { %> — <%= rsvp.guest_count === 1
       ? t('{family} family + 1 guest', { family: rsvp.party_size - rsvp.guest_count })
       : t('{family} family + {n} guests', { family: rsvp.party_size - rsvp.guest_count, n: rsvp.guest_count }) %><% } %></p>
-    <% if (names.length) { %>
+    <%# Each person with their age (children) and free entry; guests by kind, with ID checks for students and out-of-state. %>
+    <% if (people.length || rsvp.guest_count) { %>
       <div class="ticket-for" style="text-align:left">
         <h3><%= t('Names on this ticket') %></h3>
         <ul>
-          <% for (const name of names) { %><li><%= name %></li><% } %>
-          <% if (rsvp.guest_count) { %><li class="muted"><%= plural(rsvp.guest_count, '1 guest', '{n} guests') %></li><% } %>
+          <% for (const p of people) { %><li><%= p.name %><%
+            if (childAge !== null && p.age !== null) { %> <span class="small muted">· <%= t('age {n}', { n: p.age }) %></span><% }
+            if (p.free) { %> <span class="badge ok"><%= t('free (child)') %></span><% }
+            if (p.selfType === 'student') { %> <span class="badge warn">🎓 <%= t('Student — check school ID') %></span><% }
+            if (p.selfType === 'outofstate') { %> <span class="badge warn">🪪 <%= t('Out-of-state — check ID') %></span><% } %></li><% } %>
+          <% if (guestKinds.instate) { %><li class="muted"><%= plural(guestKinds.instate, '1 guest', '{n} guests') %></li><% } %>
+          <% if (guestKinds.outofstate) { %><li><%= plural(guestKinds.outofstate, '1 out-of-state guest', '{n} out-of-state guests') %> <span class="badge warn">🪪 <%= t('check ID') %></span></li><% } %>
+          <% if (guestKinds.student) { %><li><%= plural(guestKinds.student, '1 student', '{n} students') %> <span class="badge warn">🎓 <%= t('check school ID') %></span></li><% } %>
+          <% if (guestKinds.child) { %><li><%= plural(guestKinds.child, '1 child guest', '{n} child guests') %> <span class="badge ok"><%= t('free — age {n} and under', { n: childAge }) %></span></li><% } %>
+          <% if (rsvp.guest_count && !Object.keys(guestKinds).some((k) => k !== 'self')) { %><li class="muted"><%= plural(rsvp.guest_count, '1 guest', '{n} guests') %></li><% } %>
         </ul>
       </div>
     <% } %>

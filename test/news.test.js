@@ -151,7 +151,7 @@ test('celebrations: only what members choose to share, month and day only', asyn
   const md = (days) => new Date(Date.parse(`${today}T12:00:00Z`) + days * 86400000).toISOString().slice(5, 10);
   await m.post('/profile', { first_name: 'Asha', last_name: 'Member', date_of_birth: `1961-${md(0)}` });
   await m.post('/profile/household', { name: 'Kiran', relationship: 'Spouse' });
-  await m.post('/profile/household', { name: 'Tara Member', relationship: 'Daughter' });
+  await m.post('/profile/household', { name: 'Tara Member', relationship: 'Daughter', birth_month: '7', birth_year: '2012' });
   const tara = db.prepare(`SELECT id FROM household_members WHERE name = 'Tara Member'`).get().id;
 
   // Nothing is shown until they choose to share.

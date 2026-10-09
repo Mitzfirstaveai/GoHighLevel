@@ -103,6 +103,9 @@ router.get('/:token', (req, res) => {
   res.status(rsvp ? 200 : 404).render('admin/checkin_result', {
     title: 'Check-in', rsvp, retired, due, paid, justCheckedIn, notToday, token: req.params.token,
     names: rsvp ? svc.attendeeNames(db, rsvp) : [],
+    people: rsvp ? svc.doorAttendees(db, rsvp) : [],
+    guestKinds: rsvp ? JSON.parse(rsvp.guest_types || '{}') : {},
+    childAge: rsvp ? svc.getEvent(db, rsvp.event_id).child_free_age : null,
     eventTitle: rsvp ? (req.lang === 'gu' && event.title_gu) || rsvp.event_title : '',
   });
 });

@@ -1,0 +1,9 @@
+<%# Birth month and year inputs (children's ages set event prices). `required`, optional `h` for current values. %>
+<% const bLocale = lang === 'gu' ? 'gu-IN' : 'en-US'; const bh = typeof h !== 'undefined' && h ? h : {}; %>
+<label><%= t('Birth month') %>
+  <select name="birth_month"<%= typeof required !== 'undefined' && required ? ' required' : '' %>>
+    <option value=""><%= t('Choose…') %></option>
+    <% for (let m = 1; m <= 12; m++) { %><option value="<%= m %>" <%= bh.birth_month === m ? 'selected' : '' %>><%= new Date(Date.UTC(2000, m - 1, 1)).toLocaleString(bLocale, { month: 'long', timeZone: 'UTC' }) %></option><% } %>
+  </select>
+</label>
+<label><%= t('Birth year') %> <input name="birth_year" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="2016" value="<%= bh.birth_year || '' %>"<%= typeof required !== 'undefined' && required ? ' required' : '' %>></label>

@@ -187,7 +187,8 @@ test('family-login screens are fully translated', async () => {
   }
   // Amit adds himself (Priya's ticket is for her and the kids), then sees his own ticket.
   const amit = db.prepare(`SELECT h.id FROM household_members h JOIN users u ON u.id = h.login_user_id WHERE u.email = 'amit.shah@example.com'`).get().id;
-  const res = await c.follow(await c.post(`/events/${garba}/rsvp`, { choose: '1', people: `h:${amit}` }));
+  // Garba costs $5 now; paying at the door gives the ticket straight away.
+  const res = await c.follow(await c.post(`/events/${garba}/rsvp`, { choose: '1', people: `h:${amit}`, pay: 'door' }));
   assert.match(res.text, /આ ટિકિટ આમના માટે છે/);
   await c.get('/tickets');
   // Priya makes an invite link for Diya; Diya opens it (signed out), and Amit (signed in) opens it too.

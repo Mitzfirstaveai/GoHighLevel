@@ -1,9 +1,16 @@
-<% const parts = []; %>
-<% if (!event.fee_cents && !event.guest_fee_cents) {
+<%# All of an event's prices in one line: members, early bird, free children, non-members and the guest kinds it offers. %>
+<% const parts = []; const typed = event.out_of_state_fee_cents != null || event.student_fee_cents != null; %>
+<% if (!event.fee_cents && !event.guest_fee_cents && !typed) {
      parts.push(t('Free'));
      if (event.guest_fee_cents === 0) parts.push(t('guests welcome'));
    } else {
      parts.push(event.fee_cents ? t('Members {price}/person', { price: money(event.fee_cents) }) : t('Free for members'));
      if (event.early_fee_cents != null && event.early_until) parts.push(t('early bird {price} until {date}', { price: money(event.early_fee_cents), date: fmtDate(event.early_until) }));
-     if (event.guest_fee_cents != null) parts.push(event.guest_fee_cents ? t('guests {price}', { price: money(event.guest_fee_cents) }) : t('guests free'));
+     if (event.child_free_age != null) parts.push(t('children {n} and under free', { n: event.child_free_age }));
+     if (event.guest_fee_cents != null) {
+       if (typed) parts.push(t('in-state non-members {price}', { price: money(event.guest_fee_cents) }));
+       else parts.push(event.guest_fee_cents ? t('guests {price}', { price: money(event.guest_fee_cents) }) : t('guests free'));
+     }
+     if (event.out_of_state_fee_cents != null) parts.push(t('out-of-state guests {price}', { price: money(event.out_of_state_fee_cents) }));
+     if (event.student_fee_cents != null) parts.push(t('students with school ID {price}', { price: money(event.student_fee_cents) }));
    } %><%= parts.join(' · ') %>

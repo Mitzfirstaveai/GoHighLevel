@@ -55,18 +55,20 @@
             data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free') }) %>">
         <%- include('../partials/csrf') %>
         <%- include('../partials/people-picker', { people, hasRsvp: Boolean(rsvp) }) %>
-        <% if (event.guest_fee_cents !== null && !event.members_only) { %>
-        <div class="fields">
-          <label><%= event.guest_fee_cents ? t('Guests ({price} each)', { price: money(event.guest_fee_cents) }) : t('Guests (free)') %>
-            <select name="guests">
-              <% for (let i = 0; i <= event.max_guests; i++) { %><option <%= (rsvp?.guest_count || 0) === i ? 'selected' : '' %>><%= i %></option><% } %>
-            </select>
-          </label>
-        </div>
+        <%# A non-member coming themselves can say they're a student or from out of state (checked at the door). %>
+        <% const me = people.find((p) => p.self && !p.member && p.canRegister && !p.taken); const gp = prices.guests; %>
+        <% if (me && ('student' in gp || 'outofstate' in gp)) { %>
+          <fieldset class="pay-choice self-type">
+            <legend><%= t('You are coming as') %></legend>
+            <label class="check"><input type="radio" name="self_type" value="" data-cents="<%= gp.instate %>" <%= me.rate === 'nonmember' ? 'checked' : '' %>> <span><%= t('In-state non-member') %> · <%= money(gp.instate) %></span></label>
+            <% if ('outofstate' in gp) { %><label class="check"><input type="radio" name="self_type" value="outofstate" data-cents="<%= gp.outofstate %>" <%= me.rate === 'outofstate' ? 'checked' : '' %>> <span><%= t('Out-of-state visitor') %> · <%= money(gp.outofstate) %> <span class="muted small"><%= t('show an ID at the door') %></span></span></label><% } %>
+            <% if ('student' in gp) { %><label class="check"><input type="radio" name="self_type" value="student" data-cents="<%= gp.student %>" <%= me.rate === 'student' ? 'checked' : '' %>> <span><%= t('Student') %> · <%= money(gp.student) %> <span class="muted small"><%= t('show your school ID at the door') %></span></span></label><% } %>
+          </fieldset>
         <% } %>
+        <%- include('../partials/guest-fields', { prices, rsvp, event }) %>
         <p class="muted small" style="margin:0"><%= t('Tick each family member who is coming. Only family on your profile and covered by your membership level can be registered.') %>
           <%= people.length > event.max_party_size ? t('Up to {n} people per RSVP.', { n: event.max_party_size }) : '' %>
-          <%= event.guest_fee_cents !== null && !event.members_only ? t('Guests can come too, at the guest price.') : '' %>
+          <%= event.guest_fee_cents !== null && !event.members_only ? t('Guests can come too.') : '' %>
           <% if (!isFamilyLogin) { %>
             <% if (!membership.active && familyListed) { %><a href="/membership"><%= t('Pay your membership') %></a> <%= t('to bring your family.') %>
             <% } else if (!membership.active) { %><a href="/membership"><%= t('Become a member') %></a> <%= t('and list your family to bring them.') %>

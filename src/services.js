@@ -58,6 +58,55 @@ function relationshipGroup(relationship) {
   return RELATIONSHIPS[relationship] || 'other';
 }
 
+// ---------- Children's ages and event prices ----------
+
+// Age on a date from a birth month and year. For the whole birthday month a child counts as the
+// younger age, so nobody is charged before their birthday. null when the month or year is missing.
+function childAgeOn(birthYear, birthMonth, date) {
+  if (!birthYear || !birthMonth) return null;
+  const y = Number(String(date).slice(0, 4));
+  const m = Number(String(date).slice(5, 7));
+  return y - Number(birthYear) - (m <= Number(birthMonth) ? 1 : 0);
+}
+
+const isChild = (relationship) => relationshipGroup(relationship) === 'child';
+// Once a child's birth month and year are saved, only an admin can change them (or remove the child).
+const birthLocked = (h) => Boolean(h.birth_year && h.birth_month);
+
+/**
+ * Kinds of guest an event can take, with each one's price (cents). Missing = not offered.
+ *  instate: non-members and guests (the event's guest price); outofstate and student: their own prices;
+ *  child: children up to the event's free age, free.
+ */
+const GUEST_TYPES = ['instate', 'outofstate', 'student', 'child'];
+function guestPrices(event) {
+  if (event.guest_fee_cents === null || event.guest_fee_cents === undefined || event.members_only) return {};
+  const prices = { instate: event.guest_fee_cents };
+  if (event.out_of_state_fee_cents !== null && event.out_of_state_fee_cents !== undefined) prices.outofstate = event.out_of_state_fee_cents;
+  if (event.student_fee_cents !== null && event.student_fee_cents !== undefined) prices.student = event.student_fee_cents;
+  if (event.child_free_age !== null && event.child_free_age !== undefined) prices.child = 0;
+  return prices;
+}
+
+/**
+ * What one person on the family list pays for an event, and whether they can be registered:
+ *  - children up to the event's free age: free (their birth month and year must be on the profile)
+ *  - covered by the membership: the member price
+ *  - not covered: the non-member price (the event's in-state guest price), if the event takes non-members.
+ *    The signed-in person can always register themselves; a non-member may say they're a student
+ *    or from out of state (`selfType`), checked at the door.
+ */
+function personPrice(event, p, selfType = null) {
+  const age = isChild(p.relationship) ? childAgeOn(p.birthYear, p.birthMonth, event.starts_at) : null;
+  const freeChild = event.child_free_age !== null && event.child_free_age !== undefined && age !== null && age <= event.child_free_age;
+  const others = guestPrices(event);
+  const canRegister = Boolean(p.member || p.self || 'instate' in others);
+  if (freeChild) return { canRegister, rate: 'free', cents: 0, age };
+  if (p.member) return { canRegister, rate: 'member', cents: memberPrice(event), age };
+  if (p.self && selfType && selfType in others && selfType !== 'child') return { canRegister, rate: selfType, cents: others[selfType], age };
+  return { canRegister, rate: 'nonmember', cents: event.guest_fee_cents ?? event.fee_cents, age };
+}
+
 function getHousehold(db, userId) {
   return db.prepare('SELECT * FROM household_members WHERE user_id = ? ORDER BY id').all(userId);
 }
@@ -184,10 +233,15 @@ function prepaidPeriods(db, userId) {
  * Adds a family member to a profile. While a membership is active, the family has to fit the
  * level that was paid for; members are told which level to upgrade to. Admins can override.
  */
-function addHouseholdMember(db, { userId, name, relationship, birthYear, override = false }) {
+function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMonth = null, override = false }) {
   name = String(name || '').trim().slice(0, 120);
   if (!name) throw new UserError('Please enter a name for the family member.');
   if (!(relationship in RELATIONSHIPS)) throw new UserError('Please choose a relationship.');
+  // Children's ages set event prices (e.g. free up to age 10), so their birth month and year are required.
+  if (isChild(relationship) && !(birthYear && birthMonth) && !override) {
+    throw new UserError('Please enter the birth month and year for {name}. Children need them for event prices.', { name });
+  }
+  checkBirth(birthYear, birthMonth);
   const household = [...getHousehold(db, userId), { relationship }];
   const { active, plan } = membershipStatus(db, userId);
   if (active && plan && !override) {
@@ -201,8 +255,8 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, overrid
         : "Your {plan} membership covers {coverage}, so {name} can't be added.", vars);
     }
   }
-  db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year) VALUES (?, ?, ?, ?)')
-    .run(userId, name, relationship, birthYear ?? null);
+  db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year, birth_month) VALUES (?, ?, ?, ?, ?)')
+    .run(userId, name, relationship, birthYear ?? null, birthMonth ?? null);
   return { name, exceedsPlan: Boolean(active && plan && planProblems(plan, household).length) };
 }
 
@@ -232,7 +286,8 @@ function familyPeople(db, userId) {
     const group = relationshipGroup(h.relationship);
     const member = allowed[group] > 0;
     if (member) allowed[group] -= 1;
-    people.push({ key: `h:${h.id}`, name: h.name, relationship: h.relationship, self: h.login_user_id === userId, member, loginUserId: h.login_user_id });
+    people.push({ key: `h:${h.id}`, name: h.name, relationship: h.relationship, self: h.login_user_id === userId, member, loginUserId: h.login_user_id,
+      birthYear: h.birth_year, birthMonth: h.birth_month });
   }
   return people.map((p) => ({ ...p, canRegister: p.member || p.self }));
 }
@@ -299,9 +354,34 @@ function acceptFamilyInvite(db, { token, userId }) {
 }
 
 // Removing someone from the family also ends their family login's link (their account stays).
-function removeHouseholdMember(db, { ownerId, householdId }) {
+function checkBirth(birthYear, birthMonth) {
+  const thisYear = Number(today().slice(0, 4));
+  if (birthYear && (!Number.isInteger(birthYear) || birthYear < 1900 || birthYear > thisYear)) throw new UserError('Birth year looks incorrect.');
+  if (birthMonth && (!Number.isInteger(birthMonth) || birthMonth < 1 || birthMonth > 12)) throw new UserError('Please choose a birth month.');
+  if (birthYear && birthMonth && `${birthYear}-${String(birthMonth).padStart(2, '0')}` > today().slice(0, 7)) throw new UserError('Birth month and year are in the future.');
+}
+
+/**
+ * Sets a family member's birth month and year. Members can fill them in once (e.g. for children
+ * added before they were required); after that they're locked and only an admin can change them.
+ */
+function setHouseholdBirth(db, { ownerId, householdId, birthYear, birthMonth, byAdmin = false }) {
+  const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
+  if (!h) throw new UserError('Family member not found.');
+  if (!byAdmin && birthLocked(h)) throw new UserError("{name}'s birth month and year are already saved. Please ask a committee member to correct them.", { name: h.name });
+  if (!byAdmin && !(birthYear && birthMonth)) throw new UserError('Please enter both the birth month and year.');
+  checkBirth(birthYear, birthMonth);
+  db.prepare('UPDATE household_members SET birth_year = ?, birth_month = ? WHERE id = ?').run(birthYear || null, birthMonth || null, h.id);
+  return h;
+}
+
+function removeHouseholdMember(db, { ownerId, householdId, byAdmin = false }) {
   const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
   if (!h) return;
+  // Otherwise a child could be removed and added again with a different birth date.
+  if (!byAdmin && isChild(h.relationship) && birthLocked(h)) {
+    throw new UserError('To remove {name}, please ask a committee member (children with a saved birth date can only be removed by the committee).', { name: h.name });
+  }
   if (h.login_user_id) db.prepare('UPDATE users SET owner_id = NULL WHERE id = ? AND owner_id = ?').run(h.login_user_id, ownerId);
   db.prepare('DELETE FROM household_members WHERE id = ?').run(h.id);
 }
@@ -385,7 +465,8 @@ function eventPeople(db, event, userId) {
   const active = mine && mine.status !== 'cancelled';
   const taken = takenPeople(db, event.id, mine?.id ?? 0);
   const chosen = new Set(active ? rsvpAttendees(db, mine.id).map((a) => a.person) : []);
-  return familyPeople(db, userId).map((p) => ({ ...p, taken: taken.get(p.key) || null, chosen: chosen.has(p.key) }));
+  const selfType = active ? JSON.parse(mine.guest_types || '{}').self ?? null : null;
+  return familyPeople(db, userId).map((p) => ({ ...p, ...personPrice(event, p, selfType), taken: taken.get(p.key) || null, chosen: chosen.has(p.key) }));
 }
 
 function rsvpAttendees(db, rsvpId) {
@@ -395,6 +476,20 @@ function rsvpAttendees(db, rsvpId) {
 // Names on a ticket, for display: family by name, then "+ 2 guests". Older RSVPs have no names.
 function attendeeNames(db, rsvp) {
   return rsvpAttendees(db, rsvp.id).map((a) => a.name);
+}
+
+// For the door: each person on a ticket with their age on the event day (children, from the
+// profile's birth month and year) and whether they came free for being young enough.
+function doorAttendees(db, rsvp) {
+  const event = getEvent(db, rsvp.event_id);
+  const kinds = JSON.parse(rsvp.guest_types || '{}');
+  return rsvpAttendees(db, rsvp.id).map((a) => {
+    const h = a.person.startsWith('h:') ? db.prepare('SELECT * FROM household_members WHERE id = ?').get(Number(a.person.slice(2))) : null;
+    const age = h && isChild(h.relationship) ? childAgeOn(h.birth_year, h.birth_month, event.starts_at) : null;
+    const free = age !== null && event.child_free_age !== null && age <= event.child_free_age;
+    const self = a.person === `u:${rsvp.user_id}` || (h && h.login_user_id === rsvp.user_id);
+    return { name: a.name, age, free, selfType: self ? kinds.self ?? null : null };
+  });
 }
 
 // A member can register themselves plus the family on their profile that their membership level
@@ -488,10 +583,11 @@ function findCoupon(db, code, event, excludeRsvpId = 0) {
  * Price of an RSVP: family covered by the membership pay the member price; guests (and someone
  * without an active membership) pay the guest price. A coupon then comes off the total.
  */
+// `people` come from chooseAttendees (each with its price); `guests` counts guests by kind.
 function priceRsvp(db, { event, people, guests, couponCode, excludeRsvpId = 0 }) {
-  const mPrice = memberPrice(event);
-  const gPrice = event.guest_fee_cents ?? event.fee_cents;
-  const subtotal = people.reduce((sum, p) => sum + (p.member ? mPrice : gPrice), 0) + guests * gPrice;
+  const prices = guestPrices(event);
+  const subtotal = people.reduce((sum, p) => sum + p.cents, 0)
+    + Object.entries(guests).reduce((sum, [type, n]) => sum + n * (prices[type] ?? 0), 0);
   let discount = 0;
   let coupon = null;
   if (couponCode && subtotal > 0) {
@@ -508,8 +604,8 @@ function priceRsvp(db, { event, people, guests, couponCode, excludeRsvpId = 0 })
  */
 // Which family members an RSVP is for: chosen by name (`people`, person keys), or — from a form
 // that only asks how many — the member first, then covered family in profile order.
-function chooseAttendees(db, { event, userId, people, partySize, existingId }) {
-  const everyone = familyPeople(db, userId);
+function chooseAttendees(db, { event, userId, people, partySize, existingId, selfType = null }) {
+  const everyone = familyPeople(db, userId).map((p) => ({ ...p, ...personPrice(event, p, selfType) }));
   const taken = takenPeople(db, event.id, existingId);
   let chosen;
   if (people) {
@@ -543,6 +639,7 @@ const seatedStatus = (due, payAtDoor) => (due === 0 || payAtDoor ? 'confirmed' :
 function upsertRsvp(db, {
   eventId, userId, people = null, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false, keepAnswers = false,
   payAtDoor, // true: cash/check at the door; false: online; undefined: keep the earlier choice (e.g. from My tickets)
+  selfType, // a non-member registering themselves: 'student' or 'outofstate' (checked at the door); undefined: keep
 }) {
   return transaction(db, () => {
     const event = getEvent(db, eventId);
@@ -553,11 +650,26 @@ function upsertRsvp(db, {
     }
     const existing = ownRsvp(db, eventId, userId);
     if (existing?.checked_in_at) throw new UserError('You have already checked in to this event.');
-    const chosen = chooseAttendees(db, { event, userId, people, partySize, existingId: existing?.id ?? 0 });
-    guests = Number(guests) || 0;
-    if (!Number.isInteger(guests) || guests < 0) throw new UserError('Number of guests looks incorrect.');
-    if (guests > 0 && (event.guest_fee_cents === null || event.members_only)) throw new UserError('This event does not allow guests.');
+    const offered = guestPrices(event);
+    const earlier = existing && existing.status !== 'cancelled' ? JSON.parse(existing.guest_types || '{}') : {};
+    if (selfType === undefined) selfType = earlier.self ?? null;
+    if (!['student', 'outofstate'].includes(selfType) || !(selfType in offered)) selfType = null;
+    const chosen = chooseAttendees(db, { event, userId, people, partySize, existingId: existing?.id ?? 0, selfType });
+    if (!chosen.some((p) => p.self && p.rate === selfType)) selfType = null; // only for a non-member coming themselves
+    // Guests by kind ({ instate: 2, student: 1 }); a plain number means in-state guests.
+    const asked = guests !== null && typeof guests === 'object' ? guests : { instate: guests };
+    const guestTypes = {};
+    for (const [type, n] of Object.entries(asked)) {
+      const count = Number(n) || 0;
+      if (!GUEST_TYPES.includes(type) || !Number.isInteger(count) || count < 0) throw new UserError('Number of guests looks incorrect.');
+      if (count && !(type in offered)) throw new UserError('instate' in offered ? 'This event does not offer that kind of guest.' : 'This event does not allow guests.');
+      if (count) guestTypes[type] = count;
+    }
+    guests = Object.values(guestTypes).reduce((a, b) => a + b, 0);
     if (guests > event.max_guests) throw new UserError(event.max_guests === 1 ? 'You can bring up to 1 guest to this event.' : 'You can bring up to {n} guests to this event.', { n: event.max_guests });
+    // Stored in a fixed order so an unchanged request compares equal.
+    const types = JSON.stringify(Object.fromEntries([...GUEST_TYPES.filter((k) => guestTypes[k]).map((k) => [k, guestTypes[k]]),
+      ...(selfType ? [['self', selfType]] : [])]));
     // Changing who's coming from My tickets keeps the answers given when registering.
     const active = existing && existing.status !== 'cancelled';
     const answers = keepAnswers && active ? existing.answers : JSON.stringify(collectAnswers(event, body));
@@ -568,7 +680,7 @@ function upsertRsvp(db, {
 
     const reuseCoupon = !couponCode && active ? existing.coupon_code : null;
     const price = priceRsvp(db, {
-      event, people: chosen, guests, couponCode: couponCode || reuseCoupon, excludeRsvpId: existing?.id ?? 0,
+      event, people: chosen, guests: guestTypes, couponCode: couponCode || reuseCoupon, excludeRsvpId: existing?.id ?? 0,
     });
     const saveAttendees = (rsvpId) => {
       db.prepare('DELETE FROM rsvp_attendees WHERE rsvp_id = ?').run(rsvpId);
@@ -590,7 +702,7 @@ function upsertRsvp(db, {
 
     const door = payAtDoor === undefined ? Boolean(existing?.pay_at_door) : Boolean(payAtDoor);
     const sameRequest = active && existing.party_size === total && !peopleChanged
-      && existing.guest_count === guests && (existing.coupon_code || null) === price.couponCode;
+      && existing.guest_count === guests && (existing.guest_types || '{}') === types && (existing.coupon_code || null) === price.couponCode;
     if (sameRequest && (existing.status !== 'waitlisted' || waitlisted)) {
       // Same people: only the answers or the way of paying can change.
       const due = amountDue(db, existing);
@@ -607,21 +719,21 @@ function upsertRsvp(db, {
       // Any change in who is coming (or re-opening a cancelled RSVP) issues a new QR code,
       // so a ticket showing the old people can never be scanned.
       const hadTicket = ['confirmed', 'pending_payment'].includes(existing.status);
-      const changed = existing.party_size !== total || existing.guest_count !== guests || peopleChanged;
+      const changed = existing.party_size !== total || existing.guest_count !== guests || (existing.guest_types || '{}') !== types || peopleChanged;
       if (existing.status === 'cancelled' || changed) {
         replaceQrToken(db, existing, existing.status === 'cancelled' ? 'rsvp reopened'
           : `people changed ${existing.party_size} → ${total}`);
       }
       qrReplaced = hadTicket && changed;
-      db.prepare(`UPDATE rsvps SET party_size = ?, guest_count = ?, total_cents = ?, discount_cents = ?, coupon_code = ?,
+      db.prepare(`UPDATE rsvps SET party_size = ?, guest_count = ?, guest_types = ?, total_cents = ?, discount_cents = ?, coupon_code = ?,
                   answers = ?, pay_at_door = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
-        .run(total, guests, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
+        .run(total, guests, types, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
           waitlisted ? 'waitlisted' : 'pending_payment', existing.id);
       rsvpId = existing.id;
     } else {
-      rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, discount_cents,
-                                  coupon_code, answers, pay_at_door, status, qr_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(eventId, userId, total, guests, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
+      rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, guest_types, total_cents, discount_cents,
+                                  coupon_code, answers, pay_at_door, status, qr_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId, total, guests, types, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
           waitlisted ? 'waitlisted' : 'pending_payment', newToken()).lastInsertRowid);
     }
     saveAttendees(rsvpId);
@@ -1005,6 +1117,7 @@ function updateCelebrations(db, userId, body) {
 }
 
 module.exports = {
+  childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
   celebrations, updateCelebrations,
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
@@ -1013,6 +1126,6 @@ module.exports = {
   eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,
-  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, shortCode, payAtDoorInstead, recordRsvpPayment, findTokenByShortCode, checkIn,
+  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, shortCode, doorAttendees, payAtDoorInstead, recordRsvpPayment, findTokenByShortCode, checkIn,
   createPayment, createEventPayment, createMembershipPayment, markPaymentPaid, campaignProgress, createDonationPayment,
 };
