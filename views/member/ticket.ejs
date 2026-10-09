@@ -10,10 +10,18 @@
     <img src="<%= qrDataUrl %>" alt="<%= t('QR code ticket') %>">
     <%# If the QR code won't scan, the volunteer types this instead. %>
     <% if (ticketCode) { %><p class="ticket-code"><%= t('Ticket code') %> <strong><%= ticketCode %></strong></p><% } %>
+    <% if (due) { %><p class="pay-door-note">💵 <%= t('Please pay {amount} at the door (cash or check).', { amount: money(due) }) %></p><% } %>
     <p class="party-count" style="margin:8px 0 0"><%= rsvp.party_size %></p>
     <p class="muted" style="margin-top:0"><%= rsvp.party_size === 1 ? t('person registered') : t('people registered') %><%= rsvp.guest_count ? ` (${plural(rsvp.guest_count, 'incl. 1 guest', 'incl. {n} guests')})` : '' %></p>
   <% } else { %>
     <p><%- include('../partials/rsvp-badge', { status: rsvp.status }) %></p>
+    <% if (rsvp.status === 'pending_payment' && mine && due) { %>
+      <p><%= t('Amount due:') %> <strong><%= money(due) %></strong>. <%= t('Your QR ticket will be ready once paid.') %></p>
+      <div class="actions no-print" style="justify-content:center">
+        <% if (paymentMode !== 'disabled') { %><form method="post" action="/events/<%= rsvp.event_id %>/pay"><%- include('../partials/csrf') %><button class="btn"><%= t('Pay {amount}', { amount: money(due) }) %></button></form><% } %>
+        <form method="post" action="/events/<%= rsvp.event_id %>/pay-at-door"><%- include('../partials/csrf') %><button class="btn secondary"><%= t('Pay at the door instead (cash or check)') %></button></form>
+      </div>
+    <% } %>
   <% } %>
   <% if (names.length) { %>
     <div class="ticket-for">
@@ -32,6 +40,10 @@
       <a class="btn secondary small" href="/tickets/<%= rsvp.id %>/qr.png" download><%= t('Download QR') %></a>
       <button class="btn secondary small" onclick="window.print()"><%= t('Print') %></button>
     </div>
+    <% if (due && mine && paymentMode !== 'disabled') { %>
+      <form method="post" action="/events/<%= rsvp.event_id %>/pay" class="no-print" style="margin-top:10px"><%- include('../partials/csrf') %>
+        <button class="btn secondary small"><%= t('Pay {amount} online now instead', { amount: money(due) }) %></button></form>
+    <% } %>
   <% } else { %>
     <p><%= t('Your QR ticket will appear here once your RSVP is confirmed.') %></p>
     <a class="btn" href="/events/<%= rsvp.event_id %>"><%= t('Go to event') %></a>

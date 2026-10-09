@@ -502,14 +502,8 @@ router.post('/rsvps/:id/record-payment', (req, res) => {
   const { db } = req.app.locals;
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(req.params.id);
   if (!rsvp) return notFound(res, 'RSVP');
-  const event = svc.getEvent(db, rsvp.event_id);
-  const due = svc.amountDue(db, rsvp);
-  if (due === 0) throw new svc.UserError('Nothing is owed for this RSVP.');
   const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
-  db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event' AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
-  const payment = svc.createPayment(db, { userId: rsvp.user_id, kind: 'event', referenceId: rsvp.id, amountCents: due,
-    description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}` });
-  svc.markPaymentPaid(db, payment.id, { method, recordedBy: req.user.id });
+  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
   req.flash('success', `Recorded ${req.app.locals.money(due)} ${method} payment. RSVP confirmed.`);
   const back = String(req.body.return_to || '');
   res.redirect(back.startsWith('/admin/') ? back : `/admin/events/${rsvp.event_id}`);

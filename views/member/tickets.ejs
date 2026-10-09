@@ -11,6 +11,7 @@
       <a href="/tickets/<%= tk.id %>" class="plain-link"><strong><%= loc(tk, 'title') %></strong></a> <%- include('../partials/rsvp-badge', { status: tk.status }) %>
       <div class="muted small"><%= fmtDate(tk.starts_at) %><%= tk.location ? ` · ${tk.location}` : '' %></div>
       <%- include('../partials/ticket-names', { tk }) %>
+      <% if (tk.due && tk.status === 'confirmed') { %><div class="small pay-door-note">💵 <%= t('Pay {amount} at the door', { amount: money(tk.due) }) %></div><% } %>
       <% if (!tk.mine) { %><div class="small muted"><%= t("{name}'s ticket", { name: `${tk.holder_first} ${tk.holder_last}` }) %></div><% } %>
       <div class="actions" style="margin-top:10px">
         <% if (tk.checked_in_at) { %><span class="badge ok"><%= t('Checked in') %></span>

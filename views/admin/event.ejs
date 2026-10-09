@@ -12,7 +12,7 @@
 </div>
 <div class="stats">
   <div class="stat"><div class="label">People attending (confirmed)</div><div class="value"><%= stats.confirmed_people %><%= event.capacity ? ` / ${event.capacity}` : '' %></div><div class="muted small"><%= stats.confirmed_parties %> RSVP<%= stats.confirmed_parties === 1 ? '' : 's' %><%= stats.confirmed_guests ? ` · incl. ${stats.confirmed_guests} guest${stats.confirmed_guests === 1 ? '' : 's'}` : '' %></div></div>
-  <div class="stat"><div class="label">Awaiting payment</div><div class="value"><%= stats.pending_people %></div><div class="muted small"><%= stats.pending_parties %> RSVP<%= stats.pending_parties === 1 ? '' : 's' %></div></div>
+  <div class="stat"><div class="label">Awaiting payment</div><div class="value"><%= stats.pending_people %></div><div class="muted small"><%= stats.pending_parties %> RSVP<%= stats.pending_parties === 1 ? '' : 's' %> not paid online<% if (stats.door_parties) { %> · <%= stats.door_parties %> paying at the door<% } %></div></div>
   <div class="stat"><div class="label">Waitlist</div><div class="value"><%= stats.waitlisted_people %></div><div class="muted small"><%= stats.waitlisted_parties %> RSVP<%= stats.waitlisted_parties === 1 ? '' : 's' %> waiting</div></div>
   <div class="stat"><div class="label">Checked in</div><div class="value"><%= stats.checked_in_people %></div><div class="muted small"><%= stats.checked_in_parties %> of <%= stats.confirmed_parties %> QR codes scanned</div></div>
   <div class="stat"><div class="label">Fees collected</div><div class="value"><%= money(revenue) %></div></div>
@@ -29,7 +29,7 @@
         <td><%- include('../partials/rsvp-badge', { status: a.status }) %></td>
         <td class="num"><strong><%= a.party_size %></strong><% if (a.guest_count) { %><div class="muted small">incl. <%= a.guest_count %> guest<%= a.guest_count === 1 ? '' : 's' %></div><% } %>
           <% if (a.names.length) { %><div class="small" style="text-align:right;max-width:220px;margin-left:auto"><%= a.names.join(', ') %></div><% } %></td>
-        <td class="num"><%= a.total_cents || a.paid_cents ? money(a.paid_cents) : '—' %><% if (a.total_cents && a.paid_cents < a.total_cents && a.status !== 'cancelled') { %><div class="muted small">of <%= money(a.total_cents) %></div><% } %>
+        <td class="num"><%= a.total_cents || a.paid_cents ? money(a.paid_cents) : '—' %><% if (a.total_cents && a.paid_cents < a.total_cents && a.status !== 'cancelled') { %><div class="muted small">of <%= money(a.total_cents) %></div><% if (a.pay_at_door) { %><div><span class="badge warn">Pays at door</span></div><% } %><% } %>
           <% if (a.coupon_code) { %><div class="small"><span class="badge tag"><%= a.coupon_code %></span></div><% } %></td>
         <td><% if (a.checked_in_at) { %><span class="badge ok"><%= a.checked_in_count %> arrived</span><div class="muted small"><%= fmtDate(a.checked_in_at) %></div><% } else { %>—<% } %></td>
         <td class="num">

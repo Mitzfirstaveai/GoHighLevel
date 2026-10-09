@@ -30,6 +30,7 @@
           <a class="next-title" href="/events/<%= r.event_id %>"><%= loc(r, 'title') %></a> <%- include('../partials/rsvp-badge', { status: r.status }) %>
           <%# On the day, the label already says "Today · 7:30 PM", so just the venue. %>
           <div class="muted"><% if (nextIsToday) { %><%= String(r.location || '').split(/[|,]/)[0].trim() %><% } else { %><%- include('../partials/event-line', { event: r, showPrice: false }) %><% } %></div>
+          <% if (r.due && r.status === 'confirmed') { %><div class="small pay-door-note">💵 <%= t('Pay {amount} at the door', { amount: money(r.due) }) %></div><% } %>
           <div class="small">👥 <%= r.names.length ? r.names.map((n) => n.split(' ')[0]).join(', ') : plural(r.party_size, '1 person', '{n} people') %><%= r.names.length && r.guest_count ? ` + ${plural(r.guest_count, '1 guest', '{n} guests')}` : '' %><% if (!r.mine) { %> · <%= t("{name}'s ticket", { name: `${r.holder_first} ${r.holder_last}` }) %><% } %></div>
         </div>
       </div>

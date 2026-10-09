@@ -617,3 +617,17 @@ td .btn { white-space: nowrap; }
 /* Short code under the QR code: easy to read out or type at the door. */
 .ticket-code { margin: 6px 0 0; color: var(--muted); }
 .ticket-code strong { color: var(--text); font-size: 1.35rem; letter-spacing: .12em; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+/* Pay at the door: the member's reminder, the RSVP choice, and the door's big PAID / DUE panel. */
+.pay-door-note { font-weight: 700; color: var(--warn); margin: 6px 0; }
+.pay-choice { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px 4px; margin: 0; }
+.pay-choice legend { font-weight: 700; padding: 0 4px; }
+.pay-choice label.check { align-items: flex-start; }
+.pay-panel { border-radius: 12px; padding: 14px 16px; margin: 12px 0; text-align: center; border: 2px solid; }
+.pay-panel .pay-big { font-size: 1.8rem; font-weight: 800; letter-spacing: .02em; }
+.pay-panel.due { background: var(--warn-bg); border-color: var(--warn); color: var(--text); }
+.pay-panel.due .pay-big { color: var(--warn); }
+.pay-panel.paid { background: var(--ok-bg); border-color: var(--ok); }
+.pay-panel.paid .pay-big { color: var(--ok); }
+.pay-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.pay-buttons .small { flex-basis: 100%; }
+.pay-buttons .btn { min-width: 96px; }

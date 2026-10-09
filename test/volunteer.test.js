@@ -156,21 +156,51 @@ test('volunteers can find a family by name, family member or phone when there is
   assert.match(res.text, /No RSVP for Garba Tonight matches/);
 });
 
-test('a volunteer cannot record payments; they send the family to the committee', async () => {
+test('pay at the door: QR code straight away, the door sees what is due, collects it and sees PAID', async () => {
   const paid = await t.createEvent(admin, { title: 'Dinner Tonight', fee: '15', starts_at: `${nowLocal().slice(0, 10)}T23:59` });
   const m = await t.register('family4@test.org', 'Dev');
-  await m.post(`/events/${paid}/rsvp`, { party_size: '1' });
+  let res = await m.get(`/events/${paid}`);
+  assert.match(res.text, /How will you pay\?[\s\S]*value="online" checked[\s\S]*value="door"/, 'online is the default; the door is offered');
+  res = await m.post(`/events/${paid}/rsvp`, { party_size: '1', pay: 'door' });
   const rsvp = t.rsvpFor(paid, 'family4@test.org');
-  let res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /Payment due: \$15\.00/);
-  assert.match(res.text, /send them to a committee member to pay/);
-  assert.doesNotMatch(res.text, /Record payment/);
+  assert.equal(res.location, `/tickets/${rsvp.id}`);
+  assert.deepEqual([rsvp.status, rsvp.pay_at_door], ['confirmed', 1]);
+  res = await m.get(res.location);
+  assert.match(res.text, /Please pay \$15\.00 at the door \(cash or check\)/);
+  assert.match(res.text, /data:image\/png;base64/, 'QR code shown before paying');
+  assert.match((await m.get('/dashboard')).text, /Pay \$15\.00 at the door/);
+
+  // At the door: big amount due, and the volunteer records the cash.
+  res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
+  assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*They chose to pay at the door/);
+  assert.match(res.text, /Check in without payment/);
+  assert.match((await volunteer.get(`/admin/checkin?event=${paid}&q=Dev`)).text, /\$15\.00 due/);
+  // Volunteers still can't use the admin pages; the door has its own button.
   res = await volunteer.post(`/admin/rsvps/${rsvp.id}/record-payment`, { method: 'cash' });
-  assert.equal(res.location, '/admin/checkin'); // door mode only allows check-in
-  assert.equal(t.rsvpFor(paid, 'family4@test.org').status, 'pending_payment');
-  // An admin still gets the payment form on the same screen.
-  res = await admin.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /Record payment/);
+  assert.equal(res.location, '/admin/checkin');
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash' }));
+  assert.match(res.text, /Recorded \$15\.00 paid by cash/);
+  assert.match(res.text, /class="pay-panel paid"[\s\S]*PAID[\s\S]*\$15\.00 paid \(cash\)/);
+  assert.match(res.text, /<button class="btn big ok">Check in<\/button>/);
+  const pay = t.db.prepare(`SELECT * FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id);
+  assert.deepEqual([pay.amount_cents, pay.method], [1500, 'cash']);
+
+  // Someone who paid online shows PAID (online) at the door.
+  const n = await t.register('paydoor-online@test.org', 'Online');
+  res = await n.post(`/events/${paid}/rsvp`, { party_size: '1', pay: 'online' });
+  await n.post(res.location);
+  const online = t.rsvpFor(paid, 'paydoor-online@test.org');
+  assert.equal(online.status, 'confirmed');
+  assert.match((await volunteer.get(`/admin/checkin/${online.qr_token}`)).text, /PAID[\s\S]*\$15\.00 paid \(online\)/);
+
+  // Started paying online but switches to the door: QR code right away.
+  const o = await t.register('paydoor-switch@test.org', 'Switch');
+  await o.post(`/events/${paid}/rsvp`, { party_size: '1' });
+  assert.equal(t.rsvpFor(paid, 'paydoor-switch@test.org').status, 'pending_payment');
+  res = await o.post(`/events/${paid}/pay-at-door`);
+  assert.equal(t.rsvpFor(paid, 'paydoor-switch@test.org').status, 'confirmed');
+  assert.equal(t.db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE reference_id = ? AND kind = 'event' AND status = 'pending'`).get(t.rsvpFor(paid, 'paydoor-switch@test.org').id).n, 0);
+  assert.match((await admin.get(`/admin/events/${paid}`)).text, /Pays at door/);
 });
 
 test('ordinary members cannot check people in; opening their own QR link shows their ticket', async () => {

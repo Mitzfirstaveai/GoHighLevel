@@ -339,6 +339,8 @@ function eventStats(db, eventId) {
       COALESCE(SUM(guest_count) FILTER (WHERE status = 'confirmed'), 0) AS confirmed_guests,
       COUNT(*) FILTER (WHERE status = 'pending_payment') AS pending_parties,
       COALESCE(SUM(party_size) FILTER (WHERE status = 'pending_payment'), 0) AS pending_people,
+      COUNT(*) FILTER (WHERE status = 'confirmed' AND pay_at_door = 1 AND total_cents >
+        (SELECT COALESCE(SUM(p.amount_cents), 0) FROM payments p WHERE p.kind = 'event' AND p.reference_id = rsvps.id AND p.status = 'paid')) AS door_parties,
       COUNT(*) FILTER (WHERE status = 'waitlisted') AS waitlisted_parties,
       COALESCE(SUM(party_size) FILTER (WHERE status = 'waitlisted'), 0) AS waitlisted_people,
       COUNT(*) FILTER (WHERE checked_in_at IS NOT NULL) AS checked_in_parties,
@@ -534,8 +536,13 @@ function chooseAttendees(db, { event, userId, people, partySize, existingId }) {
   return chosen;
 }
 
+// Status for an RSVP with a seat: confirmed when nothing is owed or the family pays at the door
+// (they get their QR code now and the door collects); otherwise waiting for online payment.
+const seatedStatus = (due, payAtDoor) => (due === 0 || payAtDoor ? 'confirmed' : 'pending_payment');
+
 function upsertRsvp(db, {
   eventId, userId, people = null, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false, keepAnswers = false,
+  payAtDoor, // true: cash/check at the door; false: online; undefined: keep the earlier choice (e.g. from My tickets)
 }) {
   return transaction(db, () => {
     const event = getEvent(db, eventId);
@@ -581,12 +588,17 @@ function upsertRsvp(db, {
       }
     }
 
+    const door = payAtDoor === undefined ? Boolean(existing?.pay_at_door) : Boolean(payAtDoor);
     const sameRequest = active && existing.party_size === total && !peopleChanged
       && existing.guest_count === guests && (existing.coupon_code || null) === price.couponCode;
     if (sameRequest && (existing.status !== 'waitlisted' || waitlisted)) {
-      db.prepare(`UPDATE rsvps SET answers = ?, updated_at = datetime('now') WHERE id = ?`).run(answers, existing.id);
+      // Same people: only the answers or the way of paying can change.
+      const due = amountDue(db, existing);
+      const status = existing.status === 'waitlisted' ? 'waitlisted' : seatedStatus(due, door);
+      db.prepare(`UPDATE rsvps SET answers = ?, pay_at_door = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(answers, door ? 1 : 0, status, existing.id);
       saveAttendees(existing.id);
-      return { rsvp: { ...existing, answers }, amountDue: amountDue(db, existing), qrReplaced: false, waitlisted: existing.status === 'waitlisted' };
+      return { rsvp: { ...existing, answers, pay_at_door: door ? 1 : 0, status }, amountDue: due, qrReplaced: false, waitlisted: status === 'waitlisted' };
     }
 
     let rsvpId;
@@ -602,14 +614,14 @@ function upsertRsvp(db, {
       }
       qrReplaced = hadTicket && changed;
       db.prepare(`UPDATE rsvps SET party_size = ?, guest_count = ?, total_cents = ?, discount_cents = ?, coupon_code = ?,
-                  answers = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
-        .run(total, guests, price.total, price.discount, price.couponCode, answers,
+                  answers = ?, pay_at_door = ?, status = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(total, guests, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
           waitlisted ? 'waitlisted' : 'pending_payment', existing.id);
       rsvpId = existing.id;
     } else {
       rsvpId = Number(db.prepare(`INSERT INTO rsvps (event_id, user_id, party_size, guest_count, total_cents, discount_cents,
-                                  coupon_code, answers, status, qr_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(eventId, userId, total, guests, price.total, price.discount, price.couponCode, answers,
+                                  coupon_code, answers, pay_at_door, status, qr_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(eventId, userId, total, guests, price.total, price.discount, price.couponCode, answers, door ? 1 : 0,
           waitlisted ? 'waitlisted' : 'pending_payment', newToken()).lastInsertRowid);
     }
     saveAttendees(rsvpId);
@@ -619,7 +631,7 @@ function upsertRsvp(db, {
 
     const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
     const due = waitlisted ? 0 : amountDue(db, rsvp);
-    if (!waitlisted && due === 0) {
+    if (!waitlisted && seatedStatus(due, door) === 'confirmed') {
       db.prepare(`UPDATE rsvps SET status = 'confirmed' WHERE id = ?`).run(rsvpId);
       rsvp.status = 'confirmed';
     }
@@ -641,7 +653,7 @@ function promoteWaitlist(db, eventId) {
   let taken = reservedSeats(db, eventId);
   for (const r of waiting) {
     if (event.capacity && taken + r.party_size > event.capacity) continue;
-    const status = amountDue(db, r) === 0 ? 'confirmed' : 'pending_payment';
+    const status = seatedStatus(amountDue(db, r), r.pay_at_door);
     db.prepare(`UPDATE rsvps SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(status, r.id);
     taken += r.party_size;
     promoted.push(r.id);
@@ -660,6 +672,29 @@ function cancelRsvp(db, { eventId, userId }) {
     promoteWaitlist(db, eventId);
     return { paidCents: paidForRsvp(db, rsvp.id) };
   });
+}
+
+// A member who started paying online can switch to paying at the door: they get their QR code now.
+function payAtDoorInstead(db, { rsvpId, userId }) {
+  const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ? AND user_id = ?').get(rsvpId, userId);
+  if (!rsvp || !['pending_payment', 'confirmed'].includes(rsvp.status)) throw new UserError('Nothing to pay for this RSVP.');
+  db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event' AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
+  db.prepare(`UPDATE rsvps SET pay_at_door = 1, status = 'confirmed', updated_at = datetime('now') WHERE id = ?`).run(rsvp.id);
+  return db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvp.id);
+}
+
+// Money collected for an RSVP (at the door or by the committee): records what's still owed as paid.
+function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
+  const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
+  if (!rsvp) throw new UserError('RSVP not found.');
+  const due = amountDue(db, rsvp);
+  if (due === 0) throw new UserError('Nothing is owed for this RSVP.');
+  const event = getEvent(db, rsvp.event_id);
+  db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event' AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
+  const payment = createPayment(db, { userId: rsvp.user_id, kind: 'event', referenceId: rsvp.id, amountCents: due,
+    description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}` });
+  markPaymentPaid(db, payment.id, { method: ['cash', 'check', 'other'].includes(method) ? method : 'cash', recordedBy });
+  return { due, payment };
 }
 
 function confirmRsvpIfPaid(db, rsvpId) {
@@ -752,7 +787,8 @@ function createPayment(db, { userId, kind, referenceId, description, amountCents
 
 function createEventPayment(db, { rsvpId, userId }) {
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ? AND user_id = ?').get(rsvpId, userId);
-  if (!rsvp || rsvp.status !== 'pending_payment') throw new UserError('Nothing to pay for this RSVP.');
+  // Waiting for online payment, or paying at the door but choosing to pay online after all.
+  if (!rsvp || !['pending_payment', 'confirmed'].includes(rsvp.status)) throw new UserError('Nothing to pay for this RSVP.');
   const event = getEvent(db, rsvp.event_id);
   const due = amountDue(db, rsvp);
   if (due === 0) throw new UserError('Nothing to pay for this RSVP.');
@@ -975,6 +1011,6 @@ module.exports = {
   eventPeople, rsvpAttendees, attendeeNames, takenPeople,
   getEvent, eventStats, eventRevenue, amountDue, paidForRsvp, rsvpWindowOpen, reservedSeats, promoteWaitlist,
   earlyBirdActive, memberPrice, eventQuestions, parseQuestions, questionsToText, priceRsvp,
-  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, shortCode, findTokenByShortCode, checkIn,
+  maxPartySize, upsertRsvp, cancelRsvp, findRsvpByToken, findRetiredToken, shortCode, payAtDoorInstead, recordRsvpPayment, findTokenByShortCode, checkIn,
   createPayment, createEventPayment, createMembershipPayment, markPaymentPaid, campaignProgress, createDonationPayment,
 };

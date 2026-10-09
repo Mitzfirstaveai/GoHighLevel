@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS rsvps (
   coupon_code TEXT,
   answers TEXT NOT NULL DEFAULT '[]',                   -- JSON: answers to the event's questions
   status TEXT NOT NULL CHECK (status IN ('pending_payment', 'confirmed', 'waitlisted', 'cancelled')),
+  pay_at_door INTEGER NOT NULL DEFAULT 0,               -- 1: paying cash/check at the door, so confirmed (with a QR code) while still owing
   qr_token TEXT NOT NULL UNIQUE,
   notes TEXT,
   checked_in_at TEXT,
@@ -285,11 +286,13 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 11; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
-// 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors
+const SCHEMA_VERSION = 12; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+// 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
+// 12: pay at the door
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  12: ['ALTER TABLE rsvps ADD COLUMN pay_at_door INTEGER NOT NULL DEFAULT 0'],
   4: ['ALTER TABLE users ADD COLUMN checkin_access INTEGER NOT NULL DEFAULT 0'],
   // rsvp_attendees itself is created by SCHEMA. Older RSVPs have no names and show a head count.
   5: [

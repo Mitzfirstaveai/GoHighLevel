@@ -259,6 +259,9 @@ function seedDemo(db, { photosDir } = {}) {
     paidRsvp(diwali, 'vipul.bhatt@example.com', 4, 'Diwali Dinner & Cultural Program', diet('Regular'));
     paidRsvp(diwali, 'raj.desai@example.com', 2, 'Diwali Dinner & Cultural Program', diet('Swaminarayan'));
     rsvp(diwali, 'falguni.trivedi@example.com', 2, 'pending_payment', null, 0, { total: 2400, answers: diet('Regular') });
+    // Paying cash at the door: has a QR code, and the door sees "$30.00 DUE".
+    const doorPayer = rsvp(diwali, 'anjali.vyas@example.com', 2, 'confirmed', null, 0, { total: 3000, answers: diet('Regular') });
+    db.prepare('UPDATE rsvps SET pay_at_door = 1 WHERE id = ?').run(doorPayer);
 
     // Kids' garba workshop: full, with one family on the waitlist.
     rsvp(workshop, 'nilesh.joshi@example.com', 3, 'confirmed');

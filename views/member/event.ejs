@@ -29,14 +29,20 @@
       <% if (rsvp.checked_in_at) { %>
         <p class="badge ok"><%= t('Checked in — {n} arrived', { n: rsvp.checked_in_count }) %></p>
       <% } else if (rsvp.status === 'confirmed') { %>
+        <% if (due) { %><p class="pay-door-note">💵 <%= t('Please pay {amount} at the door (cash or check).', { amount: money(due) }) %></p><% } %>
         <a class="btn big" href="/tickets/<%= rsvp.id %>"><%= t('Show my QR ticket') %></a>
+        <% if (due && paymentMode !== 'disabled') { %>
+          <form method="post" action="/events/<%= event.id %>/pay" style="margin-top:8px"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Pay {amount} online now instead', { amount: money(due) }) %></button></form>
+        <% } %>
       <% } else if (rsvp.status === 'waitlisted') { %>
         <p class="muted"><%= rsvp.total_cents ? t("You're on the waitlist. If seats open up you'll be moved in automatically and can then pay.") : t("You're on the waitlist. If seats open up you'll be moved in automatically.") %></p>
       <% } else if (rsvp.status === 'pending_payment') { %>
         <p><%= t('Amount due:') %> <strong><%= money(due) %></strong>. <%= t('Your QR ticket will be ready once paid.') %></p>
         <% if (paymentMode !== 'disabled') { %>
           <form method="post" action="/events/<%= event.id %>/pay"><%- include('../partials/csrf') %><button class="btn big"><%= t('Pay {amount}', { amount: money(due) }) %></button></form>
-        <% } else { %><p class="muted"><%= t('Please pay an organizer in person.') %></p><% } %>
+        <% } %>
+        <form method="post" action="/events/<%= event.id %>/pay-at-door" style="margin-top:8px"><%- include('../partials/csrf') %>
+          <button class="btn secondary"><%= t('Pay at the door instead (cash or check)') %></button></form>
       <% } %>
     <% } %>
 
@@ -81,6 +87,15 @@
         <% if (event.fee_cents || event.guest_fee_cents) { %>
           <label><%= t('Coupon code (optional)') %> <input name="coupon" value="" placeholder="<%= rsvp?.coupon_code || '' %>" autocapitalize="characters"></label>
           <p class="estimate" data-estimate style="margin:0"></p>
+          <%# How to pay: card now, or cash/check at the door (the QR code comes straight away either way once settled). %>
+          <% const door = rsvp ? Boolean(rsvp.pay_at_door) : paymentMode === 'disabled'; %>
+          <fieldset class="pay-choice">
+            <legend><%= t('How will you pay?') %></legend>
+            <% if (paymentMode !== 'disabled') { %>
+              <label class="check"><input type="radio" name="pay" value="online" <%= door ? '' : 'checked' %>> <span><strong><%= t('Pay online now') %></strong> <span class="muted small"><%= t('by card') %></span></span></label>
+            <% } %>
+            <label class="check"><input type="radio" name="pay" value="door" <%= door ? 'checked' : '' %>> <span><strong><%= t('Pay at the door') %></strong> <span class="muted small"><%= t('cash or check — you get your QR code now') %></span></span></label>
+          </fieldset>
         <% } %>
         <% if (event.capacity) { %><label class="check"><input type="checkbox" name="waitlist" value="1" <%= spotsLeft === 0 ? 'checked' : '' %>> <%= t("If there isn't room, put me on the waitlist") %></label><% } %>
         <button class="btn big <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? t('Update RSVP') : spotsLeft === 0 ? t('Join waitlist') : (event.fee_cents || event.guest_fee_cents ? t('RSVP & pay') : t('RSVP')) %></button>

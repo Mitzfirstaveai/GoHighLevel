@@ -21,7 +21,7 @@
     <% } else if (rsvp.status === 'cancelled') { %>
       <div class="big-status err">❌ <%= t('RSVP cancelled') %></div>
     <% } else if (rsvp.status === 'pending_payment') { %>
-      <div class="big-status warn">⚠️ <%= t('Payment due: {amount}', { amount: money(due) }) %></div>
+      <div class="big-status warn">⚠️ <%= t('Not paid yet') %></div>
     <% } else if (rsvp.status === 'waitlisted') { %>
       <div class="big-status warn">⏳ <%= t('On the waitlist — no seat yet') %></div>
       <p><%= t("This family joined the waitlist and hasn't been given a seat. Admit them only if there is room.") %></p>
@@ -48,18 +48,28 @@
       </div>
     <% } %>
 
-    <% if (rsvp.status === 'pending_payment') { %>
-      <% if (adminMode) { %>
-        <form method="post" action="/admin/rsvps/<%= rsvp.id %>/record-payment" class="stack" lang="en">
-          <%- include('../partials/csrf') %>
-          <input type="hidden" name="return_to" value="/admin/checkin/<%= token %>">
-          <label>Collected <%= money(due) %> by <select name="method"><option value="cash">Cash</option><option value="check">Check</option><option value="other">Other</option></select></label>
-          <button class="btn">Record payment</button>
-        </form>
+    <%# Payment, shown big: PAID (and how), or how much to collect — with buttons to record it. %>
+    <% if (rsvp.total_cents && ['confirmed', 'pending_payment'].includes(rsvp.status)) { %>
+      <% if (due) { %>
+        <div class="pay-panel due">
+          <div class="pay-big">💵 <%= t('{amount} DUE', { amount: money(due) }) %></div>
+          <p style="margin:4px 0 10px"><%= rsvp.pay_at_door ? t('They chose to pay at the door. Collect it before checking them in.') : t('Not paid yet. Collect it before checking them in.') %></p>
+          <form method="post" action="/admin/checkin/<%= token %>/payment" class="pay-buttons">
+            <%- include('../partials/csrf') %>
+            <span class="small"><%= t('Collected {amount} by:', { amount: money(due) }) %></span>
+            <button class="btn" name="method" value="cash"><%= t('Cash') %></button>
+            <button class="btn" name="method" value="check"><%= t('Check') %></button>
+            <button class="btn secondary" name="method" value="other"><%= t('Other (card, Zelle…)') %></button>
+          </form>
+        </div>
       <% } else { %>
-        <p><strong><%= t('Please send them to a committee member to pay. Scan the ticket again once it is paid.') %></strong></p>
+        <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
+        <div class="pay-panel paid"><div class="pay-big">✔ <%= t('PAID') %></div>
+          <p style="margin:4px 0 0"><%= how ? t('{amount} paid ({how})', { amount: money(paid.cents), how }) : t('{amount} paid', { amount: money(paid.cents) }) %></p></div>
       <% } %>
-    <% } else if (rsvp.status === 'confirmed' && !rsvp.checked_in_at) { %>
+    <% } %>
+
+    <% if (rsvp.status === 'confirmed' && !rsvp.checked_in_at) { %>
       <form method="post" action="/admin/checkin/<%= token %>" class="stack">
         <%- include('../partials/csrf') %>
         <label><%= t('How many people are arriving?') %>
@@ -67,7 +77,11 @@
             <% for (let i = rsvp.party_size; i >= 1; i--) { %><option value="<%= i %>"><%= i %></option><% } %>
           </select>
         </label>
-        <button class="btn big ok"><%= t('Check in') %></button>
+        <% if (due) { %>
+          <button class="btn big secondary" onclick="return confirm(<%= JSON.stringify(t('They still owe {amount}. Check them in anyway?', { amount: money(due) })) %>)"><%= t('Check in without payment') %></button>
+        <% } else { %>
+          <button class="btn big ok"><%= t('Check in') %></button>
+        <% } %>
       </form>
     <% } %>
   <% } %>

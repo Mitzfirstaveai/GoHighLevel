@@ -45,7 +45,8 @@ function searchRsvps(db, eventId, query) {
   if (q.length < 2) return [];
   const like = `%${q.replace(/[%_\\]/g, '\\$&')}%`;
   return db.prepare(`
-    SELECT r.id, r.qr_token, r.party_size, r.guest_count, r.status, r.checked_in_at, r.checked_in_count,
+    SELECT r.id, r.qr_token, r.party_size, r.guest_count, r.status, r.checked_in_at, r.checked_in_count, r.total_cents,
+           (SELECT COALESCE(SUM(p.amount_cents), 0) FROM payments p WHERE p.kind = 'event' AND p.reference_id = r.id AND p.status = 'paid') AS paid_cents,
            u.first_name, u.last_name, u.city
     FROM rsvps r JOIN users u ON u.id = r.user_id
     WHERE r.event_id = :event AND r.status != 'cancelled' AND (
@@ -89,6 +90,9 @@ router.get('/:token', (req, res) => {
   const { db } = req.app.locals;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   const due = rsvp ? svc.amountDue(db, rsvp) : 0;
+  // Shown big at the door: paid (and how) or how much is still owed.
+  const paid = rsvp ? db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS cents, group_concat(DISTINCT method) AS methods
+    FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id) : null;
   // Distinguishes "you just checked them in" from "this code was already used earlier".
   const justCheckedIn = req.session.justCheckedIn === req.params.token;
   delete req.session.justCheckedIn;
@@ -97,10 +101,21 @@ router.get('/:token', (req, res) => {
   const notToday = rsvp && rsvp.starts_at.slice(0, 10) !== nowLocal().slice(0, 10);
   const event = rsvp && db.prepare('SELECT title_gu FROM events WHERE id = ?').get(rsvp.event_id);
   res.status(rsvp ? 200 : 404).render('admin/checkin_result', {
-    title: 'Check-in', rsvp, retired, due, justCheckedIn, notToday, token: req.params.token,
+    title: 'Check-in', rsvp, retired, due, paid, justCheckedIn, notToday, token: req.params.token,
     names: rsvp ? svc.attendeeNames(db, rsvp) : [],
     eventTitle: rsvp ? (req.lang === 'gu' && event.title_gu) || rsvp.event_title : '',
   });
+});
+
+// Money collected at the door (cash, check or other) for a family that still owes.
+router.post('/:token/payment', (req, res) => {
+  const { db } = req.app.locals;
+  const rsvp = svc.findRsvpByToken(db, req.params.token);
+  if (!rsvp) throw new svc.UserError('This QR code is not valid.');
+  const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
+  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
+  req.flash('success', 'Recorded {amount} paid by {method}. Now check them in.', { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', check: 'check', other: 'other' }[method]) });
+  res.redirect(`/admin/checkin/${req.params.token}`);
 });
 
 router.post('/:token', (req, res) => {

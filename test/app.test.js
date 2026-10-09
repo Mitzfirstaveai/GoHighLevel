@@ -129,7 +129,7 @@ test('paid event: RSVP requires payment before a QR is issued', async () => {
 
   // QR is not valid for check-in until paid.
   res = await admin.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /Payment due: \$45\.00/);
+  assert.match(res.text, /Not paid yet[\s\S]*\$45\.00 DUE/);
   await admin.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '3' });
   assert.equal(rsvpFor(eventId, 'meena@test.org').checked_in_at, null);
 

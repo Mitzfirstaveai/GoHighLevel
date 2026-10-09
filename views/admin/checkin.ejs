@@ -46,6 +46,8 @@
         <span style="flex:1"><strong><%= r.first_name %> <%= r.last_name %></strong><% if (r.city) { %> <span class="muted small">· <%= r.city %></span><% } %><br>
           <span class="small"><%= r.names.length ? r.names.join(', ') + (r.guest_count ? ` + ${plural(r.guest_count, '1 guest', '{n} guests')}` : '') : plural(r.party_size, '1 person', '{n} people') %></span>
           <%- include('../partials/rsvp-badge', { status: r.status }) %>
+          <% if (r.total_cents > r.paid_cents) { %><span class="badge warn">💵 <%= t('{amount} due', { amount: money(r.total_cents - r.paid_cents) }) %></span>
+          <% } else if (r.total_cents) { %><span class="badge ok"><%= t('Paid') %></span><% } %>
           <% if (r.checked_in_at) { %><span class="badge neutral"><%= t('Arrived ({n})', { n: r.checked_in_count }) %></span><% } %></span>
         <span class="btn small <%= r.checked_in_at || r.status !== 'confirmed' ? 'secondary' : '' %>"><%= r.checked_in_at || r.status !== 'confirmed' ? t('View') : t('Check in') %></span>
       </a>

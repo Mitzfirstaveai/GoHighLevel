@@ -23,7 +23,7 @@ function familyTickets(db, userId) {
     FROM rsvps r JOIN events e ON e.id = r.event_id JOIN users u ON u.id = r.user_id
     WHERE r.user_id IN (${ids.map(() => '?').join(',')}) AND r.status != 'cancelled' AND e.starts_at >= ?
     ORDER BY e.starts_at, r.user_id != ?
-  `).all(...ids, nowLocal().slice(0, 10), userId).map((r) => ({ ...r, names: svc.attendeeNames(db, r), mine: r.user_id === userId }));
+  `).all(...ids, nowLocal().slice(0, 10), userId).map((r) => ({ ...r, names: svc.attendeeNames(db, r), mine: r.user_id === userId, due: svc.amountDue(db, r) }));
 }
 
 router.get('/dashboard', requireAuth, (req, res) => {
@@ -291,6 +291,8 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
     couponCode: String(req.body.coupon || '').trim(),
     body: req.body,
     joinWaitlist: Boolean(req.body.waitlist),
+    // Paid events: "online" (card now) or "door" (cash or check at the entrance). Not sent from My tickets.
+    payAtDoor: req.body.pay === 'door' ? true : req.body.pay === 'online' ? false : undefined,
   });
   const n = rsvp.party_size;
   if (waitlisted) {
@@ -307,6 +309,10 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
   if (rsvp.discount_cents) req.flash('success', 'Coupon {code} applied: {amount} off.', { code: rsvp.coupon_code, amount: req.app.locals.money(rsvp.discount_cents) });
   if (amountDue === 0) {
     if (!qrReplaced) req.flash('success', 'You are registered! Show this QR code at the entrance.');
+    return res.redirect(`/tickets/${rsvp.id}`);
+  }
+  if (rsvp.status === 'confirmed') { // paying at the door
+    req.flash('success', 'You are registered! Please pay {amount} at the door (cash or check) and show this QR code.', { amount: req.app.locals.money(amountDue) });
     return res.redirect(`/tickets/${rsvp.id}`);
   }
   const payment = svc.createEventPayment(db, { rsvpId: rsvp.id, userId: req.user.id });
@@ -326,6 +332,16 @@ router.post('/events/:id/pay', requireAuth, async (req, res) => {
   const url = await gateway.startCheckout(payment, req.user);
   if (!url) throw new svc.UserError('Online payment is not available. Please pay an organizer.');
   res.redirect(303, url);
+});
+
+// Started paying online but would rather pay cash or check at the door: the QR code is ready now.
+router.post('/events/:id/pay-at-door', requireAuth, (req, res) => {
+  const { db } = req.app.locals;
+  const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?`).get(req.params.id, req.user.id);
+  if (!rsvp) throw new svc.UserError('Please RSVP first.');
+  const updated = svc.payAtDoorInstead(db, { rsvpId: rsvp.id, userId: req.user.id });
+  req.flash('success', 'You are registered! Please pay {amount} at the door (cash or check) and show this QR code.', { amount: req.app.locals.money(svc.amountDue(db, updated)) });
+  res.redirect(`/tickets/${rsvp.id}`);
 });
 
 router.post('/events/:id/cancel', requireAuth, (req, res) => {
@@ -366,6 +382,7 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   res.render('member/ticket', {
     title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl, event, mine, canChange, prices: rsvpPrices(event),
     ticketCode: rsvp.qr_token ? svc.shortCode(rsvp.qr_token) : null,
+    due: svc.amountDue(db, rsvp),
     names: svc.attendeeNames(db, rsvp),
     people: canChange ? svc.eventPeople(db, event, req.user.id) : [],
   });
