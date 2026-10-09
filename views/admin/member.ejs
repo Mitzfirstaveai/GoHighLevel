@@ -28,13 +28,13 @@
     <% if (!household.length) { %><p class="muted">None listed.</p><% } %>
     <% for (const h of household) { %>
       <div class="actions" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
-        <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (born ${h.birth_month ? new Date(Date.UTC(h.birth_year, h.birth_month - 1, 1)).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }) + ' ' : ''}${h.birth_year})` : '' %>
+        <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (born ${h.birth_month ? new Date(Date.UTC(h.birth_year, h.birth_month - 1, 1)).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }) + ' ' : ''}${h.birthday ? `${Number(h.birthday.slice(3))}, ` : ''}${h.birth_year})` : '' %>
           <% if (!(h.birth_year && h.birth_month)) { %><span class="badge warn">Birth month/year missing</span><% } %>
           <% if (h.login_user_id) { %><a class="badge ok" href="/admin/members/<%= h.login_user_id %>">Own login</a><% } else if (h.invite_token) { %><span class="badge neutral">Invite link created</span><% } %></span>
         <form method="post" action="/admin/members/<%= member.id %>/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm('Remove <%= h.name %>?')"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form>
       </div>
       <%# Members can't change a saved birth month/year; the committee can correct it here. %>
-      <details class="small" style="margin:4px 0 8px"><summary>Correct birth month / year</summary>
+      <details class="small" style="margin:4px 0 8px"><summary>Correct birth date</summary>
         <form method="post" action="/admin/members/<%= member.id %>/household/<%= h.id %>/birth" class="fields" style="margin-top:6px">
           <%- include('../partials/csrf') %>
           <%- include('../partials/birth-fields', { required: false, h }) %>
@@ -47,6 +47,7 @@
       <input name="name" placeholder="Name" required style="flex:2;min-width:140px">
       <select name="relationship" style="flex:1;min-width:120px"><% for (const r of relationships) { %><option><%= r %></option><% } %></select>
       <select name="birth_month" aria-label="Birth month" style="flex:1;min-width:110px"><option value="">Birth month</option><% for (let m = 1; m <= 12; m++) { %><option value="<%= m %>"><%= new Date(Date.UTC(2000, m - 1, 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' }) %></option><% } %></select>
+      <select name="birth_day" aria-label="Day of birth (optional)" style="flex:0 1 90px;min-width:80px"><option value="">Day</option><% for (let d = 1; d <= 31; d++) { %><option value="<%= d %>"><%= d %></option><% } %></select>
       <input name="birth_year" placeholder="Birth year" inputmode="numeric" pattern="\d{4}" style="flex:1;min-width:100px">
       <button class="btn secondary small">Add</button>
     </form>

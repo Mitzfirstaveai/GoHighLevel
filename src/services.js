@@ -18,7 +18,7 @@ class UserError extends Error {
 
 const PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone', 'address_line1', 'address_line2', 'city', 'state',
-  'postal_code', 'native_place', 'birth_month', 'birth_year', 'occupation',
+  'postal_code', 'native_place', 'birth_month', 'birth_year', 'birthday', 'occupation',
 ];
 
 // What every member fills in, at sign-up and in their profile (email is asked for separately).
@@ -51,6 +51,22 @@ function cleanPhone(value) {
   return digits.length === 10 ? `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}` : null;
 }
 
+// 'MM-DD' for a birthday, or null: a day that month really has (Feb 29 only when born in a leap year;
+// with no birth year known, 2024 — a leap year — is used).
+function birthdayOf(month, day, year) {
+  const md = `${String(month || '').padStart(2, '0')}-${String(day || '').padStart(2, '0')}`;
+  const daysInMonth = new Date(Date.UTC(year || 2024, Number(month), 0)).getUTCDate();
+  return /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(md) && Number(day) <= daysInMonth ? md : null;
+}
+
+// The optional day of birth with its month and year: 'MM-DD', or null when no day was chosen.
+function birthdayFor(month, day, year) {
+  if (!day) return null;
+  const md = birthdayOf(month, day, year);
+  if (!md) throw new UserError('Please choose a day that is in the birth month (for example, there is no February 30).');
+  return md;
+}
+
 // Labels of the required fields this member hasn't filled in yet.
 function missingProfile(user) {
   return Object.entries(REQUIRED_PROFILE).filter(([f]) => !user[f]).map(([, label]) => label);
@@ -62,9 +78,10 @@ function cleanProfile(body, { complete = false } = {}) {
   for (const field of PROFILE_FIELDS) {
     profile[field] = String(body[field] ?? '').trim().slice(0, 200) || null;
   }
-  // A full date of birth (e.g. in an imported file) gives the month and year.
-  const dob = String(body.date_of_birth || '').match(/^(\d{4})-(\d{2})-\d{2}$/);
-  if (dob && !profile.birth_year && !profile.birth_month) [profile.birth_year, profile.birth_month] = [dob[1], dob[2]];
+  // A full date of birth (e.g. in an imported file) gives the month, day and year.
+  const dob = String(body.date_of_birth || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  let birthDay = String(body.birth_day ?? '').trim();
+  if (dob && !profile.birth_year && !profile.birth_month) [profile.birth_year, profile.birth_month, birthDay] = [dob[1], dob[2], dob[3]];
   if (!profile.first_name || !profile.last_name) {
     throw new UserError('First and last name are required.');
   }
@@ -77,6 +94,9 @@ function cleanProfile(body, { complete = false } = {}) {
     }
     [profile.birth_year, profile.birth_month] = [year, month];
   }
+  // The day is optional ('MM-DD', used to announce the birthday if they choose to share it).
+  if (birthDay && !profile.birth_month) throw new UserError('Please choose the birth month and enter a 4-digit birth year.');
+  profile.birthday = profile.birth_month ? birthdayFor(profile.birth_month, birthDay, profile.birth_year) : null;
   if (complete) {
     const missing = missingProfile(profile);
     if (missing.length) throw new UserError('Please fill in: {fields}.', { fields: { list: missing } });
@@ -97,9 +117,8 @@ function updateProfile(db, userId, body, opts) {
   const sets = PROFILE_FIELDS.map((f) => `${f} = ?`).join(', ');
   db.prepare(`UPDATE users SET ${sets}, updated_at = datetime('now') WHERE id = ?`)
     .run(...PROFILE_FIELDS.map((f) => profile[f]), userId);
-  // A birthday added under Celebrations is in their birth month: if that changed, the day is asked for again.
-  db.prepare(`UPDATE users SET birthday = NULL, share_birthday = 0
-              WHERE id = ? AND birthday IS NOT NULL AND (birth_month IS NULL OR CAST(substr(birthday, 1, 2) AS INTEGER) != birth_month)`).run(userId);
+  // With no day of birth there's no birthday to announce.
+  db.prepare('UPDATE users SET share_birthday = 0 WHERE id = ? AND birthday IS NULL').run(userId);
 }
 
 // ---------- Membership levels & family coverage ----------
@@ -294,7 +313,7 @@ function prepaidPeriods(db, userId) {
  * Adds a family member to a profile. While a membership is active, the family has to fit the
  * level that was paid for; members are told which level to upgrade to. Admins can override.
  */
-function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMonth = null, override = false }) {
+function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMonth = null, birthDay = null, override = false }) {
   name = String(name || '').trim().slice(0, 120);
   if (!name) throw new UserError('Please enter a name for the family member.');
   if (!override && !NAME_RE.test(name)) throw new UserError("A family member's name can only contain letters (and spaces, hyphens or apostrophes).");
@@ -304,6 +323,7 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMo
     throw new UserError('Please enter the birth month and year for {name}.', { name });
   }
   checkBirth(birthYear, birthMonth);
+  const birthday = birthMonth ? birthdayFor(birthMonth, birthDay, birthYear) : null;
   const household = [...getHousehold(db, userId), { relationship }];
   const { active, plan } = membershipStatus(db, userId);
   if (active && plan && !override) {
@@ -317,8 +337,8 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMo
         : "Your {plan} membership covers {coverage}, so {name} can't be added.", vars);
     }
   }
-  db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year, birth_month) VALUES (?, ?, ?, ?, ?)')
-    .run(userId, name, relationship, birthYear ?? null, birthMonth ?? null);
+  db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year, birth_month, birthday) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(userId, name, relationship, birthYear ?? null, birthMonth ?? null, birthday);
   return { name, exceedsPlan: Boolean(active && plan && planProblems(plan, household).length) };
 }
 
@@ -424,16 +444,24 @@ function checkBirth(birthYear, birthMonth) {
 }
 
 /**
- * Sets a family member's birth month and year. Members can fill them in once (e.g. for children
- * added before they were required); after that they're locked and only an admin can change them.
+ * Sets a family member's birth date: month and year (required) and the day (optional). Members can
+ * fill them in once (e.g. for family added before they were required), and add a missing day once;
+ * after that they're locked and only an admin can change them.
  */
-function setHouseholdBirth(db, { ownerId, householdId, birthYear, birthMonth, byAdmin = false }) {
+function setHouseholdBirth(db, { ownerId, householdId, birthYear, birthMonth, birthDay = null, byAdmin = false }) {
   const h = db.prepare('SELECT * FROM household_members WHERE id = ? AND user_id = ?').get(householdId, ownerId);
   if (!h) throw new UserError('Family member not found.');
-  if (!byAdmin && birthLocked(h)) throw new UserError("{name}'s birth month and year are already saved. Please ask a committee member to correct them.", { name: h.name });
+  if (!byAdmin && birthLocked(h)) {
+    if (h.birthday || !birthDay) throw new UserError("{name}'s birth month and year are already saved. Please ask a committee member to correct them.", { name: h.name });
+    db.prepare('UPDATE household_members SET birthday = ? WHERE id = ?').run(birthdayFor(h.birth_month, birthDay, h.birth_year), h.id);
+    return h;
+  }
   if (!byAdmin && !(birthYear && birthMonth)) throw new UserError('Please enter both the birth month and year.');
   checkBirth(birthYear, birthMonth);
-  db.prepare('UPDATE household_members SET birth_year = ?, birth_month = ? WHERE id = ?').run(birthYear || null, birthMonth || null, h.id);
+  const birthday = birthMonth ? birthdayFor(birthMonth, birthDay, birthYear) : null;
+  db.prepare(`UPDATE household_members SET birth_year = ?, birth_month = ?, birthday = ?,
+              share_birthday = CASE WHEN ? IS NULL THEN 0 ELSE share_birthday END WHERE id = ?`)
+    .run(birthYear || null, birthMonth || null, birthday, birthday, h.id);
   return h;
 }
 
@@ -1171,33 +1199,19 @@ function celebrations(db, { from = today(), days = 7 } = {}) {
   return list.sort((a, b) => a.inDays - b.inDays || a.name.localeCompare(b.name));
 }
 
-// 'MM-DD' for a birthday, or null: a day that month really has (Feb 29 only when born in a leap year;
-// with no birth year known, 2024 — a leap year — is used).
-function birthdayOf(month, day, year) {
-  const md = `${String(month || '').padStart(2, '0')}-${String(day || '').padStart(2, '0')}`;
-  const daysInMonth = new Date(Date.UTC(year || 2024, Number(month), 0)).getUTCDate();
-  return MONTH_DAY_RE.test(md) && Number(day) <= daysInMonth ? md : null;
-}
-
-// Saves the member's Celebrations choices: their birthday and anniversary, and their family members' birthdays.
-// Birth months and years come from the profile and family list, so only the day is added here.
+// Saves the member's Celebrations choices: whether to share their birthday and anniversary, and their
+// family members' birthdays. The birthdays themselves (with the day) are entered with the birth date.
 function updateCelebrations(db, userId, body) {
   const anniversary = String(body.anniversary || '').trim();
   if (anniversary && !/^\d{4}-\d{2}-\d{2}$/.test(anniversary)) throw new UserError('Please enter the anniversary as a full date.');
-  const user = db.prepare('SELECT birth_month, birth_year, owner_id FROM users WHERE id = ?').get(userId);
-  const birthday = user.birth_month ? birthdayOf(user.birth_month, body.birthday_day, user.birth_year) : null;
-  if (body.share_birthday && !birthday) {
-    throw new UserError(user.birth_month ? 'Choose the day of your birthday to share it.' : 'Add your birth month and year under Personal details to share your birthday.');
-  }
-  db.prepare('UPDATE users SET birthday = ?, share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
-    .run(birthday, birthday && body.share_birthday ? 1 : 0, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
+  const user = db.prepare('SELECT birthday, owner_id FROM users WHERE id = ?').get(userId);
+  if (body.share_birthday && !user.birthday) throw new UserError('Add the day you were born under Personal details to share your birthday.');
+  db.prepare('UPDATE users SET share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
+    .run(user.birthday && body.share_birthday ? 1 : 0, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
   if (user.owner_id) return;
-  for (const h of db.prepare('SELECT id, birth_month, birth_year FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
-    // A saved birth month (locked) is also their birthday month.
-    const md = birthdayOf(h.birth_month || body[`birthday_month_${h.id}`], body[`birthday_day_${h.id}`], h.birth_month && h.birth_year);
-    db.prepare('UPDATE household_members SET birthday = ?, share_birthday = ? WHERE id = ?')
-      .run(md, md && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
-  }
+  db.prepare(`SELECT id, birthday FROM household_members WHERE user_id = ? AND login_user_id IS NULL`).all(userId).forEach((h) => {
+    db.prepare('UPDATE household_members SET share_birthday = ? WHERE id = ?').run(h.birthday && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
+  });
 }
 
 module.exports = {

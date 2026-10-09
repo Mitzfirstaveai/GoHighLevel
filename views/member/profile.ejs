@@ -34,7 +34,9 @@
         <div class="family-head">
           <% const locked = h.birth_year && h.birth_month; const child = ['Son', 'Daughter'].includes(h.relationship); %>
           <div><strong><%= h.name %></strong>
-            <div class="muted small"><%= t.data(h.relationship) || '' %><% if (locked) { %> · <%= t('Born {date}', { date: new Date(Date.UTC(h.birth_year, h.birth_month - 1, 1)).toLocaleString(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }) %> 🔒<% } else if (h.birth_year) { %> · <%= t('Birth year') %> <%= h.birth_year %><% } %></div>
+            <% const bornOn = locked && new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', h.birthday ? { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' } : { month: 'long', year: 'numeric', timeZone: 'UTC' })
+                 .format(new Date(Date.UTC(h.birth_year, h.birth_month - 1, h.birthday ? Number(h.birthday.slice(3)) : 1))); %>
+            <div class="muted small"><%= t.data(h.relationship) || '' %><% if (locked) { %> · <%= t('Born {date}', { date: bornOn }) %> 🔒<% } else if (h.birth_year) { %> · <%= t('Birth year') %> <%= h.birth_year %><% } %></div>
             <% if (child && locked) { %><div class="muted small"><%= t('To change or remove, ask a committee member') %></div><% } %></div>
           <% if (!(child && locked)) { %>
           <form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form>
@@ -47,6 +49,17 @@
             <p class="small" style="margin:6px 0 4px"><%= child ? t('Add {name}\'s birth month and year — needed for event prices (e.g. children free up to a certain age).', { name: h.name }) : t("Add {name}'s birth month and year (required for everyone on the family list).", { name: h.name }) %></p>
             <div class="fields"><%- include('../partials/birth-fields', { required: true, h, yearPlaceholder: child ? '2016' : '1960' }) %></div>
             <div><button class="btn secondary small"><%= t('Save — can\'t be changed later') %></button></div>
+          </form>
+        <% } else if (!h.birthday && !h.login_user_id) { %>
+          <%# Month and year saved before the day was asked for: the day can still be added (optional), once. %>
+          <form method="post" action="/profile/household/<%= h.id %>/birth" class="actions birthday-pick add-day">
+            <%- include('../partials/csrf') %>
+            <span class="small muted"><%= t("{name}'s birthday (optional):", { name: h.name }) %></span>
+            <select class="day" name="birth_day" required aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
+              <option value=""><%= t('Day') %></option>
+              <% for (let d = 1; d <= new Date(Date.UTC(h.birth_year, h.birth_month, 0)).getUTCDate(); d++) { %><option value="<%= d %>"><%= d %></option><% } %>
+            </select>
+            <button class="btn secondary small"><%= t('Add day') %></button>
           </form>
         <% } %>
         <div class="small" style="margin-top:6px">
@@ -97,22 +110,16 @@
   <p class="muted"><%= t('Share birthdays and your wedding anniversary so other GSA members can send good wishes. Members see them on the Home and News pages in the week of the day. Only the month and day are shown, never the year or age. Nothing is shared unless you tick the box.') %></p>
   <form method="post" action="/profile/celebrations" class="stack">
     <%- include('../partials/csrf') %>
-    <%# Their birth month and year come from Personal details; here they only add the day. %>
+    <%# Birthdays (with the day) are entered with the birth date in Personal details and Family members; here they choose what to share. %>
+    <% const md = (b) => new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`2024-${b}T12:00:00Z`)); %>
     <div class="fields">
       <div class="stack-tight">
         <span class="field-title"><%= t('Your birthday') %></span>
-        <% if (profile.birth_month && profile.birth_year) { %>
-          <div class="actions birthday-pick">
-            <span class="locked-field" title="<%= t('Change under Personal details above') %>"><%= new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: lang === 'gu' ? 'long' : 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(profile.birth_year, profile.birth_month - 1, 15))) %></span>
-            <select class="day" name="birthday_day" aria-label="<%= t('Day of your birthday') %>">
-              <option value=""><%= t('Day') %></option>
-              <% const myDay = profile.birthday ? Number(profile.birthday.slice(3)) : 0; %>
-              <% for (let d = 1; d <= new Date(Date.UTC(profile.birth_year, profile.birth_month, 0)).getUTCDate(); d++) { %><option value="<%= d %>" <%= myDay === d ? 'selected' : '' %>><%= d %></option><% } %>
-            </select>
-          </div>
-          <label class="check"><input type="checkbox" name="share_birthday" value="1" <%= profile.share_birthday ? 'checked' : '' %>> <span><%= t('Share my birthday') %></span></label>
+        <% if (profile.birthday) { %>
+          <label class="check"><input type="checkbox" name="share_birthday" value="1" <%= profile.share_birthday ? 'checked' : '' %>>
+            <span><%= t('Share my birthday ({date})', { date: md(profile.birthday) }) %></span></label>
         <% } else { %>
-          <p class="small muted" style="margin:0"><%= t('Add your birth month and year under Personal details above first.') %></p>
+          <p class="small muted" style="margin:0"><%= t('To share your birthday, add the day you were born under Personal details above.') %></p>
         <% } %>
       </div>
       <div class="stack-tight">
@@ -123,35 +130,16 @@
     <% const kids = owner ? [] : household.filter((h) => !h.login_user_id); %>
     <% if (kids.length) { %>
       <h3 style="margin-bottom:0"><%= t("Family members' birthdays") %></h3>
-      <p class="small muted" style="margin:0"><%= t("Optional. For children, the birth month and year are locked; just add the day to celebrate their birthday.") %></p>
-      <% const months = Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, i, 15)))); %>
-      <% for (const h of kids) { %>
-        <% const [bm, bd] = (h.birthday || '-').split('-'); %>
-        <fieldset class="birthday-row">
-          <legend><strong><%= h.name %></strong> <span class="muted small">· <%= t.data(h.relationship) || '' %></span></legend>
-          <div class="actions">
-            <% if (h.birth_month && h.birth_year) { %>
-              <%# A child's birth month and year are locked (they set event prices), so only the day is theirs to add. %>
-              <input type="hidden" name="birthday_month_<%= h.id %>" value="<%= h.birth_month %>">
-              <span class="locked-field" title="<%= t('To change, ask a committee member') %>"><%= new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: lang === 'gu' ? 'long' : 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(h.birth_year, h.birth_month - 1, 15))) %> 🔒</span>
-              <select class="day" name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
-                <option value=""><%= t('Day') %></option>
-                <% for (let d = 1; d <= new Date(Date.UTC(h.birth_year, h.birth_month, 0)).getUTCDate(); d++) { %><option value="<%= d %>" <%= Number(bd) === d ? 'selected' : '' %>><%= d %></option><% } %>
-              </select>
-            <% } else { %>
-            <select name="birthday_month_<%= h.id %>" aria-label="<%= t('Birthday month for {name}', { name: h.name }) %>">
-              <option value=""><%= t('Month') %></option>
-              <% months.forEach((name, i) => { %><option value="<%= i + 1 %>" <%= Number(bm) === i + 1 ? 'selected' : '' %>><%= name %></option><% }) %>
-            </select>
-            <select class="day" name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
-              <option value=""><%= t('Day') %></option>
-              <% for (let d = 1; d <= 31; d++) { %><option value="<%= d %>" <%= Number(bd) === d ? 'selected' : '' %>><%= d %></option><% } %>
-            </select>
-            <% } %>
-            <label class="check"><input type="checkbox" name="share_birthday_<%= h.id %>" value="1" <%= h.share_birthday ? 'checked' : '' %>> <span><%= t('Share') %></span></label>
-          </div>
-        </fieldset>
-      <% } %>
+      <div class="share-list">
+        <% for (const h of kids) { %>
+          <% if (h.birthday) { %>
+            <label class="check"><input type="checkbox" name="share_birthday_<%= h.id %>" value="1" <%= h.share_birthday ? 'checked' : '' %>>
+              <span><%= t("Share {name}'s birthday ({date})", { name: h.name, date: md(h.birthday) }) %></span></label>
+          <% } else { %>
+            <p class="small muted" style="margin:0"><strong><%= h.name %></strong> — <%= t('add the day they were born under Family members to share their birthday.') %></p>
+          <% } %>
+        <% } %>
+      </div>
       <p class="small muted"><%= t('Family members with their own login share their birthday from their own profile.') %></p>
     <% } %>
     <div><button class="btn secondary"><%= t('Save celebration settings') %></button></div>

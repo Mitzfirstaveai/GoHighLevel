@@ -211,8 +211,9 @@ router.get('/members/:id', (req, res) => {
 router.post('/members/:id/household', (req, res) => {
   const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
   const birthMonth = req.body.birth_month ? parseIntInRange(req.body.birth_month, 1, 12) : null;
+  const birthDay = req.body.birth_day ? parseIntInRange(req.body.birth_day, 1, 31) : null;
   const { name, exceedsPlan } = svc.addHouseholdMember(req.app.locals.db, {
-    userId: Number(req.params.id), name: req.body.name, relationship: req.body.relationship, birthYear, birthMonth, override: true,
+    userId: Number(req.params.id), name: req.body.name, relationship: req.body.relationship, birthYear, birthMonth, birthDay, override: true,
   });
   req.flash(exceedsPlan ? 'info' : 'success', exceedsPlan
     ? `${name} added. Note: this is more than the member's current level covers.`
@@ -224,8 +225,9 @@ router.post('/members/:id/household', (req, res) => {
 router.post('/members/:id/household/:hid/birth', (req, res) => {
   const birthYear = req.body.birth_year ? parseIntInRange(req.body.birth_year, 1900, new Date().getFullYear()) : null;
   const birthMonth = req.body.birth_month ? parseIntInRange(req.body.birth_month, 1, 12) : null;
-  const h = svc.setHouseholdBirth(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid), birthYear, birthMonth, byAdmin: true });
-  req.flash('success', `Birth month and year updated for ${h.name}.`);
+  const birthDay = req.body.birth_day ? parseIntInRange(req.body.birth_day, 1, 31) : null;
+  const h = svc.setHouseholdBirth(req.app.locals.db, { ownerId: Number(req.params.id), householdId: Number(req.params.hid), birthYear, birthMonth, birthDay, byAdmin: true });
+  req.flash('success', `Birth date updated for ${h.name}.`);
   res.redirect(`/admin/members/${req.params.id}#family`);
 });
 

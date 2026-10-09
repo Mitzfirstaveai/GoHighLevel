@@ -656,3 +656,5 @@ td .btn { white-space: nowrap; }
 .req { color: var(--err); font-weight: 700; }
 .complete-profile { border-left: 6px solid var(--warn); background: var(--warn-bg); }
 .complete-profile h2 { margin-top: 0; }
+.share-list { display: grid; gap: 4px; }
+.add-day { margin-top: 6px; }

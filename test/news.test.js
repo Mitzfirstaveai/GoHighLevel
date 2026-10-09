@@ -149,17 +149,15 @@ test('celebrations: only what members choose to share, month and day only', asyn
   const uid = db.prepare(`SELECT id FROM users WHERE email = 'celebrate@test.org'`).get().id;
   const today = require('../src/util').today();
   const md = (days) => new Date(Date.parse(`${today}T12:00:00Z`) + days * 86400000).toISOString().slice(5, 10);
-  await m.post('/profile', t.profile({ first_name: 'Asha', last_name: 'Member', birth_year: '1961', birth_month: String(Number(md(0).slice(0, 2))) }));
+  await m.post('/profile', t.profile({ first_name: 'Asha', last_name: 'Member', birth_year: '1961', birth_month: String(Number(md(0).slice(0, 2))), birth_day: String(Number(md(0).slice(3))) }));
   await m.post('/profile/household', { name: 'Kiran', relationship: 'Spouse', birth_month: '4', birth_year: '1980' });
-  await m.post('/profile/household', { name: 'Tara Member', relationship: 'Daughter', birth_month: String(Number(md(3).slice(0, 2))), birth_year: '2012' });
+  await m.post('/profile/household', { name: 'Tara Member', relationship: 'Daughter', birth_month: String(Number(md(3).slice(0, 2))), birth_day: String(Number(md(3).slice(3))), birth_year: '2012' });
   const tara = db.prepare(`SELECT id FROM household_members WHERE name = 'Tara Member'`).get().id;
 
   // Nothing is shown until they choose to share.
   assert.doesNotMatch((await m.get('/news')).text, /Asha Member/);
-  const [mm, dd] = md(3).split('-');
   await m.post('/profile/celebrations', {
-    birthday_day: String(Number(md(0).slice(3))), share_birthday: '1', anniversary: `1990-${md(1)}`, share_anniversary: '1',
-    [`birthday_month_${tara}`]: String(Number(mm)), [`birthday_day_${tara}`]: String(Number(dd)), [`share_birthday_${tara}`]: '1',
+    share_birthday: '1', anniversary: `1990-${md(1)}`, share_anniversary: '1', [`share_birthday_${tara}`]: '1',
   });
   const list = svc.celebrations(db).filter((c) => /Asha|Tara/.test(c.name));
   assert.deepEqual(list.map((c) => [c.kind, c.name, c.inDays]),
@@ -177,48 +175,56 @@ test('celebrations: only what members choose to share, month and day only', asyn
   assert.deepEqual({ ...db.prepare('SELECT share_birthday, share_anniversary FROM users WHERE id = ?').get(uid) }, { share_birthday: 0, share_anniversary: 0 });
 });
 
-test('celebrations: members add just the day of their birthday; month and year come from their profile', async () => {
+test('celebrations: the day of birth is entered (optionally) with the birth date; Celebrations only chooses what to share', async () => {
   const { db } = t;
   const m = await t.register('dobhere@test.org', 'Nila', 0);
   const uid = db.prepare(`SELECT id FROM users WHERE email = 'dobhere@test.org'`).get().id;
   const today = require('../src/util').today();
   const [, tm, td] = today.split('-').map(Number);
-  await m.post('/profile', t.profile({ first_name: 'Nila', birth_year: '1985', birth_month: String(tm) }));
-  const page = (await m.get('/profile')).text;
-  // Month and year are shown (fixed here, changed under Personal details); only the day is chosen.
-  assert.match(page, /id="celebrations"[\s\S]*class="locked-field"[^>]*>[A-Z][a-z]{2} 1985<\/span>[\s\S]*name="birthday_day"[\s\S]*name="share_birthday"/);
-  assert.match(page, new RegExp(`<option value="${new Date(Date.UTC(1985, tm, 0)).getUTCDate()}" *>`));
-
-  // Sharing without a day says what's missing.
+  // No day yet: Celebrations says where to add it, and sharing is refused.
+  let page = (await m.get('/profile')).text;
+  assert.match(page, /name="birth_month"[\s\S]*name="birth_day"[\s\S]*name="birth_year"/, 'month, day, year on the profile');
+  assert.doesNotMatch(page, /name="birth_day"[^>]*required/, 'the day is optional');
+  assert.match(page, /id="celebrations"[\s\S]*add the day you were born under Personal details above/);
+  assert.doesNotMatch(page, /name="birthday_day/, 'no separate day question under Celebrations');
   await m.post('/profile/celebrations', { share_birthday: '1' });
-  assert.match((await m.get('/profile')).text, /Choose the day of your birthday to share it/);
-  assert.equal(db.prepare('SELECT share_birthday FROM users WHERE id = ?').get(uid).share_birthday, 0);
+  assert.match((await m.get('/profile')).text, /Add the day you were born under Personal details to share your birthday/);
 
-  await m.post('/profile/celebrations', { birthday_day: String(td), share_birthday: '1' });
-  assert.deepEqual({ ...db.prepare('SELECT birthday, share_birthday FROM users WHERE id = ?').get(uid) },
-    { birthday: today.slice(5), share_birthday: 1 });
+  // A day the month doesn't have is refused.
+  let res = await m.follow(await m.post('/profile', t.profile({ first_name: 'Nila', birth_year: '1985', birth_month: '2', birth_day: '30' })));
+  assert.match(res.text, /there is no February 30/);
+  // Adding the day on the profile; then sharing it is one tick.
+  await m.post('/profile', t.profile({ first_name: 'Nila', birth_year: '1985', birth_month: String(tm), birth_day: String(td) }));
+  assert.equal(db.prepare('SELECT birthday FROM users WHERE id = ?').get(uid).birthday, today.slice(5));
+  page = (await m.get('/profile')).text;
+  assert.match(page, new RegExp(`name="birth_day"[\\s\\S]*?<option value="${td}" selected>`));
+  assert.match(page, /name="share_birthday" value="1" >\s*<span>Share my birthday \(/);
+  await m.post('/profile/celebrations', { share_birthday: '1' });
   assert.ok(svc.celebrations(db).some((c) => c.name === 'Nila Member' && c.inDays === 0));
-  assert.match((await m.get('/profile')).text, new RegExp(`name="birthday_day"[\\s\\S]*?<option value="${td}" selected>`));
-
-  // Changing the birth month in Personal details asks for the day again (and stops sharing until then).
-  await m.post('/profile', t.profile({ first_name: 'Nila', birth_year: '1985', birth_month: String((tm % 12) + 1) }));
+  // Removing the day stops sharing.
+  await m.post('/profile', t.profile({ first_name: 'Nila', birth_year: '1985', birth_month: String(tm) }));
   assert.deepEqual({ ...db.prepare('SELECT birthday, share_birthday FROM users WHERE id = ?').get(uid) }, { birthday: null, share_birthday: 0 });
 
-  // A child's birthday stays in their locked birth month, whatever month is sent.
+  // Family: the day can be given when adding someone, or added once later to a saved month and year.
   await m.post('/profile/household', { name: 'Om Member', relationship: 'Son', birth_month: '3', birth_year: '2015' });
   const om = db.prepare(`SELECT id FROM household_members WHERE name = 'Om Member'`).get().id;
-  await m.post('/profile/celebrations', { [`birthday_month_${om}`]: '9', [`birthday_day_${om}`]: '14', [`share_birthday_${om}`]: '1' });
+  page = (await m.get('/profile')).text;
+  assert.match(page, new RegExp(`action="/profile/household/${om}/birth" class="actions birthday-pick add-day"[\\s\\S]*?<option value="31">31</option>\\s*</select>`));
+  assert.match(page, /<strong>Om Member<\/strong> — add the day they were born under Family members/);
+  res = await m.follow(await m.post(`/profile/household/${om}/birth`, { birth_day: '14' }));
+  assert.match(res.text, /Birth date saved for Om Member/);
+  assert.match(res.text, /Born March 14, 2015 🔒/);
   assert.equal(db.prepare('SELECT birthday FROM household_members WHERE id = ?').get(om).birthday, '03-14');
-  // On the profile, Om's month and year are shown locked; only the day can be picked (March has 31).
-  const omRow = (await m.get('/profile')).text.split(`name="birthday_month_${om}"`)[1].split('</fieldset>')[0];
-  assert.match(omRow, /^ value="3">\s*<span class="locked-field"[^>]*>Mar 2015 🔒<\/span>/);
-  assert.match(omRow, /<option value="31" *>31<\/option>/);
-  assert.match(omRow, /<option value="14" selected>14<\/option>/);
+  // Once saved it's locked (the committee can correct it).
+  res = await m.follow(await m.post(`/profile/household/${om}/birth`, { birth_day: '20' }));
+  assert.match(res.text, /already saved/);
+  assert.equal(db.prepare('SELECT birthday FROM household_members WHERE id = ?').get(om).birthday, '03-14');
+  await m.post('/profile/celebrations', { [`share_birthday_${om}`]: '1' });
+  assert.equal(db.prepare('SELECT share_birthday FROM household_members WHERE id = ?').get(om).share_birthday, 1);
   // No February 29 for a child born in a common year.
-  await m.post('/profile/household', { name: 'Leela Member', relationship: 'Daughter', birth_month: '2', birth_year: '2015' });
-  const leela = db.prepare(`SELECT id FROM household_members WHERE name = 'Leela Member'`).get().id;
-  await m.post('/profile/celebrations', { [`birthday_day_${leela}`]: '29', [`share_birthday_${leela}`]: '1' });
-  assert.deepEqual({ ...db.prepare('SELECT birthday, share_birthday FROM household_members WHERE id = ?').get(leela) }, { birthday: null, share_birthday: 0 });
+  res = await m.follow(await m.post('/profile/household', { name: 'Leela Member', relationship: 'Daughter', birth_month: '2', birth_day: '29', birth_year: '2015' }));
+  assert.match(res.text, /there is no February 30/);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM household_members WHERE name = 'Leela Member'`).get().n, 0);
 });
 
 test('announcements show only their date to members; only the committee sees who posted', async () => {

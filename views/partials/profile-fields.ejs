@@ -26,4 +26,4 @@
   <label><span><%= t('ZIP code') %> <%- star %></span> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code" inputmode="numeric" placeholder="72201" maxlength="10"<%= r %><%- rule('\\d{5}(-\\d{4})?', 'Please enter a 5-digit ZIP code (numbers only).') %>></label>
   <label><%= t('Occupation (optional)') %> <input name="occupation" value="<%= p.occupation || '' %>" maxlength="60"<%- rule("[\\p{L}\\p{M}][\\p{L}\\p{M}' .,&\\/\\(\\)\\-]*", 'Occupation can only contain letters.') %>></label>
 </div>
-<% if (req) { %><p class="small muted" style="margin:0"><span class="req">*</span> <%= t('Required') %>. <%= t('Only the month and year of birth are asked for; you can add the day under Celebrations to have your birthday announced.') %></p><% } %>
+<% if (req) { %><p class="small muted" style="margin:0"><span class="req">*</span> <%= t('Required') %>. <%= t('The day of birth is optional — add it if you would like your birthday announced (see Celebrations).') %></p><% } %>

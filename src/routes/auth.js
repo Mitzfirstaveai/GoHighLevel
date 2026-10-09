@@ -157,7 +157,8 @@ router.post('/register', (req, res, next) => {
 function inviteDefaults(db, invite) {
   const owner = db.prepare('SELECT address_line1, address_line2, city, state, postal_code, native_place FROM users WHERE id = ?').get(invite.user_id);
   const [first, ...rest] = invite.name.split(' ');
-  return { ...owner, first_name: first, last_name: rest.join(' ') || invite.owner_last, birth_month: invite.birth_month, birth_year: invite.birth_year };
+  return { ...owner, first_name: first, last_name: rest.join(' ') || invite.owner_last, birth_month: invite.birth_month, birth_year: invite.birth_year,
+    birth_day: invite.birthday ? Number(invite.birthday.slice(3)) : '' };
 }
 
 function renderInvite(req, res, invite, form = {}, status = 200) {
@@ -191,9 +192,11 @@ router.post('/join/family/:token', (req, res, next) => {
     const given = Object.fromEntries(Object.entries(req.body).filter(([, v]) => String(v ?? '').trim()));
     const id = createAccount(req, { ...inviteDefaults(req.app.locals.db, invite), ...given });
     acceptFamilyInvite(req.app.locals.db, { token: req.params.token, userId: id });
-    // Their birth month and year now also fill in the family list, if it didn't have them yet.
-    req.app.locals.db.prepare('UPDATE household_members SET birth_year = COALESCE(birth_year, ?), birth_month = COALESCE(birth_month, ?) WHERE id = ?')
-      .run(Number(req.body.birth_year) || null, Number(req.body.birth_month) || null, invite.id);
+    // Their birth date now also fills in the family list, if it didn't have it yet.
+    const u = req.app.locals.db.prepare('SELECT birth_year, birth_month, birthday FROM users WHERE id = ?').get(id);
+    req.app.locals.db.prepare(`UPDATE household_members SET birth_year = COALESCE(birth_year, ?), birth_month = COALESCE(birth_month, ?),
+      birthday = COALESCE(birthday, CASE WHEN COALESCE(birth_month, ?) = ? THEN ? END) WHERE id = ?`)
+      .run(u.birth_year, u.birth_month, u.birth_month, u.birth_month, u.birthday, invite.id);
     startSession(req, res, next, id, familyWelcome(invite), '/dashboard');
   } catch (err) {
     if (!(err instanceof UserError)) throw err;

@@ -85,7 +85,8 @@ const birthFields = (body) => {
   const birthYear = body.birth_year ? parseIntInRange(body.birth_year, 1900, new Date().getFullYear()) : null;
   if (body.birth_year && !birthYear) throw new svc.UserError('Birth year looks incorrect.');
   const birthMonth = body.birth_month ? parseIntInRange(body.birth_month, 1, 12) : null;
-  return { birthYear, birthMonth };
+  const birthDay = body.birth_day ? parseIntInRange(body.birth_day, 1, 31) : null;
+  return { birthYear, birthMonth, birthDay };
 };
 
 router.post('/profile/household', requireAuth, requireFamilyManager, (req, res) => {
@@ -96,10 +97,10 @@ router.post('/profile/household', requireAuth, requireFamilyManager, (req, res) 
   res.redirect('/profile#family');
 });
 
-// Birth month and year for a family member added without them: can be filled in once, then locked.
+// Birth date for a family member added without one (or without the day): can be filled in once, then locked.
 router.post('/profile/household/:id/birth', requireAuth, requireFamilyManager, (req, res) => {
   const h = svc.setHouseholdBirth(req.app.locals.db, { ownerId: req.user.id, householdId: Number(req.params.id), ...birthFields(req.body) });
-  req.flash('success', 'Birth month and year saved for {name}.', { name: h.name });
+  req.flash('success', 'Birth date saved for {name}.', { name: h.name });
   res.redirect('/profile#family');
 });
 

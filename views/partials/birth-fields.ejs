@@ -1,10 +1,18 @@
-<%# Birth month and year inputs (everyone's are required; children's ages also set event prices). `required`,
-    optional `h` for current values, `star` (required marker) and `yearPlaceholder`. %>
+<%# Birth date inputs: month and year (everyone's are required; children's ages also set event prices) and the
+    day (optional; used to announce the birthday if they choose to share it). `required`, optional `h` for
+    current values (birthday 'MM-DD', or birth_day from a re-shown form), `star` (required marker) and `yearPlaceholder`. %>
 <% const bLocale = lang === 'gu' ? 'gu-IN' : 'en-US'; const bh = typeof h !== 'undefined' && h ? h : {}; const bReq = typeof required !== 'undefined' && required; const bStar = typeof star !== 'undefined' ? star : ''; %>
 <label><span><%= t('Birth month') %> <%- bStar %></span>
   <select name="birth_month"<%= bReq ? ' required' : '' %>>
     <option value=""><%= t('Choose…') %></option>
     <% for (let m = 1; m <= 12; m++) { %><option value="<%= m %>" <%= Number(bh.birth_month) === m ? 'selected' : '' %>><%= new Date(Date.UTC(2000, m - 1, 1)).toLocaleString(bLocale, { month: 'long', timeZone: 'UTC' }) %></option><% } %>
+  </select>
+</label>
+<% const bDay = Number(bh.birth_day || (bh.birthday ? bh.birthday.slice(3) : 0)); %>
+<label><%= t('Day (optional)') %>
+  <select name="birth_day">
+    <option value=""><%= t('Day') %></option>
+    <% for (let d = 1; d <= 31; d++) { %><option value="<%= d %>" <%= bDay === d ? 'selected' : '' %>><%= d %></option><% } %>
   </select>
 </label>
 <label><span><%= t('Birth year') %> <%- bStar %></span> <input name="birth_year" inputmode="numeric" pattern="\d{4}" title="<%= t('Please enter a 4-digit year, e.g. 1985.') %>" maxlength="4" placeholder="<%= typeof yearPlaceholder !== 'undefined' ? yearPlaceholder : '2016' %>" value="<%= bh.birth_year || '' %>"<%= bReq ? ' required' : '' %>></label>
