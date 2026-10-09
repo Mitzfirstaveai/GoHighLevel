@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const { transaction } = require('./db');
 const { newToken, nowLocal, today, addMonths } = require('./util');
 const { interpolate } = require('./i18n');
+const { stateCode } = require('./usStates');
 
 // A message for the person using the app. `message` is English text that may contain {placeholders};
 // it is translated when shown, with `vars` filled in.
@@ -26,6 +27,29 @@ const REQUIRED_PROFILE = {
   first_name: 'First name', last_name: 'Last name', phone: 'Phone', birth_month: 'Birth month', birth_year: 'Birth year',
   native_place: 'Native place (Vatan)', address_line1: 'Address', city: 'City', state: 'State', postal_code: 'ZIP code',
 };
+
+// What each field may contain, for members' own forms (the same patterns are on the inputs, so the
+// browser stops a wrong entry before it is sent). Letters include accents and Gujarati script.
+const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}' .-]*$/u;
+const FIELD_RULES = {
+  first_name: [NAME_RE, 'First name can only contain letters (and spaces, hyphens or apostrophes).'],
+  last_name: [NAME_RE, 'Last name can only contain letters (and spaces, hyphens or apostrophes).'],
+  native_place: [/^[\p{L}\p{M}][\p{L}\p{M}' .,()-]*$/u, 'Native place can only contain letters.'],
+  city: [NAME_RE, 'City can only contain letters.'],
+  occupation: [/^[\p{L}\p{M}][\p{L}\p{M}' .,&/()-]*$/u, 'Occupation can only contain letters.'],
+  // A street address: a house or building number and a street name (or a PO Box number).
+  address_line1: [/^(?=.*\d)(?=.*\p{L})[\p{L}\p{M}\d' .,#/-]+$/u, 'Please enter a street address with a number and street name (e.g. 137 Main St).'],
+  address_line2: [/^[\p{L}\p{M}\d' .,#/-]+$/u, 'Apartment or suite can only contain letters, numbers and # - / .'],
+};
+
+// "(501) 555 0101", "501.555.0101" or "+1 501-555-0101" → "501-555-0101"; null when it isn't a US number.
+function cleanPhone(value) {
+  const v = String(value || '').trim();
+  if (!/^[\d\s().+-]+$/.test(v)) return null;
+  let digits = v.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+  return digits.length === 10 ? `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}` : null;
+}
 
 // Labels of the required fields this member hasn't filled in yet.
 function missingProfile(user) {
@@ -56,8 +80,14 @@ function cleanProfile(body, { complete = false } = {}) {
   if (complete) {
     const missing = missingProfile(profile);
     if (missing.length) throw new UserError('Please fill in: {fields}.', { fields: { list: missing } });
-    if (profile.phone.replace(/\D/g, '').length < 10) throw new UserError('Please enter a phone number with area code.');
-    if (!/^\d{5}(-?\d{4})?$/.test(profile.postal_code)) throw new UserError('Please enter a 5-digit ZIP code.');
+    for (const [field, [re, message]] of Object.entries(FIELD_RULES)) {
+      if (profile[field] && !re.test(profile[field])) throw new UserError(message);
+    }
+    profile.phone = cleanPhone(profile.phone);
+    if (!profile.phone) throw new UserError('Please enter a 10-digit phone number with area code (numbers only).');
+    profile.state = stateCode(profile.state);
+    if (!profile.state) throw new UserError('Please choose a state.');
+    if (!/^\d{5}(-\d{4})?$/.test(profile.postal_code)) throw new UserError('Please enter a 5-digit ZIP code (numbers only).');
   }
   return profile;
 }
@@ -267,6 +297,7 @@ function prepaidPeriods(db, userId) {
 function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMonth = null, override = false }) {
   name = String(name || '').trim().slice(0, 120);
   if (!name) throw new UserError('Please enter a name for the family member.');
+  if (!override && !NAME_RE.test(name)) throw new UserError("A family member's name can only contain letters (and spaces, hyphens or apostrophes).");
   if (!(relationship in RELATIONSHIPS)) throw new UserError('Please choose a relationship.');
   // Everyone's birth month and year are required (children's ages also set event prices, e.g. free up to age 10).
   if (!(birthYear && birthMonth) && !override) {
@@ -1172,7 +1203,7 @@ function updateCelebrations(db, userId, body) {
 module.exports = {
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
   celebrations, updateCelebrations, DOOR_METHODS,
-  UserError, PROFILE_FIELDS, REQUIRED_PROFILE, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,
+  UserError, PROFILE_FIELDS, REQUIRED_PROFILE, FIELD_RULES, NAME_RE, cleanPhone, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,
   createFamilyInvite, cancelFamilyInvite, findFamilyInvite, familyJoinProblem, acceptFamilyInvite, removeHouseholdMember,

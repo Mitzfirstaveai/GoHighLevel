@@ -20,7 +20,7 @@ const names = (rsvpId) => t.db.prepare('SELECT name FROM rsvp_attendees WHERE rs
 
 // A Family-level member with a spouse and two children on their profile.
 async function family(email, first) {
-  const m = await t.register(email, first, 2); // Child 1, Child 2 + Family membership
+  const m = await t.register(email, first, 2); // Child A, Child B + Family membership
   await m.post('/profile/household', { name: `${first}'s Spouse`, relationship: 'Spouse', birth_month: '4', birth_year: '1980' });
   return m;
 }
@@ -30,33 +30,33 @@ test('members choose who is coming by name; the ticket shows those names', async
   const eventId = await t.createEvent(admin, { title: 'Navratri Night' });
   let res = await m.get(`/events/${eventId}`);
   assert.match(res.text, /Who&#39;s coming\?/);
-  for (const n of ['Priya Member', 'Child 1', 'Child 2', 'Priya&#39;s Spouse']) assert.match(res.text, new RegExp(n));
+  for (const n of ['Priya Member', 'Child A', 'Child B', 'Priya&#39;s Spouse']) assert.match(res.text, new RegExp(n));
 
   // Me and the two kids, not my spouse.
   res = await m.post(`/events/${eventId}/rsvp`, {
-    choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child 1'), personKey('priya@test.org', 'Child 2')],
+    choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child A'), personKey('priya@test.org', 'Child B')],
   });
   const rsvp = t.rsvpFor(eventId, 'priya@test.org');
   assert.equal(res.location, `/tickets/${rsvp.id}`);
   assert.equal(rsvp.party_size, 3);
-  assert.deepEqual(names(rsvp.id), ['Priya Member', 'Child 1', 'Child 2']);
+  assert.deepEqual(names(rsvp.id), ['Priya Member', 'Child A', 'Child B']);
 
   res = await m.get(`/tickets/${rsvp.id}`);
   assert.match(res.text, /This ticket is for/);
-  assert.match(res.text, /<li>Child 2<\/li>/);
+  assert.match(res.text, /<li>Child B<\/li>/);
   assert.doesNotMatch(res.text, /<li>Priya&#39;s Spouse<\/li>/);
   res = await m.get('/tickets');
-  assert.match(res.text, /Priya Member, Child 1, Child 2/);
+  assert.match(res.text, /Priya Member, Child A, Child B/);
   assert.match(res.text, new RegExp(`href="/tickets/${rsvp.id}#change">Change who&#39;s coming`));
 
   // The door sees the names too.
   res = await admin.get(`/admin/checkin/${rsvp.qr_token}`);
   assert.match(res.text, /Names on this ticket/);
-  assert.match(res.text, /<li>Child 1<\/li>/);
+  assert.match(res.text, /<li>Child A<\/li>/);
   res = await admin.get(`/admin/events/${eventId}`);
-  assert.match(res.text, /Priya Member, Child 1, Child 2/);
+  assert.match(res.text, /Priya Member, Child A, Child B/);
   res = await admin.get(`/admin/events/${eventId}/attendees.csv`);
-  assert.match(res.text, /"Priya Member, Child 1, Child 2"/);
+  assert.match(res.text, /"Priya Member, Child A, Child B"/);
 });
 
 test('only family on the profile, covered by the level, can be registered', async () => {
@@ -64,7 +64,7 @@ test('only family on the profile, covered by the level, can be registered', asyn
   const m = await t.login('priya@test.org', 'secret123');
   const other = await family('other@test.org', 'Other');
   // Someone from another family, or a made-up person.
-  let res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { choose: '1', people: [personKey('priya@test.org'), personKey('other@test.org', 'Child 1')] }));
+  let res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { choose: '1', people: [personKey('priya@test.org'), personKey('other@test.org', 'Child A')] }));
   assert.match(res.text, /Please choose people from your family list/);
   res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { choose: '1', people: 'h:99999' }));
   assert.match(res.text, /Please choose people from your family list/);
@@ -105,12 +105,12 @@ test('changing who is coming from My tickets issues a new QR code and keeps the 
 
   // Swapping one person for another (same head count) also replaces the code.
   await m.post(`/events/${eventId}/rsvp`, {
-    from: 'ticket', choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child 1')],
+    from: 'ticket', choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child A')],
   });
   const swapped = t.rsvpFor(eventId, 'priya@test.org');
   assert.equal(swapped.party_size, 2);
   assert.notEqual(swapped.qr_token, after.qr_token);
-  assert.deepEqual(names(swapped.id), ['Priya Member', 'Child 1']);
+  assert.deepEqual(names(swapped.id), ['Priya Member', 'Child A']);
 });
 
 test('a family member gets their own login and can only add people not already registered', async () => {
@@ -140,16 +140,16 @@ test('a family member gets their own login and can only add people not already r
   // Priya registered herself and the kids; the spouse can only add themselves.
   const eventId = await t.createEvent(admin, { title: 'Garba Night 2', starts_at: t.futureDate(3) }); // within the door's 7-day list
   await m.post(`/events/${eventId}/rsvp`, {
-    choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child 1'), personKey('priya@test.org', 'Child 2')],
+    choose: '1', people: [personKey('priya@test.org'), personKey('priya@test.org', 'Child A'), personKey('priya@test.org', 'Child B')],
   });
   res = await s.get(`/events/${eventId}`);
   assert.match(res.text, /Already registered on Priya Member&#39;s ticket/);
   const box = (key) => res.text.match(new RegExp(`<input type="checkbox" name="people" value="${key}"[^>]*>`))[0];
-  assert.match(box(personKey('priya@test.org', 'Child 1')), /disabled/);
+  assert.match(box(personKey('priya@test.org', 'Child A')), /disabled/);
   assert.doesNotMatch(box(`h:${spouseRow}`), /disabled/);
   assert.match(box(`h:${spouseRow}`), /checked/);
-  res = await s.follow(await s.post(`/events/${eventId}/rsvp`, { choose: '1', people: [`h:${spouseRow}`, personKey('priya@test.org', 'Child 1')] }));
-  assert.match(res.text, /Child 1 is already registered for this event on Priya Member&#39;s ticket/);
+  res = await s.follow(await s.post(`/events/${eventId}/rsvp`, { choose: '1', people: [`h:${spouseRow}`, personKey('priya@test.org', 'Child A')] }));
+  assert.match(res.text, /Child A is already registered for this event on Priya Member&#39;s ticket/);
   res = await s.post(`/events/${eventId}/rsvp`, { choose: '1', people: [`h:${spouseRow}`] });
   const spouseTicket = t.db.prepare('SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?').get(eventId, userId('spouse@test.org'));
   assert.equal(res.location, `/tickets/${spouseTicket.id}`);
@@ -171,7 +171,7 @@ test('a family member gets their own login and can only add people not already r
   res = await admin.get(`/admin/checkin?event=${eventId}&q=${encodeURIComponent("Priya's Spouse")}`);
   assert.match(res.text, new RegExp(`/admin/checkin/${spouseTicket.qr_token}`));
   // ...and a child's name finds only the ticket the child is on.
-  res = await admin.get(`/admin/checkin?event=${eventId}&q=Child%201`);
+  res = await admin.get(`/admin/checkin?event=${eventId}&q=Child%20A`);
   assert.match(res.text, new RegExp(`/admin/checkin/${t.rsvpFor(eventId, 'priya@test.org').qr_token}`));
   assert.doesNotMatch(res.text, new RegExp(`/admin/checkin/${spouseTicket.qr_token}`));
 
@@ -185,7 +185,7 @@ test('a family member gets their own login and can only add people not already r
 
 test('only the invite link joins a family: not a matching email, a used, expired or cancelled link', async () => {
   const m = await t.login('priya@test.org', 'secret123');
-  const child = Number(personKey('priya@test.org', 'Child 2').slice(2));
+  const child = Number(personKey('priya@test.org', 'Child B').slice(2));
   // The old loophole: setting up a login with an email the member listed no longer links anyone.
   t.db.prepare(`UPDATE household_members SET email = 'child2@test.org' WHERE id = ?`).run(child);
   const stranger = new t.Client();
@@ -221,14 +221,14 @@ test('only the invite link joins a family: not a matching email, a used, expired
 
 test('someone who already has a login can join with the link, unless that account has its own family or membership', async () => {
   const m = await t.login('priya@test.org', 'secret123');
-  const child = Number(personKey('priya@test.org', 'Child 2').slice(2));
+  const child = Number(personKey('priya@test.org', 'Child B').slice(2));
   await m.post(`/profile/household/${child}/invite`, {});
   const token = t.db.prepare('SELECT invite_token FROM household_members WHERE id = ?').get(child).invite_token;
 
   // The member's own link, opened by themselves: they can sign out and carry on as the invited person.
   let own = await m.get(`/join/family/${token}`);
   assert.match(own.text, /This is your own invite link/);
-  assert.match(own.text, /Sign out and create Child 2&#39;s login/);
+  assert.match(own.text, /Sign out and create Child B&#39;s login/);
   own = await m.post(`/join/family/${token}/switch`, {});
   assert.equal(own.location, `/join/family/${token}`);
   own = await m.get(own.location);

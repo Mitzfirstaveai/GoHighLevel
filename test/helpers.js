@@ -111,7 +111,7 @@ async function startTestApp(overrides = {}) {
     assert.equal(res.status, 302);
     await c.get('/profile');
     for (let i = 1; i <= familyMembers; i++) {
-      await c.post('/profile/household', { name: `Child ${i}`, relationship: i % 2 ? 'Son' : 'Daughter', birth_month: '6', birth_year: '2008' });
+      await c.post('/profile/household', { name: `Child ${String.fromCharCode(64 + i)}`, relationship: i % 2 ? 'Son' : 'Daughter', birth_month: '6', birth_year: '2008' });
     }
     if (familyMembers) {
       // Family members only count toward event guests while covered by a paid membership.

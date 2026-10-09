@@ -144,7 +144,7 @@ test('volunteers can find a family by name, family member or phone when there is
 
   const search = (q) => volunteer.get(`/admin/checkin?event=${todayEvent}&q=${encodeURIComponent(q)}`);
   const token = t.rsvpFor(todayEvent, 'family2@test.org').qr_token;
-  for (const q of ['trivedi', 'Bhavna Triv', 'Child 1', '5550177', '555-0177']) {
+  for (const q of ['trivedi', 'Bhavna Triv', 'Child A', '5550177', '555-0177']) {
     const res = await search(q);
     assert.match(res.text, new RegExp(`href="/admin/checkin/${token}"`), q);
     assert.doesNotMatch(res.text, /Chetan/, q); // other events' RSVPs are not listed

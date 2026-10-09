@@ -116,3 +116,14 @@
   let timer;
   window.addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(fit, 150); });
 })();
+
+// Fields with a format rule (names letters only, ZIP numbers only…): when the browser stops the form,
+// show that field's own message (its title, in the reader's language) instead of "Please match the requested format".
+(function () {
+  document.querySelectorAll('input[pattern][title]').forEach((input) => {
+    input.addEventListener('invalid', () => {
+      if (input.validity.patternMismatch) input.setCustomValidity(input.title);
+    });
+    input.addEventListener('input', () => input.setCustomValidity(''));
+  });
+})();

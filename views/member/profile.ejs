@@ -78,7 +78,7 @@
   <form method="post" action="/profile/household" class="stack" style="margin-top:12px">
     <%- include('../partials/csrf') %>
     <div class="fields">
-      <label><%= t('Name') %> <input name="name" required></label>
+      <label><%= t('Name') %> <input name="name" required maxlength="80" pattern="[\p{L}\p{M}][\p{L}\p{M}' .\-]*" title="<%= t("A family member's name can only contain letters (and spaces, hyphens or apostrophes).") %>"></label>
       <label><%= t('Relationship') %>
         <select name="relationship">
           <% for (const r of relationships) { %><option value="<%= r %>"><%= t.data(r) %></option><% } %>

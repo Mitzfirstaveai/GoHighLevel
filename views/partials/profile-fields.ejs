@@ -1,18 +1,29 @@
 <%# Name, phone, birth month and year, native place and address. `required`: a member's own form, where all of
     these are required (marked *); the committee can save a contact with just a name. %>
 <% const req = typeof required !== 'undefined' && required; const r = req ? ' required' : ''; const star = req ? '<span class="req" aria-hidden="true">*</span>' : ''; %>
+<%# On members' forms each field also has a pattern, so the browser explains a wrong entry before sending
+    (the server checks the same rules). Letters include accents and Gujarati script. %>
+<% const rule = (pattern, message) => req ? ` pattern="${escapeAttr(pattern)}" title="${escapeAttr(t(message))}"` : ''; %>
+<% function escapeAttr(v) { return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); } %>
+<% const NAME = "[\\p{L}\\p{M}][\\p{L}\\p{M}' .\\-]*"; %>
 <div class="fields">
-  <label><span><%= t('First name') %> <%- star %></span> <input name="first_name" value="<%= p.first_name || '' %>" required autocomplete="given-name"></label>
-  <label><span><%= t('Last name') %> <%- star %></span> <input name="last_name" value="<%= p.last_name || '' %>" required autocomplete="family-name"></label>
+  <label><span><%= t('First name') %> <%- star %></span> <input name="first_name" value="<%= p.first_name || '' %>" required autocomplete="given-name" maxlength="50"<%- rule(NAME, 'First name can only contain letters (and spaces, hyphens or apostrophes).') %>></label>
+  <label><span><%= t('Last name') %> <%- star %></span> <input name="last_name" value="<%= p.last_name || '' %>" required autocomplete="family-name" maxlength="50"<%- rule(NAME, 'Last name can only contain letters (and spaces, hyphens or apostrophes).') %>></label>
   <% if (typeof email !== 'undefined' && email) { %><label><span><%= t('Email') %> <%- star %></span> <input type="email" name="email" value="<%= p.email || '' %>" required autocomplete="email"></label><% } %>
-  <label><span><%= t('Phone') %> <%- star %></span> <input type="tel" name="phone" value="<%= p.phone || '' %>" autocomplete="tel" placeholder="501-555-0123"<%= r %>></label>
+  <label><span><%= t('Phone') %> <%- star %></span> <input type="tel" name="phone" value="<%= p.phone || '' %>" autocomplete="tel" inputmode="tel" placeholder="501-555-0123" maxlength="20"<%= r %><%- rule('(\\+?1[\\s.\\-]?)?\\(?\\d{3}\\)?[\\s.\\-]?\\d{3}[\\s.\\-]?\\d{4}', 'Please enter a 10-digit phone number with area code (numbers only).') %>></label>
   <%- include('birth-fields', { required: req, h: p, star, yearPlaceholder: '1985' }) %>
-  <label><span><%= t('Native place (Vatan)') %> <%- star %></span> <input name="native_place" value="<%= p.native_place || '' %>" placeholder="<%= t('e.g. Nadiad') %>"<%= r %>></label>
-  <label><span><%= t('Address') %> <%- star %></span> <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1"<%= r %>></label>
-  <label><%= t('Apt, suite, etc. (optional)') %> <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2"></label>
-  <label><span><%= t('City') %> <%- star %></span> <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2"<%= r %>></label>
-  <label><span><%= t('State') %> <%- star %></span> <input name="state" value="<%= p.state || '' %>" autocomplete="address-level1" placeholder="AR" maxlength="30"<%= r %>></label>
-  <label><span><%= t('ZIP code') %> <%- star %></span> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code" inputmode="numeric" placeholder="72201" maxlength="10"<%= r %>></label>
-  <label><%= t('Occupation (optional)') %> <input name="occupation" value="<%= p.occupation || '' %>"></label>
+  <label><span><%= t('Native place (Vatan)') %> <%- star %></span> <input name="native_place" value="<%= p.native_place || '' %>" placeholder="<%= t('e.g. Nadiad') %>" maxlength="60"<%= r %><%- rule("[\\p{L}\\p{M}][\\p{L}\\p{M}' .,\\(\\)\\-]*", 'Native place can only contain letters.') %>></label>
+  <label><span><%= t('Address') %> <%- star %></span> <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1" placeholder="137 Main St" maxlength="100"<%= r %><%- rule("(?=.*\\d)(?=.*\\p{L})[\\p{L}\\p{M}\\d' .,#\\/\\-]+", 'Please enter a street address with a number and street name (e.g. 137 Main St).') %>></label>
+  <label><%= t('Apt, suite, etc. (optional)') %> <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2" maxlength="60"<%- rule("[\\p{L}\\p{M}\\d' .,#\\/\\-]+", 'Apartment or suite can only contain letters, numbers and # - / .') %>></label>
+  <label><span><%= t('City') %> <%- star %></span> <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2" maxlength="60"<%= r %><%- rule(NAME, 'City can only contain letters.') %>></label>
+  <label><span><%= t('State') %> <%- star %></span>
+    <select name="state" autocomplete="address-level1"<%= r %>>
+      <option value=""><%= t('Choose…') %></option>
+      <%# A contact's older free-text state (e.g. from an import) stays selectable on the committee's form. %>
+      <% if (p.state && !usStates.some(([code]) => code === p.state)) { %><option value="<%= p.state %>" selected><%= p.state %></option><% } %>
+      <% for (const [code, name] of usStates) { %><option value="<%= code %>" <%= p.state === code ? 'selected' : '' %>><%= name %></option><% } %>
+    </select></label>
+  <label><span><%= t('ZIP code') %> <%- star %></span> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code" inputmode="numeric" placeholder="72201" maxlength="10"<%= r %><%- rule('\\d{5}(-\\d{4})?', 'Please enter a 5-digit ZIP code (numbers only).') %>></label>
+  <label><%= t('Occupation (optional)') %> <input name="occupation" value="<%= p.occupation || '' %>" maxlength="60"<%- rule("[\\p{L}\\p{M}][\\p{L}\\p{M}' .,&\\/\\(\\)\\-]*", 'Occupation can only contain letters.') %>></label>
 </div>
 <% if (req) { %><p class="small muted" style="margin:0"><span class="req">*</span> <%= t('Required') %>. <%= t('Only the month and year of birth are asked for; you can add the day under Celebrations to have your birthday announced.') %></p><% } %>

@@ -36,6 +36,7 @@ function createApp(config) {
   // Set by a demo reset: display choices remembered by a browser before then are forgotten (see i18n.js).
   app.locals.prefsEpoch = db.prepare(`SELECT value FROM pages WHERE key = 'prefs_epoch'`).get()?.value || null;
   app.locals.config = config;
+  app.locals.usStates = require('./usStates').US_STATES;
   app.locals.gateway = gateway;
   app.locals.imageUpload = imageUpload(config);
   Object.assign(app.locals, {

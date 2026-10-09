@@ -7,4 +7,4 @@
     <% for (let m = 1; m <= 12; m++) { %><option value="<%= m %>" <%= Number(bh.birth_month) === m ? 'selected' : '' %>><%= new Date(Date.UTC(2000, m - 1, 1)).toLocaleString(bLocale, { month: 'long', timeZone: 'UTC' }) %></option><% } %>
   </select>
 </label>
-<label><span><%= t('Birth year') %> <%- bStar %></span> <input name="birth_year" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="<%= typeof yearPlaceholder !== 'undefined' ? yearPlaceholder : '2016' %>" value="<%= bh.birth_year || '' %>"<%= bReq ? ' required' : '' %>></label>
+<label><span><%= t('Birth year') %> <%- bStar %></span> <input name="birth_year" inputmode="numeric" pattern="\d{4}" title="<%= t('Please enter a 4-digit year, e.g. 1985.') %>" maxlength="4" placeholder="<%= typeof yearPlaceholder !== 'undefined' ? yearPlaceholder : '2016' %>" value="<%= bh.birth_year || '' %>"<%= bReq ? ' required' : '' %>></label>

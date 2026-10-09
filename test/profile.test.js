@@ -108,3 +108,43 @@ test("a family login starts with the family's address, native place and the birt
   assert.deepEqual({ ...u }, { birth_month: 11, birth_year: 1987, native_place: 'Navsari', city: 'Benton', postal_code: '72015' });
   assert.doesNotMatch((await s.get('/dashboard')).text, /Please complete your profile/);
 });
+
+test('names, places and cities are letters only; phone, ZIP and year are numbers only; state from the list', async () => {
+  const m = await t.register('rules@test.org', 'Rule');
+  const save = async (fields) => (await m.follow(await m.post('/profile', t.profile({ first_name: 'Rule', ...fields })))).text;
+  const saved = () => ({ ...t.db.prepare(`SELECT first_name, last_name, phone, city, state, postal_code, native_place, address_line1
+    FROM users WHERE email = 'rules@test.org'`).get() });
+  const before = saved();
+  const refused = [
+    [{ last_name: '1234' }, /Last name can only contain letters/],
+    [{ first_name: 'Pr1ya' }, /First name can only contain letters/],
+    [{ first_name: '<script>' }, /First name can only contain letters/],
+    [{ native_place: '42' }, /Native place can only contain letters/],
+    [{ city: 'Conway 2' }, /City can only contain letters/],
+    [{ occupation: '12345' }, /Occupation can only contain letters/],
+    [{ address_line1: 'Main Street' }, /street address with a number and street name/],
+    [{ address_line1: '12345' }, /street address with a number and street name/],
+    [{ phone: 'call me' }, /10-digit phone number/],
+    [{ phone: '501-555-01' }, /10-digit phone number/],
+    [{ postal_code: '72A01' }, /5-digit ZIP code \(numbers only\)/],
+    [{ state: 'Narnia' }, /Please choose a state/],
+    [{ birth_year: '19x5' }, /4-digit birth year/],
+  ];
+  for (const [fields, message] of refused) {
+    assert.match(await save(fields), message, JSON.stringify(fields));
+    assert.deepEqual(saved(), before, `nothing saved for ${JSON.stringify(fields)}`);
+  }
+  // Real names and addresses (accents, hyphens, apostrophes, Gujarati) are fine; phone and state are tidied up.
+  assert.match(await save({ first_name: "Ma'ya-Rani", last_name: 'પટેલ', phone: '(501) 555 0123', state: 'arkansas',
+    native_place: 'Vadodara (Baroda)', city: 'North Little Rock', address_line1: '137 Main St, #4', postal_code: '72201-1234', occupation: 'Doctor & Teacher' }), /Profile saved/);
+  assert.deepEqual(saved(), { first_name: "Ma'ya-Rani", last_name: 'પટેલ', phone: '501-555-0123', city: 'North Little Rock', state: 'AR',
+    postal_code: '72201-1234', native_place: 'Vadodara (Baroda)', address_line1: '137 Main St, #4' });
+  // Family members' names too.
+  const res = await m.follow(await m.post('/profile/household', { name: 'Kid 2', relationship: 'Son', birth_month: '1', birth_year: '2015' }));
+  assert.match(res.text, /family member&#39;s name can only contain letters/);
+  // The form carries the same rules, so the browser stops a wrong entry before sending it.
+  const form = (await m.get('/profile')).text;
+  assert.match(form, /name="last_name"[^>]*pattern="\[\\p\{L\}\\p\{M\}\]/);
+  assert.match(form, /name="postal_code"[^>]*pattern="\\d\{5\}\(-\\d\{4\}\)\?"/);
+  assert.match(form, /<select name="state"[^>]*required>[\s\S]*<option value="AR" selected>Arkansas<\/option>/);
+});
