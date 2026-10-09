@@ -47,6 +47,9 @@ router.get('/dashboard', requireAuth, (req, res) => {
     ORDER BY starts_at LIMIT 5
   `).all(nowLocal(), req.user.id);
   res.render('member/dashboard', {
+    // Members who signed up before these were required (or were imported) are asked to complete their profile.
+    missingProfile: svc.missingProfile(req.user),
+    missingBirths: req.user.owner_id ? [] : svc.getHousehold(db, req.user.id).filter((h) => !svc.birthLocked(h)).map((h) => h.name),
     title: 'My dashboard', membership, nextTicket, moreEvents, nextIsToday, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
   });
 });
@@ -67,7 +70,7 @@ router.get('/profile', requireAuth, (req, res) => {
 });
 
 router.post('/profile', requireAuth, (req, res) => {
-  svc.updateProfile(req.app.locals.db, req.user.id, req.body);
+  svc.updateProfile(req.app.locals.db, req.user.id, req.body, { complete: true });
   req.flash('success', 'Profile saved.');
   res.redirect('/profile');
 });

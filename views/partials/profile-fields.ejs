@@ -1,13 +1,18 @@
+<%# Name, phone, birth month and year, native place and address. `required`: a member's own form, where all of
+    these are required (marked *); the committee can save a contact with just a name. %>
+<% const req = typeof required !== 'undefined' && required; const r = req ? ' required' : ''; const star = req ? '<span class="req" aria-hidden="true">*</span>' : ''; %>
 <div class="fields">
-  <label><%= t('First name') %> <input name="first_name" value="<%= p.first_name || '' %>" required></label>
-  <label><%= t('Last name') %> <input name="last_name" value="<%= p.last_name || '' %>" required></label>
-  <label><%= t('Phone') %> <input type="tel" name="phone" value="<%= p.phone || '' %>"></label>
-  <label><%= t('Date of birth') %> <input type="date" name="date_of_birth" value="<%= p.date_of_birth || '' %>"></label>
-  <label><%= t('Occupation') %> <input name="occupation" value="<%= p.occupation || '' %>"></label>
-  <label><%= t('Native place (Vatan)') %> <input name="native_place" value="<%= p.native_place || '' %>"></label>
-  <label><%= t('Address line 1') %> <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1"></label>
-  <label><%= t('Address line 2') %> <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2"></label>
-  <label><%= t('City') %> <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2"></label>
-  <label><%= t('State') %> <input name="state" value="<%= p.state || '' %>" autocomplete="address-level1"></label>
-  <label><%= t('ZIP / Postal code') %> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code"></label>
+  <label><span><%= t('First name') %> <%- star %></span> <input name="first_name" value="<%= p.first_name || '' %>" required autocomplete="given-name"></label>
+  <label><span><%= t('Last name') %> <%- star %></span> <input name="last_name" value="<%= p.last_name || '' %>" required autocomplete="family-name"></label>
+  <% if (typeof email !== 'undefined' && email) { %><label><span><%= t('Email') %> <%- star %></span> <input type="email" name="email" value="<%= p.email || '' %>" required autocomplete="email"></label><% } %>
+  <label><span><%= t('Phone') %> <%- star %></span> <input type="tel" name="phone" value="<%= p.phone || '' %>" autocomplete="tel" placeholder="501-555-0123"<%= r %>></label>
+  <%- include('birth-fields', { required: req, h: p, star, yearPlaceholder: '1985' }) %>
+  <label><span><%= t('Native place (Vatan)') %> <%- star %></span> <input name="native_place" value="<%= p.native_place || '' %>" placeholder="<%= t('e.g. Nadiad') %>"<%= r %>></label>
+  <label><span><%= t('Address') %> <%- star %></span> <input name="address_line1" value="<%= p.address_line1 || '' %>" autocomplete="address-line1"<%= r %>></label>
+  <label><%= t('Apt, suite, etc. (optional)') %> <input name="address_line2" value="<%= p.address_line2 || '' %>" autocomplete="address-line2"></label>
+  <label><span><%= t('City') %> <%- star %></span> <input name="city" value="<%= p.city || '' %>" autocomplete="address-level2"<%= r %>></label>
+  <label><span><%= t('State') %> <%- star %></span> <input name="state" value="<%= p.state || '' %>" autocomplete="address-level1" placeholder="AR" maxlength="30"<%= r %>></label>
+  <label><span><%= t('ZIP code') %> <%- star %></span> <input name="postal_code" value="<%= p.postal_code || '' %>" autocomplete="postal-code" inputmode="numeric" placeholder="72201" maxlength="10"<%= r %>></label>
+  <label><%= t('Occupation (optional)') %> <input name="occupation" value="<%= p.occupation || '' %>"></label>
 </div>
+<% if (req) { %><p class="small muted" style="margin:0"><span class="req">*</span> <%= t('Required') %>. <%= t('Only the month and year of birth are asked for; you can add the day under Celebrations to have your birthday announced.') %></p><% } %>

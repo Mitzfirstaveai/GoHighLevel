@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
   state TEXT,
   postal_code TEXT,
   native_place TEXT,
-  date_of_birth TEXT,
+  birth_year INTEGER,                     -- birth month and year (required for members); the day is optional,
+  birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12),
+  birthday TEXT,                          -- 'MM-DD', added under Celebrations to have the birthday announced
   occupation TEXT,
   notes TEXT,
   -- Member directory privacy: listed by name/city/vatan, and optionally with phone & email.
@@ -291,12 +293,22 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 14; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 15; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
-// 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children
+// 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
+// 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  15: [
+    'ALTER TABLE users ADD COLUMN birth_year INTEGER',
+    'ALTER TABLE users ADD COLUMN birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12)',
+    'ALTER TABLE users ADD COLUMN birthday TEXT',
+    `UPDATE users SET birth_year = CAST(substr(date_of_birth, 1, 4) AS INTEGER), birth_month = CAST(substr(date_of_birth, 6, 2) AS INTEGER),
+       birthday = substr(date_of_birth, 6, 5)
+     WHERE date_of_birth GLOB '[0-9][0-9][0-9][0-9]-[01][0-9]-[0-3][0-9]' AND CAST(substr(date_of_birth, 6, 2) AS INTEGER) BETWEEN 1 AND 12`,
+    'ALTER TABLE users DROP COLUMN date_of_birth',
+  ],
   14: [
     'ALTER TABLE household_members ADD COLUMN birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12)',
     'ALTER TABLE events ADD COLUMN out_of_state_fee_cents INTEGER CHECK (out_of_state_fee_cents >= 0)',

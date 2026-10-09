@@ -96,12 +96,18 @@ async function startTestApp(overrides = {}) {
 
   const planId = (name) => db.prepare('SELECT id FROM membership_plans WHERE name = ?').get(name).id;
 
+  // Everything a member has to fill in (sign-up and profile), with test values.
+  const profile = (fields = {}) => ({
+    first_name: 'Test', last_name: 'Member', phone: '501-555-0199', birth_month: '5', birth_year: '1985', native_place: 'Surat',
+    address_line1: '1 Test St', city: 'Little Rock', state: 'AR', postal_code: '72201', ...fields,
+  });
+
   async function register(email, first = 'Test', familyMembers = 0) {
     const c = new Client();
     await c.get('/register');
-    const res = await c.post('/register', {
+    const res = await c.post('/register', profile({
       email, password: 'secret123', password_confirm: 'secret123', first_name: first, last_name: 'Member',
-    });
+    }));
     assert.equal(res.status, 302);
     await c.get('/profile');
     for (let i = 1; i <= familyMembers; i++) {
@@ -134,7 +140,7 @@ async function startTestApp(overrides = {}) {
   }
 
   return {
-    db, base, Client, login, adminLogin, register, planId, futureDate, createEvent, rsvpFor, config: () => app.locals.config, close: () => server.close(),
+    db, base, Client, login, adminLogin, register, profile, planId, futureDate, createEvent, rsvpFor, config: () => app.locals.config, close: () => server.close(),
   };
 }
 
@@ -146,10 +152,16 @@ const ADDED_COLUMNS = {
   12: [['rsvps', 'pay_at_door']],
   14: [['household_members', 'birth_month'], ['events', 'out_of_state_fee_cents'], ['events', 'student_fee_cents'],
     ['events', 'child_free_age'], ['rsvps', 'guest_types']],
+  15: [['users', 'birth_year'], ['users', 'birth_month'], ['users', 'birthday']],
 };
+// Columns a later version removed (put back when rewinding to before it).
+const REMOVED_COLUMNS = { 15: [['users', 'date_of_birth TEXT']] };
 function rewindSchema(raw, version) {
   for (const [v, cols] of Object.entries(ADDED_COLUMNS)) {
     if (Number(v) > version) for (const [table, col] of cols) raw.exec(`ALTER TABLE ${table} DROP COLUMN ${col}`);
+  }
+  for (const [v, cols] of Object.entries(REMOVED_COLUMNS)) {
+    if (Number(v) > version) for (const [table, col] of cols) raw.exec(`ALTER TABLE ${table} ADD COLUMN ${col}`);
   }
   raw.exec(`PRAGMA user_version = ${version}`);
 }

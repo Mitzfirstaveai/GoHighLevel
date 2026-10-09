@@ -136,7 +136,7 @@ test('guests by kind: in-state $50, out-of-state $15, students $15, children fre
 
 test('money already paid shows on the form and at checkout, also after cancelling (it counts toward a new RSVP)', async () => {
   const m = await t.register('credit@test.org', 'Cora', 0);
-  await m.post('/profile/household', { name: 'Cora Spouse', relationship: 'Spouse' });
+  await m.post('/profile/household', { name: 'Cora Spouse', relationship: 'Spouse', birth_month: '4', birth_year: '1980' });
   const uid = t.db.prepare(`SELECT id FROM users WHERE email = 'credit@test.org'`).get().id;
   grantMembership(t.db, { userId: uid, planId: t.planId('Family') });
   const spouse = `h:${t.db.prepare('SELECT id FROM household_members WHERE user_id = ?').get(uid).id}`;

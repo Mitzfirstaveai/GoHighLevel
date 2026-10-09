@@ -19,13 +19,11 @@
     <p class="muted small"><%= t('Create your login below. Use your own email and a password only you know.') %></p>
     <form method="post" action="/join/family/<%= token %>" class="stack">
       <%- include('../partials/csrf') %>
+      <%# The family's address and native place, and the birth month and year on the family list, are filled in already. %>
+      <%- include('../partials/profile-fields', { p: form, required: true, email: true }) %>
       <div class="fields">
-        <label><%= t('First name') %> <input name="first_name" value="<%= form.first_name || '' %>" required autocomplete="given-name"></label>
-        <label><%= t('Last name') %> <input name="last_name" value="<%= form.last_name || '' %>" required autocomplete="family-name"></label>
-        <label><%= t('Email') %> <input type="email" name="email" value="<%= form.email || '' %>" required autocomplete="email"></label>
-        <label><%= t('Phone') %> <input type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></label>
-        <label><%= t('Password (at least 8 characters)') %> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-        <label><%= t('Confirm password') %> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
+        <label><span><%= t('Password (at least 8 characters)') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+        <label><span><%= t('Confirm password') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
       </div>
       <button class="btn big"><%= t('Create my login') %></button>
     </form>

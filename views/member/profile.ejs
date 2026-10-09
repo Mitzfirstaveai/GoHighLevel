@@ -5,7 +5,7 @@
   <h2><%= t('Personal & contact details') %></h2>
   <form method="post" action="/profile" class="stack">
     <%- include('../partials/csrf') %>
-    <%- include('../partials/profile-fields', { p: profile }) %>
+    <%- include('../partials/profile-fields', { p: profile, required: true }) %>
     <p class="muted small"><%= t('Email') %>: <strong><%= user.email %></strong> (<%= t('contact an admin to change your email') %>)</p>
     <div><button class="btn"><%= t('Save profile') %></button></div>
   </form>
@@ -40,12 +40,12 @@
           <form method="post" action="/profile/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm(<%= JSON.stringify(t('Remove {name} from your family list?', { name: h.name })) %>)"><%- include('../partials/csrf') %><button class="btn secondary small"><%= t('Remove') %></button></form>
           <% } %>
         </div>
-        <% if (child && !locked) { %>
-          <%# Children added before birth dates were required: fill them in once (then locked). %>
+        <% if (!locked) { %>
+          <%# Family added before birth dates were required: fill them in once (then locked). %>
           <form method="post" action="/profile/household/<%= h.id %>/birth" class="birth-once needed">
             <%- include('../partials/csrf') %>
-            <p class="small" style="margin:6px 0 4px"><%= t('Add {name}\'s birth month and year — needed for event prices (e.g. children free up to a certain age).', { name: h.name }) %></p>
-            <div class="fields"><%- include('../partials/birth-fields', { required: true, h }) %></div>
+            <p class="small" style="margin:6px 0 4px"><%= child ? t('Add {name}\'s birth month and year — needed for event prices (e.g. children free up to a certain age).', { name: h.name }) : t("Add {name}'s birth month and year (required for everyone on the family list).", { name: h.name }) %></p>
+            <div class="fields"><%- include('../partials/birth-fields', { required: true, h, yearPlaceholder: child ? '2016' : '1960' }) %></div>
             <div><button class="btn secondary small"><%= t('Save — can\'t be changed later') %></button></div>
           </form>
         <% } %>
@@ -84,9 +84,9 @@
           <% for (const r of relationships) { %><option value="<%= r %>"><%= t.data(r) %></option><% } %>
         </select>
       </label>
-      <%- include('../partials/birth-fields', { required: false }) %>
+      <%- include('../partials/birth-fields', { required: true, star: '<span class="req" aria-hidden="true">*</span>' }) %>
     </div>
-    <p class="small muted" style="margin:0"><%= t('Birth month and year are required for children (event prices depend on age). Once saved they can only be changed by a committee member.') %></p>
+    <p class="small muted" style="margin:0"><%= t("Everyone's birth month and year are required (children's event prices depend on age). Once saved, a child's can only be changed by a committee member.") %></p>
     <div><button class="btn secondary"><%= t('Add family member') %></button></div>
   </form>
   <% } %>
@@ -97,12 +97,23 @@
   <p class="muted"><%= t('Share birthdays and your wedding anniversary so other GSA members can send good wishes. Members see them on the Home and News pages in the week of the day. Only the month and day are shown, never the year or age. Nothing is shared unless you tick the box.') %></p>
   <form method="post" action="/profile/celebrations" class="stack">
     <%- include('../partials/csrf') %>
-    <%# Their birthday can be added right here (it's the same date of birth as in Personal details). %>
+    <%# Their birth month and year come from Personal details; here they only add the day. %>
     <div class="fields">
       <div class="stack-tight">
-        <label><%= t('Your date of birth') %> <input type="date" name="date_of_birth" value="<%= profile.date_of_birth || '' %>" max="<%= today %>" autocomplete="bday"></label>
-        <label class="check"><input type="checkbox" name="share_birthday" value="1" <%= profile.share_birthday ? 'checked' : '' %>>
-          <span><%= profile.date_of_birth ? t('Share my birthday ({date})', { date: new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(profile.date_of_birth + 'T12:00:00Z')) }) : t('Share my birthday') %></span></label>
+        <span class="field-title"><%= t('Your birthday') %></span>
+        <% if (profile.birth_month && profile.birth_year) { %>
+          <div class="actions birthday-pick">
+            <span class="locked-field" title="<%= t('Change under Personal details above') %>"><%= new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: lang === 'gu' ? 'long' : 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(profile.birth_year, profile.birth_month - 1, 15))) %></span>
+            <select class="day" name="birthday_day" aria-label="<%= t('Day of your birthday') %>">
+              <option value=""><%= t('Day') %></option>
+              <% const myDay = profile.birthday ? Number(profile.birthday.slice(3)) : 0; %>
+              <% for (let d = 1; d <= new Date(Date.UTC(profile.birth_year, profile.birth_month, 0)).getUTCDate(); d++) { %><option value="<%= d %>" <%= myDay === d ? 'selected' : '' %>><%= d %></option><% } %>
+            </select>
+          </div>
+          <label class="check"><input type="checkbox" name="share_birthday" value="1" <%= profile.share_birthday ? 'checked' : '' %>> <span><%= t('Share my birthday') %></span></label>
+        <% } else { %>
+          <p class="small muted" style="margin:0"><%= t('Add your birth month and year under Personal details above first.') %></p>
+        <% } %>
       </div>
       <div class="stack-tight">
         <label><%= t('Wedding anniversary (optional)') %> <input type="date" name="anniversary" value="<%= profile.anniversary || '' %>"></label>

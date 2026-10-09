@@ -133,12 +133,12 @@ router.get('/members.csv', (req, res) => {
   const household = db.prepare('SELECT * FROM household_members ORDER BY user_id, id').all();
   const famBy = Map.groupBy(household, (h) => h.user_id);
   const rows = [['First name', 'Last name', 'Email', 'Phone', 'Address 1', 'Address 2', 'City', 'State', 'Postal code',
-    'Native place', 'Date of birth', 'Occupation', 'Membership level', 'Membership valid until', 'Tags', 'Family members', 'Has login', 'Added']];
+    'Native place', 'Birth month', 'Birth year', 'Occupation', 'Membership level', 'Membership valid until', 'Tags', 'Family members', 'Has login', 'Added']];
   for (const m of members) {
     const fam = (famBy.get(m.id) || []).map((h) => `${h.name}${h.relationship ? ` (${h.relationship})` : ''}`).join('; ');
     const tags = [...new Set([...m.tags.split(',').filter(Boolean), ...(m.is_donor ? ['Donor'] : [])])].join(', ');
     rows.push([m.first_name, m.last_name, m.email, m.phone, m.address_line1, m.address_line2, m.city, m.state,
-      m.postal_code, m.native_place, m.date_of_birth, m.occupation, m.level_name, m.membership_end, tags, fam,
+      m.postal_code, m.native_place, m.birth_month, m.birth_year, m.occupation, m.level_name, m.membership_end, tags, fam,
       m.password_hash ? 'yes' : 'no', localTimestamp(m.created_at)]);
   }
   res.attachment('contacts.csv').type('text/csv').send(toCsv(rows));

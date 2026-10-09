@@ -31,7 +31,7 @@ test('a level named "... Membership" is not doubled in messages ("Your Individua
   const m = await t.register('solo@test.org', 'Solo');
   const id = t.db.prepare(`SELECT id FROM users WHERE email = 'solo@test.org'`).get().id;
   grantMembership(t.db, { userId: id, planId: t.planId('Individual Membership') });
-  const res = await m.follow(await m.post('/profile/household', { name: 'Asha', relationship: 'Spouse' }));
+  const res = await m.follow(await m.post('/profile/household', { name: 'Asha', relationship: 'Spouse', birth_month: '4', birth_year: '1980' }));
   assert.match(res.text, /Your Individual membership covers you only, so Asha can&#39;t be added/);
   assert.match((await m.get('/profile')).text, /Your Individual membership covers you only\./);
 });
@@ -139,12 +139,38 @@ test('upgrading to v13 keeps every payment and the memberships that point at the
   require('./helpers').rewindSchema(raw, 12);
   raw.close();
   db = openDb(file);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 14);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 15);
   assert.equal(db.prepare('SELECT method FROM payments WHERE id = ?').get(pid).method, 'cash');
   assert.equal(db.prepare('SELECT payment_id FROM memberships WHERE user_id = ?').get(uid).payment_id, pid);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
   db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method) VALUES (?, 'donation', 'Gift', 500, 'paid', 'venmo')`).run(uid);
   assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1);
+  db.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('upgrading to v15 turns a full date of birth into birth month and year, keeping the day for Celebrations', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { DatabaseSync } = require('node:sqlite');
+  const { openDb } = require('../src/db');
+  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gsa-v15-'));
+  const file = path.join(dir, 'old.db');
+  let db = openDb(file);
+  const add = (first) => Number(db.prepare(`INSERT INTO users (first_name, last_name) VALUES (?, 'Old')`).run(first).lastInsertRowid);
+  const [withDob, without, odd] = [add('Dob'), add('NoDob'), add('Odd')];
+  db.close();
+  const raw = new DatabaseSync(file);
+  require('./helpers').rewindSchema(raw, 14);
+  raw.prepare("UPDATE users SET date_of_birth = '1975-04-12', share_birthday = 1 WHERE id = ?").run(withDob);
+  raw.prepare("UPDATE users SET date_of_birth = 'sometime' WHERE id = ?").run(odd);
+  raw.close();
+  db = openDb(file);
+  const row = (id) => ({ ...db.prepare('SELECT birth_year, birth_month, birthday, share_birthday FROM users WHERE id = ?').get(id) });
+  assert.deepEqual(row(withDob), { birth_year: 1975, birth_month: 4, birthday: '04-12', share_birthday: 1 });
+  assert.deepEqual(row(without), { birth_year: null, birth_month: null, birthday: null, share_birthday: 0 });
+  assert.deepEqual(row(odd), { birth_year: null, birth_month: null, birthday: null, share_birthday: 0 });
+  assert.ok(!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'date_of_birth'));
   db.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });

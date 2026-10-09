@@ -17,28 +17,59 @@ class UserError extends Error {
 
 const PROFILE_FIELDS = [
   'first_name', 'last_name', 'phone', 'address_line1', 'address_line2', 'city', 'state',
-  'postal_code', 'native_place', 'date_of_birth', 'occupation',
+  'postal_code', 'native_place', 'birth_month', 'birth_year', 'occupation',
 ];
 
-function cleanProfile(body) {
+// What every member fills in, at sign-up and in their profile (email is asked for separately).
+// The committee can still save contacts with less (e.g. donors, or records imported from WildApricot).
+const REQUIRED_PROFILE = {
+  first_name: 'First name', last_name: 'Last name', phone: 'Phone', birth_month: 'Birth month', birth_year: 'Birth year',
+  native_place: 'Native place (Vatan)', address_line1: 'Address', city: 'City', state: 'State', postal_code: 'ZIP code',
+};
+
+// Labels of the required fields this member hasn't filled in yet.
+function missingProfile(user) {
+  return Object.entries(REQUIRED_PROFILE).filter(([f]) => !user[f]).map(([, label]) => label);
+}
+
+// `complete`: every required field must be filled in (members); otherwise only the name (committee).
+function cleanProfile(body, { complete = false } = {}) {
   const profile = {};
   for (const field of PROFILE_FIELDS) {
     profile[field] = String(body[field] ?? '').trim().slice(0, 200) || null;
   }
+  // A full date of birth (e.g. in an imported file) gives the month and year.
+  const dob = String(body.date_of_birth || '').match(/^(\d{4})-(\d{2})-\d{2}$/);
+  if (dob && !profile.birth_year && !profile.birth_month) [profile.birth_year, profile.birth_month] = [dob[1], dob[2]];
   if (!profile.first_name || !profile.last_name) {
     throw new UserError('First and last name are required.');
   }
-  if (profile.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(profile.date_of_birth)) {
-    throw new UserError('Date of birth must be a valid date.');
+  if (profile.birth_year || profile.birth_month) {
+    const year = Number(profile.birth_year);
+    const month = Number(profile.birth_month);
+    if (!/^\d{4}$/.test(String(profile.birth_year)) || year < 1900 || !(month >= 1 && month <= 12)
+      || `${year}-${String(month).padStart(2, '0')}` > today().slice(0, 7)) {
+      throw new UserError('Please choose the birth month and enter a 4-digit birth year.');
+    }
+    [profile.birth_year, profile.birth_month] = [year, month];
+  }
+  if (complete) {
+    const missing = missingProfile(profile);
+    if (missing.length) throw new UserError('Please fill in: {fields}.', { fields: { list: missing } });
+    if (profile.phone.replace(/\D/g, '').length < 10) throw new UserError('Please enter a phone number with area code.');
+    if (!/^\d{5}(-?\d{4})?$/.test(profile.postal_code)) throw new UserError('Please enter a 5-digit ZIP code.');
   }
   return profile;
 }
 
-function updateProfile(db, userId, body) {
-  const profile = cleanProfile(body);
+function updateProfile(db, userId, body, opts) {
+  const profile = cleanProfile(body, opts);
   const sets = PROFILE_FIELDS.map((f) => `${f} = ?`).join(', ');
   db.prepare(`UPDATE users SET ${sets}, updated_at = datetime('now') WHERE id = ?`)
     .run(...PROFILE_FIELDS.map((f) => profile[f]), userId);
+  // A birthday added under Celebrations is in their birth month: if that changed, the day is asked for again.
+  db.prepare(`UPDATE users SET birthday = NULL, share_birthday = 0
+              WHERE id = ? AND birthday IS NOT NULL AND (birth_month IS NULL OR CAST(substr(birthday, 1, 2) AS INTEGER) != birth_month)`).run(userId);
 }
 
 // ---------- Membership levels & family coverage ----------
@@ -144,10 +175,10 @@ function planProblems(plan, household) {
   return problems;
 }
 
-function ageOn(dateOfBirth, onDate) {
-  const [y, m, d] = dateOfBirth.split('-').map(Number);
-  const [ty, tm, td] = onDate.split('-').map(Number);
-  return ty - y - (tm < m || (tm === m && td < d) ? 1 : 0);
+// Age reached by a date, from the birth month and year: the birthday month counts (65 from the 1st of that month).
+function ageReached(birthYear, birthMonth, onDate) {
+  const [ty, tm] = onDate.split('-').map(Number);
+  return ty - birthYear - (tm < birthMonth ? 1 : 0);
 }
 
 // Why this member can't choose this plan right now (null = eligible), as a translatable
@@ -155,8 +186,8 @@ function ageOn(dateOfBirth, onDate) {
 function planIneligibility(db, plan, user) {
   const vars = { plan: plan.name, age: plan.min_age };
   if (plan.min_age) {
-    if (!user.date_of_birth) return { template: 'Add your date of birth to your profile to choose {plan} (age {age}+).', vars };
-    if (ageOn(user.date_of_birth, today()) < plan.min_age) return { template: '{plan} is for members aged {age} or older.', vars };
+    if (!user.birth_year || !user.birth_month) return { template: 'Add your birth month and year to your profile to choose {plan} (age {age}+).', vars };
+    if (ageReached(user.birth_year, user.birth_month, today()) < plan.min_age) return { template: '{plan} is for members aged {age} or older.', vars };
   }
   const problems = planProblems(plan, getHousehold(db, user.id));
   if (problems.length) {
@@ -237,9 +268,9 @@ function addHouseholdMember(db, { userId, name, relationship, birthYear, birthMo
   name = String(name || '').trim().slice(0, 120);
   if (!name) throw new UserError('Please enter a name for the family member.');
   if (!(relationship in RELATIONSHIPS)) throw new UserError('Please choose a relationship.');
-  // Children's ages set event prices (e.g. free up to age 10), so their birth month and year are required.
-  if (isChild(relationship) && !(birthYear && birthMonth) && !override) {
-    throw new UserError('Please enter the birth month and year for {name}. Children need them for event prices.', { name });
+  // Everyone's birth month and year are required (children's ages also set event prices, e.g. free up to age 10).
+  if (!(birthYear && birthMonth) && !override) {
+    throw new UserError('Please enter the birth month and year for {name}.', { name });
   }
   checkBirth(birthYear, birthMonth);
   const household = [...getHousehold(db, userId), { relationship }];
@@ -962,6 +993,11 @@ function assertCanRenew(db, userId) {
 function createMembershipPayment(db, { planId, user }) {
   const plan = db.prepare('SELECT * FROM membership_plans WHERE id = ? AND active = 1').get(planId);
   if (!plan) throw new UserError('Please choose a membership level.');
+  // Joining or renewing needs a complete profile, and a birth month and year for everyone on the family list.
+  const missing = missingProfile(user);
+  if (missing.length) throw new UserError('Please complete your profile first: {fields}.', { fields: { list: missing } });
+  const noBirth = getHousehold(db, user.id).filter((h) => !birthLocked(h)).map((h) => h.name);
+  if (noBirth.length) throw new UserError('Please add the birth month and year for {names} under Family members first.', { names: { list: noBirth } });
   const reason = planIneligibility(db, plan, user);
   if (reason) throw new UserError(reason.template, reason.vars);
   const { kind, amountCents } = membershipQuote(db, plan, user.id);
@@ -1083,8 +1119,8 @@ function celebrations(db, { from = today(), days = 7 } = {}) {
   // Signed-up members, or contacts with a membership (the same people the member directory lists).
   const active = `(u.contact_type = 'member' AND (u.password_hash IS NOT NULL OR EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = u.id)))`;
   const list = [];
-  for (const u of db.prepare(`SELECT first_name, last_name, date_of_birth FROM users u WHERE share_birthday = 1 AND ${active}`).all()) {
-    const when = upcoming(u.date_of_birth?.slice(5, 10));
+  for (const u of db.prepare(`SELECT first_name, last_name, birthday FROM users u WHERE share_birthday = 1 AND ${active}`).all()) {
+    const when = upcoming(u.birthday);
     if (when) list.push({ kind: 'birthday', name: `${u.first_name} ${u.last_name}`, ...when });
   }
   for (const u of db.prepare(`SELECT u.first_name, u.last_name, u.anniversary,
@@ -1104,43 +1140,39 @@ function celebrations(db, { from = today(), days = 7 } = {}) {
   return list.sort((a, b) => a.inDays - b.inDays || a.name.localeCompare(b.name));
 }
 
+// 'MM-DD' for a birthday, or null: a day that month really has (Feb 29 only when born in a leap year;
+// with no birth year known, 2024 — a leap year — is used).
+function birthdayOf(month, day, year) {
+  const md = `${String(month || '').padStart(2, '0')}-${String(day || '').padStart(2, '0')}`;
+  const daysInMonth = new Date(Date.UTC(year || 2024, Number(month), 0)).getUTCDate();
+  return MONTH_DAY_RE.test(md) && Number(day) <= daysInMonth ? md : null;
+}
+
 // Saves the member's Celebrations choices: their birthday and anniversary, and their family members' birthdays.
+// Birth months and years come from the profile and family list, so only the day is added here.
 function updateCelebrations(db, userId, body) {
   const anniversary = String(body.anniversary || '').trim();
   if (anniversary && !/^\d{4}-\d{2}-\d{2}$/.test(anniversary)) throw new UserError('Please enter the anniversary as a full date.');
-  const user = db.prepare('SELECT date_of_birth, owner_id FROM users WHERE id = ?').get(userId);
-  // Their date of birth can be added (or corrected) here too; it's the same one as in Personal details.
-  if ('date_of_birth' in body) {
-    const dob = String(body.date_of_birth || '').trim();
-    const parsed = new Date(`${dob}T12:00:00Z`);
-    if (dob && (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dob
-      || dob > today() || dob < '1900-01-01')) {
-      throw new UserError('Date of birth must be a valid date.');
-    }
-    db.prepare('UPDATE users SET date_of_birth = ? WHERE id = ?').run(dob || null, userId);
-    user.date_of_birth = dob || null;
+  const user = db.prepare('SELECT birth_month, birth_year, owner_id FROM users WHERE id = ?').get(userId);
+  const birthday = user.birth_month ? birthdayOf(user.birth_month, body.birthday_day, user.birth_year) : null;
+  if (body.share_birthday && !birthday) {
+    throw new UserError(user.birth_month ? 'Choose the day of your birthday to share it.' : 'Add your birth month and year under Personal details to share your birthday.');
   }
-  if (body.share_birthday && !user.date_of_birth) throw new UserError('Add your date of birth to share your birthday.');
-  const shareBirthday = body.share_birthday && user.date_of_birth ? 1 : 0;
-  db.prepare('UPDATE users SET share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
-    .run(shareBirthday, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
+  db.prepare('UPDATE users SET birthday = ?, share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
+    .run(birthday, birthday && body.share_birthday ? 1 : 0, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
   if (user.owner_id) return;
   for (const h of db.prepare('SELECT id, birth_month, birth_year FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
-    // A locked birth month (children) is also their birthday month.
-    const month = String(h.birth_month || body[`birthday_month_${h.id}`] || '').padStart(2, '0');
-    const day = String(body[`birthday_day_${h.id}`] || '').padStart(2, '0');
-    // A day that month really has (Feb 29 only for a child born in a leap year; 2024 is a leap year).
-    const daysInMonth = new Date(Date.UTC(h.birth_month && h.birth_year ? h.birth_year : 2024, Number(month), 0)).getUTCDate();
-    const birthday = MONTH_DAY_RE.test(`${month}-${day}`) && Number(day) <= daysInMonth ? `${month}-${day}` : null;
+    // A saved birth month (locked) is also their birthday month.
+    const md = birthdayOf(h.birth_month || body[`birthday_month_${h.id}`], body[`birthday_day_${h.id}`], h.birth_month && h.birth_year);
     db.prepare('UPDATE household_members SET birthday = ?, share_birthday = ? WHERE id = ?')
-      .run(birthday, birthday && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
+      .run(md, md && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
   }
 }
 
 module.exports = {
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
   celebrations, updateCelebrations, DOOR_METHODS,
-  UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
+  UserError, PROFILE_FIELDS, REQUIRED_PROFILE, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,
   createFamilyInvite, cancelFamilyInvite, findFamilyInvite, familyJoinProblem, acceptFamilyInvite, removeHouseholdMember,

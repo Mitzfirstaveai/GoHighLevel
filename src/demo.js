@@ -104,15 +104,16 @@ function seedDemo(db, { photosDir } = {}) {
 
     const userId = {};
     for (const [email, first, last, phone, city, vatan, dob, level, family] of PEOPLE) {
+      // Members give their birth month and year; the day (dob's) is what they'd add under Celebrations.
       const id = Number(db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, phone,
-          address_line1, city, state, postal_code, native_place, date_of_birth)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AR', ?, ?, ?)`)
+          address_line1, city, state, postal_code, native_place, birth_year, birth_month, birthday)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AR', ?, ?, ?, ?, ?)`)
         .run(email, hash, email === 'admin@example.com' ? 'admin' : 'member', first, last, phone,
-          `${100 + Object.keys(userId).length * 37} Main St`, city, '72201', vatan, dob).lastInsertRowid);
+          `${100 + Object.keys(userId).length * 37} Main St`, city, '72201', vatan, Number(dob.slice(0, 4)), Number(dob.slice(5, 7)), dob.slice(5)).lastInsertRowid);
       userId[email] = id;
       for (const [name, relationship, birthYear] of family) {
-        // Children have a (locked) birth month too, so ages set Garba prices: Aarav 9 and Riya 10 come free.
-        const birthMonth = ['Son', 'Daughter'].includes(relationship) ? (CHILD_BIRTH_MONTHS[name] ?? 6) : null;
+        // Everyone has a (locked) birth month too; children's ages set Garba prices: Aarav 9 and Riya 10 come free.
+        const birthMonth = CHILD_BIRTH_MONTHS[name] ?? (name.length % 12) + 1;
         db.prepare('INSERT INTO household_members (user_id, name, relationship, birth_year, birth_month) VALUES (?, ?, ?, ?, ?)')
           .run(id, name, relationship, birthYear, birthMonth);
       }
@@ -148,14 +149,17 @@ function seedDemo(db, { photosDir } = {}) {
     const monthDay = (days) => localDateTime(days, '00:00').slice(5, 10);
     db.prepare(`UPDATE users SET anniversary = ?, share_anniversary = 1 WHERE email = 'member@example.com'`).run(`2008-${monthDay(0)}`);
     for (const [email, days] of [['raj.desai@example.com', 2], ['meena.mehta@example.com', 1]]) {
-      db.prepare(`UPDATE users SET date_of_birth = substr(date_of_birth, 1, 5) || ?, share_birthday = 1 WHERE email = ?`).run(monthDay(days), email);
+      db.prepare(`UPDATE users SET birthday = ?, birth_month = ?, share_birthday = 1 WHERE email = ?`).run(monthDay(days), Number(monthDay(days).slice(0, 2)), email);
     }
     // Diya's (locked) birth month matches her birthday; she's 12 either way, so Garba prices don't change.
     db.prepare(`UPDATE household_members SET birthday = ?, birth_month = ?, share_birthday = 1 WHERE name = 'Diya Shah'`).run(monthDay(4), Number(monthDay(4).slice(0, 2)));
     // Amit (Priya's husband) has his own family login, covered by Priya's Family membership.
     const amitRow = db.prepare(`SELECT id FROM household_members WHERE user_id = ? AND name = 'Amit Shah'`).get(userId['member@example.com']).id;
-    userId['amit.shah@example.com'] = Number(db.prepare(`INSERT INTO users (email, password_hash, first_name, last_name, phone, city, state, owner_id)
-      VALUES ('amit.shah@example.com', ?, 'Amit', 'Shah', '501-555-0112', 'Conway', 'AR', ?)`).run(hash, userId['member@example.com']).lastInsertRowid);
+    userId['amit.shah@example.com'] = Number(db.prepare(`INSERT INTO users (email, password_hash, first_name, last_name, phone,
+        address_line1, city, state, postal_code, native_place, birth_year, birth_month, owner_id)
+      SELECT 'amit.shah@example.com', ?, 'Amit', 'Shah', '501-555-0112', u.address_line1, u.city, u.state, u.postal_code, u.native_place,
+        h.birth_year, h.birth_month, u.id FROM users u JOIN household_members h ON h.id = ? WHERE u.id = ?`)
+      .run(hash, amitRow, userId['member@example.com']).lastInsertRowid);
     db.prepare('UPDATE household_members SET email = ?, login_user_id = ? WHERE id = ?').run('amit.shah@example.com', userId['amit.shah@example.com'], amitRow);
     const admin = userId['admin@example.com'];
     const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>

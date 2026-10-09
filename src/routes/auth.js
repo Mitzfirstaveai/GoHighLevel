@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const {
-  cleanProfile, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
+  cleanProfile, PROFILE_FIELDS, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
 } = require('../services');
 
 const router = express.Router();
@@ -113,13 +113,13 @@ function createAccount(req, form) {
     throw new UserError('You are already in our member records. Please ask a committee member to set up your login.');
   }
   if (existing) throw new UserError('An account with that email already exists. Try signing in.');
-  const profile = cleanProfile(form);
+  // Every member gives their phone, birth month and year, native place and address when signing up.
+  const profile = cleanProfile(form, { complete: true });
   // With no ADMIN_EMAIL configured, the very first account becomes the administrator.
   const noAdmin = !config.adminEmail && !db.prepare(`SELECT 1 FROM users WHERE role = 'admin'`).get();
-  return Number(db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, phone, city, native_place)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', profile.first_name,
-      profile.last_name, profile.phone, profile.city, profile.native_place).lastInsertRowid);
+  return Number(db.prepare(`INSERT INTO users (email, password_hash, role, ${PROFILE_FIELDS.join(', ')})
+                            VALUES (?, ?, ?, ${PROFILE_FIELDS.map(() => '?').join(', ')})`)
+    .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', ...PROFILE_FIELDS.map((f) => profile[f])).lastInsertRowid);
 }
 
 function startSession(req, res, next, userId, flash, to) {
@@ -152,11 +152,18 @@ router.post('/register', (req, res, next) => {
 // A member shares a private link so someone on their family list gets their own login: either a
 // new account, or (signed in) an existing account that has no membership or family of its own.
 
-function renderInvite(req, res, invite, form = {}, status = 200) {
+// A family login starts with what the family already gave: the family's address and native place,
+// and the birth month and year on the family list (all can be changed on the form).
+function inviteDefaults(db, invite) {
+  const owner = db.prepare('SELECT address_line1, address_line2, city, state, postal_code, native_place FROM users WHERE id = ?').get(invite.user_id);
   const [first, ...rest] = invite.name.split(' ');
+  return { ...owner, first_name: first, last_name: rest.join(' ') || invite.owner_last, birth_month: invite.birth_month, birth_year: invite.birth_year };
+}
+
+function renderInvite(req, res, invite, form = {}, status = 200) {
   res.status(status).render('auth/family_join', {
     title: 'Join your family', invite, token: req.params.token,
-    form: { first_name: first, last_name: rest.join(' ') || invite.owner_last, ...form },
+    form: { ...inviteDefaults(req.app.locals.db, invite), ...form },
     problem: req.user ? familyJoinProblem(req.app.locals.db, req.user, invite) : null,
   });
 }
@@ -180,8 +187,13 @@ router.post('/join/family/:token', (req, res, next) => {
   const invite = loadInvite(req, res);
   if (!invite) return;
   try {
-    const id = createAccount(req, req.body);
+    // Anything left empty is taken from what the family already gave (the form shows these filled in).
+    const given = Object.fromEntries(Object.entries(req.body).filter(([, v]) => String(v ?? '').trim()));
+    const id = createAccount(req, { ...inviteDefaults(req.app.locals.db, invite), ...given });
     acceptFamilyInvite(req.app.locals.db, { token: req.params.token, userId: id });
+    // Their birth month and year now also fill in the family list, if it didn't have them yet.
+    req.app.locals.db.prepare('UPDATE household_members SET birth_year = COALESCE(birth_year, ?), birth_month = COALESCE(birth_month, ?) WHERE id = ?')
+      .run(Number(req.body.birth_year) || null, Number(req.body.birth_month) || null, invite.id);
     startSession(req, res, next, id, familyWelcome(invite), '/dashboard');
   } catch (err) {
     if (!(err instanceof UserError)) throw err;

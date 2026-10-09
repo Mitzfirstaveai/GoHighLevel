@@ -21,7 +21,7 @@ const names = (rsvpId) => t.db.prepare('SELECT name FROM rsvp_attendees WHERE rs
 // A Family-level member with a spouse and two children on their profile.
 async function family(email, first) {
   const m = await t.register(email, first, 2); // Child 1, Child 2 + Family membership
-  await m.post('/profile/household', { name: `${first}'s Spouse`, relationship: 'Spouse' });
+  await m.post('/profile/household', { name: `${first}'s Spouse`, relationship: 'Spouse', birth_month: '4', birth_year: '1980' });
   return m;
 }
 
@@ -128,7 +128,7 @@ test('a family member gets their own login and can only add people not already r
   const s = new t.Client();
   res = await s.get(`/join/family/${token}`);
   assert.match(res.text, /Priya Member invited Priya&#39;s Spouse to have their own login/);
-  res = await s.post(`/join/family/${token}`, { email: 'spouse@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Sam', last_name: 'Member' });
+  res = await s.post(`/join/family/${token}`, { email: 'spouse@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Sam', last_name: 'Member', phone: '501-555-0142' });
   assert.equal(res.location, '/dashboard');
   res = await s.get('/dashboard');
   assert.match(res.text, /You&#39;re part of Priya Member&#39;s family membership/);
@@ -190,7 +190,7 @@ test('only the invite link joins a family: not a matching email, a used, expired
   t.db.prepare(`UPDATE household_members SET email = 'child2@test.org' WHERE id = ?`).run(child);
   const stranger = new t.Client();
   await stranger.get('/register');
-  await stranger.post('/register', { email: 'child2@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Not', last_name: 'Family' });
+  await stranger.post('/register', t.profile({ email: 'child2@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Not', last_name: 'Family' }));
   assert.equal(t.db.prepare('SELECT owner_id FROM users WHERE email = ?').get('child2@test.org').owner_id, null);
   assert.equal(t.db.prepare('SELECT login_user_id FROM household_members WHERE id = ?').get(child).login_user_id, null);
 

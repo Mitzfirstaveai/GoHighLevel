@@ -78,6 +78,9 @@ const COLUMNS = {
   state: ['state', 'province', 'state/province'],
   postal_code: ['zip', 'zip code', 'postal code', 'postcode', 'zip/postal code'],
   native_place: ['native place', 'vatan', 'village', 'native village'],
+  date_of_birth: ['date of birth', 'birth date', 'birthdate', 'dob'],
+  birth_month: ['birth month'],
+  birth_year: ['birth year'],
   level: ['membership level', 'level', 'membership'],
   status: ['membership status', 'status'],
   renewal_due: ['renewal due', 'renewal date', 'expires', 'expiry date', 'membership expires'],
@@ -135,7 +138,7 @@ function importContacts(db, csvText) {
     rows.slice(1).forEach((r, index) => {
       const line = index + 2;
       try {
-        const profile = cleanProfile(Object.fromEntries(PROFILE_FIELDS.map((f) => [f, get(r, f)])));
+        const profile = cleanProfile({ ...Object.fromEntries(PROFILE_FIELDS.map((f) => [f, get(r, f)])), date_of_birth: parseDate(get(r, 'date_of_birth')) });
         const email = cleanEmail(get(r, 'email'));
         const tags = cleanTags(get(r, 'tags'));
         const existing = email ? db.prepare('SELECT * FROM users WHERE email = ?').get(email) : null;

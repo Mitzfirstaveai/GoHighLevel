@@ -7,6 +7,7 @@ let db;
 let Client;
 let login;
 let register;
+let profile;
 let planId;
 let futureDate;
 let createEvent;
@@ -14,7 +15,7 @@ let rsvpFor;
 
 before(async () => {
   t = await startTestApp();
-  ({ db, Client, login, adminLogin, register, planId, futureDate, createEvent, rsvpFor } = t);
+  ({ db, Client, login, adminLogin, register, profile, planId, futureDate, createEvent, rsvpFor } = t);
 });
 
 after(() => t.close());
@@ -40,9 +41,9 @@ test('forms without a valid CSRF token are rejected', async () => {
 
 test('member edits profile and family; admin sees the details', async () => {
   const member = await register('priya@test.org', 'Priya');
-  let res = await member.post('/profile', {
-    first_name: 'Priya', last_name: 'Shah', phone: '555-1234', city: 'Edison', state: 'NJ', native_place: 'Surat',
-  });
+  let res = await member.post('/profile', profile({
+    first_name: 'Priya', last_name: 'Shah', phone: '732-555-1234', city: 'Edison', state: 'NJ', postal_code: '08817', native_place: 'Surat',
+  }));
   assert.equal(res.status, 302);
   await member.post('/profile/household', { name: 'Diya Shah', relationship: 'Daughter', birth_month: '3', birth_year: '2014' });
 
@@ -51,11 +52,11 @@ test('member edits profile and family; admin sees the details', async () => {
   assert.match(res.text, /Shah, Priya/);
   const id = db.prepare(`SELECT id FROM users WHERE email = 'priya@test.org'`).get().id;
   res = await admin.get(`/admin/members/${id}`);
-  assert.match(res.text, /555-1234/);
+  assert.match(res.text, /732-555-1234/);
   assert.match(res.text, /Diya Shah/);
   res = await admin.get('/admin/members.csv');
   assert.match(res.headers.get('content-type'), /text\/csv/);
-  assert.match(res.text, /Priya,Shah,priya@test\.org,555-1234/);
+  assert.match(res.text, /Priya,Shah,priya@test\.org,732-555-1234/);
   assert.match(res.text, /Diya Shah \(Daughter\)/);
 });
 
@@ -201,7 +202,6 @@ test('membership levels: join, members-only events, renewal extends to next year
   let res = await m.follow(await m.post(`/events/${eventId}/rsvp`, { party_size: '1' }));
   assert.match(res.text, /active membership/);
 
-  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' }); // Individual is 18+
   res = await m.get('/membership');
   assert.match(res.text, new RegExp(`Joining now covers you through <strong>Dec 31, ${new Date().getFullYear()}`));
   res = await m.post('/membership/pay', { plan_id: String(planId('Individual')) });
@@ -229,14 +229,18 @@ test('membership levels: join, members-only events, renewal extends to next year
   assert.equal((await other.post(`/pay/${paymentId}/demo`)).location, '/dashboard');
 });
 
-test('age-restricted level needs a qualifying date of birth', async () => {
+test('age-restricted level needs a qualifying birth month and year (65 from the birthday month)', async () => {
   const m = await register('senior@test.org');
   let res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) }));
-  assert.match(res.text, /Add your date of birth/);
-  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1990-05-01' });
+  assert.match(res.text, /aged 65 or older/);
+  const [y, mo] = require('../src/util').today().split('-').map(Number);
+  // Turns 65 next month: not yet.
+  const next = mo === 12 ? [y - 64, 1] : [y - 65, mo + 1];
+  await m.post('/profile', profile({ birth_year: String(next[0]), birth_month: String(next[1]) }));
   res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) }));
   assert.match(res.text, /aged 65 or older/);
-  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1950-05-01' });
+  // Turns 65 this month: yes.
+  await m.post('/profile', profile({ birth_year: String(y - 65), birth_month: String(mo) }));
   res = await m.post('/membership/pay', { plan_id: String(planId('Senior Citizen')) });
   assert.match(res.location, /\/pay\/\d+\/demo/);
 });
@@ -244,8 +248,7 @@ test('age-restricted level needs a qualifying date of birth', async () => {
 test('membership level limits who can be on the profile; upgrade pays the difference', async () => {
   const admin = await adminLogin();
   const m = await register('couple@test.org');
-  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
-  await m.post('/profile', { first_name: 'Test', last_name: 'Member', date_of_birth: '1985-03-12' });
+  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse', birth_month: '2', birth_year: '1986' });
 
   // A level that doesn't fit the listed family can't be chosen.
   let res = await m.follow(await m.post('/membership/pay', { plan_id: String(planId('Individual')) }));
@@ -257,7 +260,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
   // Married Couple excludes children and parents.
   res = await m.follow(await m.post('/profile/household', { name: 'Dev', relationship: 'Son', birth_month: '5', birth_year: '2012' }));
   assert.match(res.text, /Married Couple membership covers you and your spouse, so Dev can&#39;t be added\. Upgrade to Family/);
-  res = await m.follow(await m.post('/profile/household', { name: 'Second Wife', relationship: 'Spouse' }));
+  res = await m.follow(await m.post('/profile/household', { name: 'Second Wife', relationship: 'Spouse', birth_month: '4', birth_year: '1980' }));
   assert.match(res.text, /can&#39;t be added/);
   assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM household_members h JOIN users u ON u.id = h.user_id WHERE u.email = 'couple@test.org'`).get().n, 1);
 
@@ -280,7 +283,7 @@ test('membership level limits who can be on the profile; upgrade pays the differ
 
   await m.post('/profile/household', { name: 'Dev', relationship: 'Son', birth_month: '5', birth_year: '2012' });
   await m.post('/profile/household', { name: 'Riya', relationship: 'Daughter', birth_month: '9', birth_year: '2009' });
-  res = await m.follow(await m.post('/profile/household', { name: 'Papa', relationship: 'Father' }));
+  res = await m.follow(await m.post('/profile/household', { name: 'Papa', relationship: 'Father', birth_month: '4', birth_year: '1950' }));
   assert.match(res.text, /Upgrade to Family with Parents/);
   res = await m.get(`/events/${eventId}`);
   assert.equal(choosable(res.text), 4); // people who can be ticked on the RSVP form
@@ -299,7 +302,7 @@ test('without an active membership a member can only RSVP for themselves', async
   const admin = await adminLogin();
   const eventId = await createEvent(admin, { title: 'Open Event' });
   const m = await register('nomember@test.org');
-  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' });
+  await m.post('/profile/household', { name: 'Nisha', relationship: 'Spouse', birth_month: '2', birth_year: '1986' });
   const res = await m.get(`/events/${eventId}`);
   assert.equal(choosable(res.text), 1); // people who can be ticked on the RSVP form
   assert.match(res.text, /Pay your membership<\/a> to bring your family/);
@@ -433,13 +436,13 @@ test('About, Committee, Sponsors and Contact pages are public', async () => {
 
 test('member directory respects privacy settings', async () => {
   const shown = await register('listed@test.org', 'Listed');
-  await shown.post('/profile', { first_name: 'Listed', last_name: 'Person', phone: '501-555-7777', city: 'Cabot' });
+  await shown.post('/profile', profile({ first_name: 'Listed', last_name: 'Person', phone: '501-555-7777', city: 'Cabot' }));
   await shown.post('/profile/privacy', { directory_listed: '1', directory_contact: '1' });
   const hidden = await register('hidden@test.org', 'Hidden');
-  await hidden.post('/profile', { first_name: 'Hidden', last_name: 'Person' });
+  await hidden.post('/profile', profile({ first_name: 'Hidden', last_name: 'Person' }));
   await hidden.post('/profile/privacy', {});
   const quiet = await register('quiet@test.org', 'Quiet');
-  await quiet.post('/profile', { first_name: 'Quiet', last_name: 'Person', phone: '501-555-8888' });
+  await quiet.post('/profile', profile({ first_name: 'Quiet', last_name: 'Person', phone: '501-555-8888' }));
 
   const res = await quiet.get('/directory?q=Person');
   assert.match(res.text, /Listed Person/);

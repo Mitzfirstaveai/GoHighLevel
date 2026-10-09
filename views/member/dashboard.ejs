@@ -2,6 +2,15 @@
 <%# Home, in order of what members need most: their next event (green on the day), status tiles, GSA announcement,
     celebrations, what's on, then Gujarat & India headlines to read. %>
 <div class="page-head"><h1><%= t('Namaste, {name}', { name: user.first_name }) %> 🙏</h1></div>
+<%# Signed up before these were required, or added by the committee: ask for what's missing. %>
+<% if (missingProfile.length || missingBirths.length) { %>
+  <section class="card complete-profile">
+    <h2>📝 <%= t('Please complete your profile') %></h2>
+    <% if (missingProfile.length) { %><p><%= t('Still needed: {fields}.', { fields: { list: missingProfile } }) %></p><% } %>
+    <% if (missingBirths.length) { %><p><%= t('Birth month and year for {names} (Family members).', { names: { list: missingBirths } }) %></p><% } %>
+    <a class="btn" href="/profile<%= missingProfile.length ? '' : '#family' %>"><%= t('Complete my profile') %></a>
+  </section>
+<% } %>
 <%- include('../partials/install-card') %>
 <div class="home-top">
   <%# Your next event: replaces a separate ticket tile, event list and event-day banner. Turns green on the day. %>

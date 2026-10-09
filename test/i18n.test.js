@@ -108,10 +108,10 @@ test('messages and errors appear in Gujarati', async () => {
   const c = await signIn('member@example.com');
   await c.get('/prefs?lang=gu&back=/');
   // Family level does not cover parents: the refusal is translated, including the level names.
-  let res = await c.follow(await c.post('/profile/household', { name: 'Papa', relationship: 'Father' }));
+  let res = await c.follow(await c.post('/profile/household', { name: 'Papa', relationship: 'Father', birth_month: '4', birth_year: '1980' }));
   assert.match(res.text, /તમારા પરિવાર સભ્યપદમાં તમે, તમારા જીવનસાથી અને તમારાં અપરિણીત બાળકો સમાવિષ્ટ છે, એટલે Papaને ઉમેરી શકાશે નહીં/);
   assert.match(res.text, /માતા-પિતા સાથે પરિવારમાં અપગ્રેડ કરો/);
-  res = await c.follow(await c.post('/profile/household', { name: 'Nisha', relationship: 'Spouse' }));
+  res = await c.follow(await c.post('/profile/household', { name: 'Nisha', relationship: 'Spouse', birth_month: '4', birth_year: '1980' }));
   assert.doesNotMatch(res.text, /class="flash error"[^<]*[A-Za-z]{6}/); // no English error text
   res = await c.get('/no-such-page');
   assert.match(res.text, /આ પેજ અસ્તિત્વમાં નથી/);

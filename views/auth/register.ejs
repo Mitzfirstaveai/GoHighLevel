@@ -4,15 +4,10 @@
   <h1 style="text-align:center"><%= t('Join {org}', { org: t.data(orgName) }) %></h1>
   <form method="post" action="/register" class="stack">
     <%- include('../partials/csrf') %>
+    <%- include('../partials/profile-fields', { p: form, required: true, email: true }) %>
     <div class="fields">
-      <label><%= t('First name') %> <input name="first_name" value="<%= form.first_name || '' %>" required autocomplete="given-name"></label>
-      <label><%= t('Last name') %> <input name="last_name" value="<%= form.last_name || '' %>" required autocomplete="family-name"></label>
-      <label><%= t('Email') %> <input type="email" name="email" value="<%= form.email || '' %>" required autocomplete="email"></label>
-      <label><%= t('Phone') %> <input type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></label>
-      <label><%= t('City') %> <input name="city" value="<%= form.city || '' %>" autocomplete="address-level2"></label>
-      <label><%= t('Native place (Vatan)') %> <input name="native_place" value="<%= form.native_place || '' %>" placeholder="<%= t('e.g. Nadiad') %>"></label>
-      <label><%= t('Password (at least 8 characters)') %> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-      <label><%= t('Confirm password') %> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
+      <label><span><%= t('Password (at least 8 characters)') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
+      <label><span><%= t('Confirm password') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
     </div>
     <button class="btn big"><%= t('Create account') %></button>
   </form>

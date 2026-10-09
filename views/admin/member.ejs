@@ -29,7 +29,7 @@
     <% for (const h of household) { %>
       <div class="actions" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
         <span><%= h.name %><%= h.relationship ? ` — ${h.relationship}` : '' %><%= h.birth_year ? ` (born ${h.birth_month ? new Date(Date.UTC(h.birth_year, h.birth_month - 1, 1)).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }) + ' ' : ''}${h.birth_year})` : '' %>
-          <% if (['Son', 'Daughter'].includes(h.relationship) && !(h.birth_year && h.birth_month)) { %><span class="badge warn">Birth month/year missing</span><% } %>
+          <% if (!(h.birth_year && h.birth_month)) { %><span class="badge warn">Birth month/year missing</span><% } %>
           <% if (h.login_user_id) { %><a class="badge ok" href="/admin/members/<%= h.login_user_id %>">Own login</a><% } else if (h.invite_token) { %><span class="badge neutral">Invite link created</span><% } %></span>
         <form method="post" action="/admin/members/<%= member.id %>/household/<%= h.id %>/delete" class="inline" onsubmit="return confirm('Remove <%= h.name %>?')"><%- include('../partials/csrf') %><button class="btn secondary small">Remove</button></form>
       </div>
