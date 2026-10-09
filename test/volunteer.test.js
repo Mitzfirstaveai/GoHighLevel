@@ -173,7 +173,11 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   // At the door: big amount due, and the volunteer records the cash.
   res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
   assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*They chose to pay at the door/);
-  assert.match(res.text, /Check in without payment/);
+  assert.doesNotMatch(res.text, /Check in without payment|<button class="btn big ok">Check in<\/button>/, 'no way in without paying');
+  // Even sent directly, check-in is refused while money is owed.
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '1' }));
+  assert.match(res.text, /Payment is still owed for this RSVP/);
+  assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_at, null);
   assert.match((await volunteer.get(`/admin/checkin?event=${paid}&q=Dev`)).text, /\$15\.00 due/);
   // Volunteers still can't use the admin pages; the door has its own button.
   res = await volunteer.post(`/admin/rsvps/${rsvp.id}/record-payment`, { method: 'cash' });

@@ -765,6 +765,8 @@ function checkIn(db, { token, guests, adminId }) {
   if (rsvp.status === 'cancelled') throw new UserError('This RSVP was cancelled.');
   if (rsvp.status === 'pending_payment') throw new UserError('Payment is still outstanding for this RSVP.');
   if (rsvp.status === 'waitlisted') throw new UserError('This RSVP is on the waitlist and has no seat yet.');
+  // Paying at the door: the money is recorded first (the door's Cash / Check / Other buttons do both).
+  if (amountDue(db, rsvp) > 0) throw new UserError('Payment is still owed for this RSVP. Record the payment to check them in.');
   if (!Number.isInteger(guests) || guests < 1 || guests > rsvp.party_size) {
     throw new UserError('Guests arriving must be between 1 and {n}.', { n: rsvp.party_size });
   }

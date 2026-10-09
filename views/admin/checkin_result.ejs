@@ -49,7 +49,8 @@
     <% } %>
 
     <%# Payment, shown big: PAID (and how), or how much to collect. Collecting at the door is one tap:
-        Cash / Check / Other records the money and checks the family in (then Quick mode returns to the camera). %>
+        Cash / Check / Other records the money and checks the family in (then Quick mode returns to the camera).
+        Nobody who still owes can be checked in without paying. %>
     <% const canCheckIn = ['confirmed', 'pending_payment'].includes(rsvp.status) && !rsvp.checked_in_at; %>
     <% const arriving = () => { %>
       <label><%= t('How many people are arriving?') %>
@@ -74,13 +75,6 @@
             </div>
           </form>
         </div>
-        <% if (rsvp.status === 'confirmed' && canCheckIn) { %>
-          <form method="post" action="/admin/checkin/<%= token %>" class="stack">
-            <%- include('../partials/csrf') %>
-            <input type="hidden" name="guests" value="<%= rsvp.party_size %>">
-            <button class="btn secondary" onclick="this.form.guests.value = document.querySelector('.pay-panel select[name=guests]').value; return confirm(<%= JSON.stringify(t('They still owe {amount}. Check them in anyway?', { amount: money(due) })) %>)"><%= t('Check in without payment') %></button>
-          </form>
-        <% } %>
       <% } else { %>
         <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
         <div class="pay-panel paid"><div class="pay-big">✔ <%= t('PAID') %></div>
