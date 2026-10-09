@@ -312,7 +312,7 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
     couponCode: String(req.body.coupon || '').trim(),
     body: req.body,
     joinWaitlist: Boolean(req.body.waitlist),
-    // Paid events: "online" (card now) or "door" (cash or check at the entrance). Not sent from My tickets.
+    // Paid events: "online" (card now) or "door" (cash at the entrance). Not sent from My tickets.
     payAtDoor: req.body.pay === 'door' ? true : req.body.pay === 'online' ? false : undefined,
   });
   const n = rsvp.party_size;
@@ -333,7 +333,7 @@ router.post('/events/:id/rsvp', requireAuth, async (req, res) => {
     return res.redirect(`/tickets/${rsvp.id}`);
   }
   if (rsvp.status === 'confirmed') { // paying at the door
-    req.flash('success', 'You are registered! Please pay {amount} at the door (cash or check) and show this QR code.', { amount: req.app.locals.money(amountDue) });
+    req.flash('success', 'You are registered! Please pay {amount} in cash at the door and show this QR code.', { amount: req.app.locals.money(amountDue) });
     return res.redirect(`/tickets/${rsvp.id}`);
   }
   const payment = svc.createEventPayment(db, { rsvpId: rsvp.id, userId: req.user.id });
@@ -355,13 +355,13 @@ router.post('/events/:id/pay', requireAuth, async (req, res) => {
   res.redirect(303, url);
 });
 
-// Started paying online but would rather pay cash or check at the door: the QR code is ready now.
+// Started paying online but would rather pay cash at the door: the QR code is ready now.
 router.post('/events/:id/pay-at-door', requireAuth, (req, res) => {
   const { db } = req.app.locals;
   const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ?`).get(req.params.id, req.user.id);
   if (!rsvp) throw new svc.UserError('Please RSVP first.');
   const updated = svc.payAtDoorInstead(db, { rsvpId: rsvp.id, userId: req.user.id });
-  req.flash('success', 'You are registered! Please pay {amount} at the door (cash or check) and show this QR code.', { amount: req.app.locals.money(svc.amountDue(db, updated)) });
+  req.flash('success', 'You are registered! Please pay {amount} in cash at the door and show this QR code.', { amount: req.app.locals.money(svc.amountDue(db, updated)) });
   res.redirect(`/tickets/${rsvp.id}`);
 });
 

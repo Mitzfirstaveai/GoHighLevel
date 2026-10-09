@@ -638,7 +638,7 @@ const seatedStatus = (due, payAtDoor) => (due === 0 || payAtDoor ? 'confirmed' :
 
 function upsertRsvp(db, {
   eventId, userId, people = null, partySize, guests = 0, couponCode = '', body = {}, joinWaitlist = false, keepAnswers = false,
-  payAtDoor, // true: cash/check at the door; false: online; undefined: keep the earlier choice (e.g. from My tickets)
+  payAtDoor, // true: cash at the door; false: online; undefined: keep the earlier choice (e.g. from My tickets)
   selfType, // a non-member registering themselves: 'student' or 'outofstate' (checked at the door); undefined: keep
 }) {
   return transaction(db, () => {
@@ -797,6 +797,8 @@ function payAtDoorInstead(db, { rsvpId, userId }) {
 
 // Money collected for an RSVP (at the door or by the committee): records what's still owed as paid.
 function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
+  // Event fees are paid online or in cash at the door; checks aren't accepted ("other" covers e.g. Zelle).
+  if (!['cash', 'other'].includes(method)) throw new UserError('Event fees are cash only at the door — checks are not accepted.');
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
   if (!rsvp) throw new UserError('RSVP not found.');
   const due = amountDue(db, rsvp);
@@ -805,7 +807,7 @@ function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
   db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event' AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
   const payment = createPayment(db, { userId: rsvp.user_id, kind: 'event', referenceId: rsvp.id, amountCents: due,
     description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}` });
-  markPaymentPaid(db, payment.id, { method: ['cash', 'check', 'other'].includes(method) ? method : 'cash', recordedBy });
+  markPaymentPaid(db, payment.id, { method, recordedBy });
   return { due, payment };
 }
 

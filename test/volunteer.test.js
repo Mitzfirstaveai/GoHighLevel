@@ -166,7 +166,7 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   assert.equal(res.location, `/tickets/${rsvp.id}`);
   assert.deepEqual([rsvp.status, rsvp.pay_at_door], ['confirmed', 1]);
   res = await m.get(res.location);
-  assert.match(res.text, /Please pay \$15\.00 at the door \(cash or check\)/);
+  assert.match(res.text, /Please pay \$15\.00 in cash at the door/);
   assert.match(res.text, /data:image\/png;base64/, 'QR code shown before paying');
   assert.match((await m.get('/dashboard')).text, /Pay \$15\.00 at the door/);
 
@@ -182,6 +182,11 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   // Volunteers still can't use the admin pages; the door has its own button.
   res = await volunteer.post(`/admin/rsvps/${rsvp.id}/record-payment`, { method: 'cash' });
   assert.equal(res.location, '/admin/checkin');
+  // Event fees are cash at the door: no Check button, and a check is refused even if sent directly.
+  assert.doesNotMatch((await volunteer.get(`/admin/checkin/${rsvp.qr_token}`)).text, /value="check"/);
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'check', checkin: '1', guests: '1' }));
+  assert.match(res.text, /Event fees are cash only at the door — checks are not accepted/);
+  assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_at, null);
   // One tap: Cash records the money and checks them in (Quick mode then returns to the camera).
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
   assert.match(res.text, /Recorded \$15\.00 paid by cash and checked in Dev Member — 1 person/);

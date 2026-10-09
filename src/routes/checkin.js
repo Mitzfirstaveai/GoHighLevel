@@ -110,16 +110,16 @@ router.get('/:token', (req, res) => {
   });
 });
 
-// Money collected at the door (cash, check or other) for a family that still owes. With `checkin`,
+// Money collected at the door (cash, or other such as Zelle; no checks) for a family that still owes. With `checkin`,
 // the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
   const { db } = req.app.locals;
   const back = `/admin/checkin/${encodeURIComponent(req.params.token)}`;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
-  const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
+  const method = String(req.body.method || 'cash');
   const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
-  const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', check: 'check', other: 'other' }[method]) };
+  const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', other: 'other' }[method]) };
   if (!req.body.checkin) {
     req.flash('success', 'Recorded {amount} paid by {method}.', vars);
     return res.redirect(back);

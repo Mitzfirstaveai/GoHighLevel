@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS rsvps (
   coupon_code TEXT,
   answers TEXT NOT NULL DEFAULT '[]',                   -- JSON: answers to the event's questions
   status TEXT NOT NULL CHECK (status IN ('pending_payment', 'confirmed', 'waitlisted', 'cancelled')),
-  pay_at_door INTEGER NOT NULL DEFAULT 0,               -- 1: paying cash/check at the door, so confirmed (with a QR code) while still owing
+  pay_at_door INTEGER NOT NULL DEFAULT 0,               -- 1: paying cash at the door, so confirmed (with a QR code) while still owing
   qr_token TEXT NOT NULL UNIQUE,
   notes TEXT,
   checked_in_at TEXT,

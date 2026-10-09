@@ -527,12 +527,12 @@ router.get('/events/:id/attendees.csv', (req, res) => {
   res.attachment(`${slug}-attendees.csv`).type('text/csv').send(toCsv(rows));
 });
 
-// Collect an event fee in person (cash/check) — confirms the RSVP and issues the QR code.
+// Collect an event fee in person (cash; no checks for events) — confirms the RSVP and issues the QR code.
 router.post('/rsvps/:id/record-payment', (req, res) => {
   const { db } = req.app.locals;
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(req.params.id);
   if (!rsvp) return notFound(res, 'RSVP');
-  const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
+  const method = String(req.body.method || 'cash');
   const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
   req.flash('success', `Recorded ${req.app.locals.money(due)} ${method} payment. RSVP confirmed.`);
   const back = String(req.body.return_to || '');

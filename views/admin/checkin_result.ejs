@@ -58,7 +58,7 @@
     <% } %>
 
     <%# Payment, shown big: PAID (and how), or how much to collect. Collecting at the door is one tap:
-        Cash / Check / Other records the money and checks the family in (then Quick mode returns to the camera).
+        Cash / Other records the money (no checks for events) and checks the family in (then Quick mode returns to the camera).
         Nobody who still owes can be checked in without paying. %>
     <% const canCheckIn = ['confirmed', 'pending_payment'].includes(rsvp.status) && !rsvp.checked_in_at; %>
     <% const arriving = () => { %>
@@ -79,7 +79,6 @@
             <div class="pay-buttons">
               <span class="small"><%= canCheckIn ? t('Collected {amount} — tap how they paid to check them in:', { amount: money(due) }) : t('Collected {amount} by:', { amount: money(due) }) %></span>
               <button class="btn big" name="method" value="cash"><%= t('Cash') %></button>
-              <button class="btn big" name="method" value="check"><%= t('Check') %></button>
               <button class="btn secondary" name="method" value="other"><%= t('Other (card, Zelle…)') %></button>
             </div>
           </form>
