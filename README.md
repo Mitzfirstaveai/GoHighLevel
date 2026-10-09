@@ -91,7 +91,8 @@ Other sample members use the password `demo1234`.
 **As a member (best shown on a phone)**
 1. Tap **ગુજરાતી** at the top — the whole member app switches to Gujarati. Tap **A+** to make the text bigger.
    Tap the moon/sun button to switch between dark and light colors. (Also under *More → Language, text size and colors*.)
-2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen).
+2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen). Closing it hides
+   it for 30 days; *More* always has it.
 3. *Tickets*: the Navratri Garba #1 QR ticket for Priya, Diya and Aarav — the names are on the ticket (and shown at the
    door). Tap **Change who's coming** to add or remove someone; a new QR code replaces the old one.
 4. *Events → Diwali Dinner & Cultural Program*: tick 3 family members + 2 guests, pick a dietary preference, enter coupon
@@ -131,8 +132,9 @@ tickets; that member app has no Admin link and no access to other families' tick
 
 **As a door volunteer** (Dhruv Amin in the demo)
 1. Open **Committee & volunteer sign-in** and tap **Door volunteer**. The app opens straight into door check-in: scan
-   tickets, search for a family by name or phone, check people in. There are no member menus and no admin pages, and
-   tickets that still owe money send the family to a committee member.
+   tickets, search for a family by name or phone, check people in. There are no member menus and no admin pages. A ticket that
+   still owes money shows the amount due: the volunteer records cash, Venmo, PayPal or Zelle, or the family scans a
+   QR code and pays on their own phone (the screen turns green when it arrives).
 2. **Sign out** returns to the committee & volunteer sign-in, ready for the next volunteer.
 3. The same person signing in on the normal member sign-in gets their ordinary member app — no check-in anywhere.
 4. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer** (this also adds their

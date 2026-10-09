@@ -1,6 +1,8 @@
-<%# "Get the GSA app": on Home and on both sign-in pages, so people can install before signing in.
-    app.js shows it (unless already installed or dismissed) and fills in the steps for the device. %>
-<div class="card install-card" id="install-card" hidden<% if (typeof narrow !== 'undefined' && narrow) { %> style="max-width:460px;margin:20px auto 0"<% } %>>
+<%# "Get the GSA app": on Home and on both sign-in pages, so people can install before signing in, and always
+    on More (always: true, no ✕). app.js shows it (unless installed, or closed in the last 30 days) and fills in
+    the steps for the device. %>
+<% const alwaysShown = locals.always === true; %>
+<div class="card install-card" id="install-card" hidden<% if (alwaysShown) { %> data-always<% } %><% if (typeof narrow !== 'undefined' && narrow) { %> style="max-width:460px;margin:20px auto 0"<% } %>>
   <img src="/icon-192.png" alt="" width="48" height="48">
   <div style="flex:1">
     <strong><%= t('Get the GSA app') %></strong>
@@ -11,5 +13,5 @@
     <div class="small install-steps" data-steps="other" hidden><%= t('Open your browser menu (⋮ or ⋯) and choose "Install app" or "Add to Home screen".') %> <%= t('This does not work in a private or incognito window.') %></div>
   </div>
   <button class="btn small" data-install><%= t('Install') %></button>
-  <button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button>
+  <% if (!alwaysShown) { %><button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button><% } %>
 </div>

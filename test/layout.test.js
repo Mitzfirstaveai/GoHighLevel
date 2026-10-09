@@ -98,6 +98,15 @@ test('the install card has steps for iPhone/iPad, Mac Safari and other browsers,
   const visitor = new t.Client();
   assert.match((await visitor.get('/login')).text, /id="install-card"[\s\S]*your QR tickets work even without signal[\s\S]*<h1[^>]*>Sign in<\/h1>/);
   assert.match((await visitor.get('/admin/login')).text, /id="install-card"[\s\S]*opens straight to the admin area or door check-in[\s\S]*data-steps="ios"/);
+
+  // Home can be closed (it comes back after 30 days); More always offers it, with no ✕.
+  assert.match(card, /data-dismiss/);
+  const more = (await m.get('/more')).text;
+  assert.match(more, /id="install-card" hidden data-always[\s\S]*Get the GSA app[\s\S]*data-install/);
+  assert.doesNotMatch(more, /data-dismiss/);
+  const adminMore = (await (await t.adminLogin()).get('/admin/more')).text;
+  assert.match(adminMore, /id="install-card" hidden data-always[\s\S]*opens straight to the admin area/);
+  assert.doesNotMatch(adminMore, /data-dismiss/);
 });
 
 test('checkout offers card, PayPal and Venmo; the choice shows on the receipt, at the door and in QuickBooks', async () => {

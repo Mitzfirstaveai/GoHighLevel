@@ -1,5 +1,6 @@
 <%- include('../partials/head') %>
 <div class="page-head"><h1><%= t('More') %></h1></div>
+<%- include('../partials/install-card', { always: true }) %>
 <div class="card menu-list">
   <a href="/profile"><%- include('../partials/icon', { name: 'user' }) %><%= t('My profile & family') %></a>
   <a href="/payments"><%- include('../partials/icon', { name: 'dollar' }) %><%= t('My payments') %></a>
