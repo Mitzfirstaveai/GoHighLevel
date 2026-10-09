@@ -4,13 +4,23 @@
   // Members' and admins' menus: when the big menu buttons scroll off screen, show the slim pinned menu instead.
   const bigMenu = document.querySelector('.member-menu, .admin-menu');
   const slimMenu = document.querySelector('[data-compact-menu]');
-  if (bigMenu && slimMenu && 'IntersectionObserver' in window) {
+  if (bigMenu && slimMenu) {
     const header = document.querySelector('.topbar');
-    // Sits just under the pinned header (logo, language, text size, Sign out), whatever its height.
-    new IntersectionObserver(([entry]) => {
-      slimMenu.style.top = `${header ? header.offsetHeight : 0}px`;
-      slimMenu.hidden = entry.isIntersecting;
-    }, { rootMargin: `-${header ? header.offsetHeight : 0}px 0px 0px 0px` }).observe(bigMenu);
+    // Shown only once the big buttons have gone up under the pinned header; it sits just below the
+    // header (logo, language, text size, Sign out), whatever its height. Measured on every scroll,
+    // so a header that changes height while the page loads (fonts, iPad Safari) can't fool it.
+    let queued = false;
+    const update = () => {
+      queued = false;
+      const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+      slimMenu.style.top = `${Math.max(0, Math.round(headerBottom))}px`;
+      slimMenu.hidden = bigMenu.getBoundingClientRect().bottom > headerBottom + 1;
+    };
+    const later = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+    window.addEventListener('scroll', later, { passive: true });
+    window.addEventListener('resize', later);
+    window.addEventListener('load', later);
+    update();
   }
 
   // Donate: typing an "Other amount" selects "Other"; choosing a preset amount clears the typed one.
@@ -36,19 +46,31 @@
   let dismissed = false;
   try { dismissed = localStorage.getItem('gsa-install-dismissed') === '1'; } catch { /* private mode */ }
   if (standalone || dismissed) return;
-  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  // iPads (iPadOS 13+) say they are a Mac, so also count a Mac with a touch screen as an iPad.
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const macSafari = !ios && /Macintosh/.test(navigator.userAgent) && /Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|Edg|Firefox/.test(navigator.userAgent);
+  const kind = ios ? 'ios' : macSafari ? 'mac' : 'other';
   card.hidden = false;
-  card.querySelector('[data-ios]').hidden = !isIos;
+  const steps = card.querySelector(`[data-steps="${kind}"]`);
   const button = card.querySelector('[data-install]');
+  // iPhone/iPad can only install from the Share menu, so show those steps straight away.
+  if (ios) { steps.hidden = false; button.hidden = true; }
   let prompt = null;
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); prompt = e; button.hidden = false; });
-  button.addEventListener('click', async () => {
-    if (!prompt) return;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); prompt = e; });
+  // "Install" (or tapping the card) opens the browser's own install prompt where there is one
+  // (Chrome, Edge, Samsung Internet); otherwise it shows the steps for this device.
+  const install = async () => {
+    if (!prompt) { steps.hidden = false; return; }
     prompt.prompt();
-    await prompt.userChoice;
-    card.hidden = true;
-  });
-  card.querySelector('[data-dismiss]').addEventListener('click', () => {
+    const { outcome } = await prompt.userChoice;
+    prompt = null;
+    if (outcome === 'accepted') card.hidden = true;
+  };
+  button.addEventListener('click', (e) => { e.stopPropagation(); install(); });
+  card.addEventListener('click', (e) => { if (!e.target.closest('[data-dismiss]')) install(); });
+  window.addEventListener('appinstalled', () => { card.hidden = true; });
+  card.querySelector('[data-dismiss]').addEventListener('click', (e) => {
+    e.stopPropagation();
     card.hidden = true;
     try { localStorage.setItem('gsa-install-dismissed', '1'); } catch { /* ignore */ }
   });

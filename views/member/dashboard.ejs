@@ -7,9 +7,12 @@
   <div style="flex:1">
     <strong><%= t('Get the GSA app') %></strong>
     <div class="small muted"><%= t('Add it to your home screen — your QR tickets work even without signal.') %></div>
-    <div class="small" data-ios hidden><%= t('On iPhone: tap the Share button, then "Add to Home Screen".') %></div>
+    <%# app.js shows the steps for this device when "Install" can't open the browser's own install prompt. %>
+    <div class="small install-steps" data-steps="ios" hidden><%= t('On iPhone or iPad: tap the Share button (square with an arrow), then "Add to Home Screen".') %></div>
+    <div class="small install-steps" data-steps="mac" hidden><%= t('In Safari on a Mac: choose File, then "Add to Dock".') %></div>
+    <div class="small install-steps" data-steps="other" hidden><%= t('Open your browser menu (⋮ or ⋯) and choose "Install app" or "Add to Home screen".') %> <%= t('This does not work in a private or incognito window.') %></div>
   </div>
-  <button class="btn small" data-install hidden><%= t('Install') %></button>
+  <button class="btn small" data-install><%= t('Install') %></button>
   <button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button>
 </div>
 <div class="home-top">

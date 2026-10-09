@@ -85,3 +85,12 @@ test('tickets show a short code the door can type when the QR code will not scan
   res = await admin.follow(await admin.post('/admin/checkin/lookup', { code: 'ZZZ-ZZZ' }));
   assert.match(res.text, /No ticket with code ZZZ-ZZZ for this week&#39;s events/);
 });
+
+test('the install card has steps for iPhone/iPad, Mac Safari and other browsers, and an Install button', async () => {
+  const m = await t.register('install@test.org');
+  const card = (await m.get('/dashboard')).text.split('id="install-card"')[1].split('</div>\n<div class="home-top">')[0];
+  for (const kind of ['ios', 'mac', 'other']) assert.match(card, new RegExp(`data-steps="${kind}" hidden`), kind);
+  assert.match(card, /On iPhone or iPad: tap the Share button/);
+  assert.match(card, /private or incognito window/);
+  assert.match(card, /<button class="btn small" data-install>Install<\/button>/, 'Install is always there (app.js decides what it does)');
+});
