@@ -4,6 +4,7 @@
 // or other admin pages.
 // Mounted at /admin/checkin because members' QR codes link to /admin/checkin/<code>.
 const express = require('express');
+const QRCode = require('qrcode');
 const { requireCheckin, canCheckIn } = require('../middleware');
 const svc = require('../services');
 const { parseIntInRange, nowLocal } = require('../util');
@@ -86,8 +87,8 @@ router.post('/lookup', (req, res) => {
   res.redirect(`/admin/checkin/${token}`);
 });
 
-router.get('/:token', (req, res) => {
-  const { db } = req.app.locals;
+router.get('/:token', async (req, res) => {
+  const { db, gateway, config } = req.app.locals;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   const due = rsvp ? svc.amountDue(db, rsvp) : 0;
   // Shown big at the door: paid (and how) or how much is still owed.
@@ -100,7 +101,11 @@ router.get('/:token', (req, res) => {
   // Catch a ticket for another day's event (e.g. a Diwali ticket shown at Garba).
   const notToday = rsvp && rsvp.starts_at.slice(0, 10) !== nowLocal().slice(0, 10);
   const event = rsvp && db.prepare('SELECT title_gu FROM events WHERE id = ?').get(rsvp.event_id);
+  // Still owing: a QR code the family scans to pay on their own phone (card, Apple/Google Pay, PayPal, Venmo).
+  const payQr = rsvp && due && gateway.mode !== 'disabled' && ['confirmed', 'pending_payment'].includes(rsvp.status)
+    ? await QRCode.toDataURL(`${config.baseUrl}/tickets/${rsvp.id}/pay`, { width: 240, margin: 2 }) : null;
   res.status(rsvp ? 200 : 404).render('admin/checkin_result', {
+    payQr,
     title: 'Check-in', rsvp, retired, due, paid, justCheckedIn, notToday, token: req.params.token,
     names: rsvp ? svc.attendeeNames(db, rsvp) : [],
     people: rsvp ? svc.doorAttendees(db, rsvp) : [],
@@ -110,7 +115,14 @@ router.get('/:token', (req, res) => {
   });
 });
 
-// Money collected at the door (cash, or other such as Zelle; no checks) for a family that still owes. With `checkin`,
+// The door screen asks this every few seconds while a family pays on their phone, and turns green when it's paid.
+router.get('/:token/due', (req, res) => {
+  const { db } = req.app.locals;
+  const rsvp = svc.findRsvpByToken(db, req.params.token);
+  res.json({ due: rsvp ? svc.amountDue(db, rsvp) : 0 });
+});
+
+// Money collected at the door (cash, or Venmo / PayPal / Zelle sent to GSA's account; no checks) for a family that still owes. With `checkin`,
 // the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
   const { db } = req.app.locals;
@@ -119,7 +131,7 @@ router.post('/:token/payment', (req, res) => {
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
   const method = String(req.body.method || 'cash');
   const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
-  const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', other: 'other' }[method]) };
+  const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', venmo: 'Venmo', paypal: 'PayPal', other: 'Zelle / other' }[method]) };
   if (!req.body.checkin) {
     req.flash('success', 'Recorded {amount} paid by {method}.', vars);
     return res.redirect(back);

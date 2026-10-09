@@ -58,7 +58,7 @@
     <% } %>
 
     <%# Payment, shown big: PAID (and how), or how much to collect. Collecting at the door is one tap:
-        Cash / Other records the money (no checks for events) and checks the family in (then Quick mode returns to the camera).
+        Cash / Venmo / PayPal / Zelle records the money (no checks for events) and checks the family in (then Quick mode returns to the camera).
         Nobody who still owes can be checked in without paying. %>
     <% const canCheckIn = ['confirmed', 'pending_payment'].includes(rsvp.status) && !rsvp.checked_in_at; %>
     <% const arriving = () => { %>
@@ -79,12 +79,26 @@
             <div class="pay-buttons">
               <span class="small"><%= canCheckIn ? t('Collected {amount} — tap how they paid to check them in:', { amount: money(due) }) : t('Collected {amount} by:', { amount: money(due) }) %></span>
               <button class="btn big" name="method" value="cash"><%= t('Cash') %></button>
-              <button class="btn secondary" name="method" value="other"><%= t('Other (card, Zelle…)') %></button>
+              <span class="pay-sent">
+                <button class="btn secondary" name="method" value="venmo">Venmo</button>
+                <button class="btn secondary" name="method" value="paypal">PayPal</button>
+                <button class="btn secondary" name="method" value="other"><%= t('Zelle / other') %></button>
+              </span>
+              <span class="small muted"><%= t("Venmo, PayPal or Zelle: tap only after you see on their phone that it went to GSA's account.") %></span>
             </div>
           </form>
+          <% if (payQr) { %>
+            <%# Or they pay on their own phone; this screen turns green by itself when the money arrives. %>
+            <div class="pay-online" id="pay-online" data-due-url="/admin/checkin/<%= token %>/due">
+              <p class="pay-or"><span><%= t('or pay online on their phone') %></span></p>
+              <img src="<%= payQr %>" alt="<%= t('QR code to pay online') %>" width="180" height="180">
+              <p class="small" style="margin:6px 0 0"><%= t('Have them scan this with their phone camera to pay by card, Apple Pay, Google Pay, PayPal or Venmo.') %></p>
+              <p class="small muted" id="pay-waiting" style="margin:4px 0 0">⏳ <%= t('This screen turns green by itself once it is paid.') %></p>
+            </div>
+          <% } %>
         </div>
       <% } else { %>
-        <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', paypal: 'PayPal', venmo: 'Venmo', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
+        <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', paypal: 'PayPal', venmo: 'Venmo', cash: 'cash', check: 'check', other: 'Zelle / other' }[m] || m)).join(', '); %>
         <div class="pay-panel paid"><div class="pay-big">✔ <%= t('PAID') %></div>
           <p style="margin:4px 0 0"><%= how ? t('{amount} paid ({how})', { amount: money(paid.cents), how }) : t('{amount} paid', { amount: money(paid.cents) }) %></p></div>
       <% } %>

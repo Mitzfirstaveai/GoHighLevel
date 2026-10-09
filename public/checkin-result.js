@@ -20,3 +20,15 @@
   document.getElementById('auto-return-stay').addEventListener('click', stop);
   document.addEventListener('pointerdown', (e) => { if (!box.contains(e.target)) stop(); }, { once: true });
 })();
+
+// A family paying on their phone at the door: check every few seconds, and show PAID as soon as it arrives.
+(function () {
+  const box = document.getElementById('pay-online');
+  if (!box) return;
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(box.dataset.dueUrl, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      if (res.ok && (await res.json()).due === 0) { clearInterval(timer); window.location.reload(); }
+    } catch { /* offline for a moment: try again next time */ }
+  }, 3000);
+})();

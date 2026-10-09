@@ -287,3 +287,42 @@ test('the check-in screens are fully translated for Gujarati-reading volunteers'
   assert.deepEqual([...missing], [], `Untranslated text: ${[...missing].join(' | ')}`);
   await volunteer.get('/prefs?lang=en&back=/');
 });
+
+test('at the door, a family can pay on their phone (screen turns green) or by Venmo / PayPal / Zelle to GSA', async () => {
+  const ev = await t.createEvent(admin, { title: 'Garba At The Door', fee: '20', starts_at: `${nowLocal().slice(0, 10)}T23:59` });
+  const m = await t.register('phonepay@test.org', 'Pia');
+  await m.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
+  const rsvp = t.rsvpFor(ev, 'phonepay@test.org');
+
+  // The door shows Cash, Venmo, PayPal, Zelle / other — and a QR code to pay on their own phone.
+  let res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
+  assert.match(res.text, /value="cash"[\s\S]*value="venmo"[\s\S]*value="paypal"[\s\S]*value="other">Zelle \/ other/);
+  assert.match(res.text, /id="pay-online" data-due-url="\/admin\/checkin\/[^"]+\/due"[\s\S]*<img src="data:image\/png;base64/);
+  assert.deepEqual(JSON.parse((await volunteer.get(`/admin/checkin/${rsvp.qr_token}/due`)).text), { due: 2000 });
+
+  // The QR opens the pay page on their phone; paying with Venmo there settles it.
+  res = await m.get(`/tickets/${rsvp.id}/pay`);
+  assert.match(res.text, /\$20\.00[\s\S]*Pay \$20\.00 now/);
+  res = await m.post(`/tickets/${rsvp.id}/pay`, {});
+  assert.match(res.location, /^\/pay\/\d+\/demo$/);
+  res = await m.follow(await m.post(res.location, { method: 'venmo' }));
+  assert.match(res.text, /Payment received/);
+  assert.deepEqual(JSON.parse((await volunteer.get(`/admin/checkin/${rsvp.qr_token}/due`)).text), { due: 0 });
+  res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
+  assert.match(res.text, /class="pay-panel paid"[\s\S]*\$20\.00 paid \(Venmo\)/);
+  assert.doesNotMatch(res.text, /id="pay-online"/);
+  assert.match((await m.get(`/tickets/${rsvp.id}/pay`)).text, /Paid — show this to the volunteer/);
+
+  // Someone else's ticket can't be paid from another family's phone.
+  const other = await t.register('notmine@test.org', 'Omar');
+  assert.equal((await other.get(`/tickets/${rsvp.id}/pay`)).status, 404);
+
+  // Money sent to GSA's PayPal: the volunteer taps PayPal, which records it and checks them in.
+  const m2 = await t.register('paypalsent@test.org', 'Ravi');
+  await m2.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
+  const r2 = t.rsvpFor(ev, 'paypalsent@test.org');
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${r2.qr_token}/payment`, { method: 'paypal', checkin: '1', guests: '1' }));
+  assert.match(res.text, /Recorded \$20\.00 paid by PayPal and checked in Ravi Member — 1 person/);
+  const pay = t.db.prepare(`SELECT method, recorded_by FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(r2.id);
+  assert.deepEqual({ ...pay }, { method: 'paypal', recorded_by: userId('door@test.org') });
+});

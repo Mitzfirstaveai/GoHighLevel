@@ -797,8 +797,9 @@ function payAtDoorInstead(db, { rsvpId, userId }) {
 
 // Money collected for an RSVP (at the door or by the committee): records what's still owed as paid.
 function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
-  // Event fees are paid online or in cash at the door; checks aren't accepted ("other" covers e.g. Zelle).
-  if (!['cash', 'other'].includes(method)) throw new UserError('Event fees are cash only at the door — checks are not accepted.');
+  // At the door: cash, or Venmo / PayPal / Zelle sent straight to GSA's account ("other" covers Zelle).
+  // Checks aren't accepted for events.
+  if (!DOOR_METHODS.includes(method)) throw new UserError('Event fees are cash only at the door — checks are not accepted.');
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ?').get(rsvpId);
   if (!rsvp) throw new UserError('RSVP not found.');
   const due = amountDue(db, rsvp);
@@ -894,6 +895,8 @@ function checkIn(db, { token, guests, adminId }) {
 
 // ---------- Payments ----------
 
+const DOOR_METHODS = ['cash', 'venmo', 'paypal', 'other'];
+
 function createPayment(db, { userId, kind, referenceId, description, amountCents, note = null }) {
   const id = db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, note)
                          VALUES (?, ?, ?, ?, ?, ?)`)
@@ -901,7 +904,8 @@ function createPayment(db, { userId, kind, referenceId, description, amountCents
   return db.prepare('SELECT * FROM payments WHERE id = ?').get(id);
 }
 
-function createEventPayment(db, { rsvpId, userId }) {
+// `payerId`: someone else in the family paying for the holder's ticket (e.g. at the door); the receipt is theirs.
+function createEventPayment(db, { rsvpId, userId, payerId = userId }) {
   const rsvp = db.prepare('SELECT * FROM rsvps WHERE id = ? AND user_id = ?').get(rsvpId, userId);
   // Waiting for online payment, or paying at the door but choosing to pay online after all.
   if (!rsvp || !['pending_payment', 'confirmed'].includes(rsvp.status)) throw new UserError('Nothing to pay for this RSVP.');
@@ -911,7 +915,7 @@ function createEventPayment(db, { rsvpId, userId }) {
   db.prepare(`UPDATE payments SET status = 'cancelled' WHERE kind = 'event'
               AND reference_id = ? AND status = 'pending'`).run(rsvp.id);
   return createPayment(db, {
-    userId, kind: 'event', referenceId: rsvp.id, amountCents: due,
+    userId: payerId, kind: 'event', referenceId: rsvp.id, amountCents: due,
     description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}`,
   });
 }
@@ -1135,7 +1139,7 @@ function updateCelebrations(db, userId, body) {
 
 module.exports = {
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
-  celebrations, updateCelebrations,
+  celebrations, updateCelebrations, DOOR_METHODS,
   UserError, PROFILE_FIELDS, updateProfile, cleanProfile, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,

@@ -1,0 +1,23 @@
+<%- include('../partials/head') %>
+<%# Opened from the QR code on the door volunteer's screen: pay what's owed on this phone. %>
+<div class="card checkout" style="max-width:460px;margin:20px auto;text-align:center">
+  <h1><%= loc(rsvp, 'title') %></h1>
+  <p class="muted"><%= fmtDate(rsvp.starts_at) %> · <%= plural(rsvp.party_size, '1 person', '{n} people') %></p>
+  <% if (!due) { %>
+    <p class="big-status ok" style="padding:10px;border-radius:10px">✔ <%= t('Paid — show this to the volunteer') %></p>
+    <a class="btn big" href="/tickets/<%= rsvp.id %>"><%= t('Show my QR ticket') %></a>
+  <% } else { %>
+    <p style="margin:12px 0 0"><%= t('Amount due:') %></p>
+    <p style="font-size:2rem;font-weight:800;margin:0 0 4px"><%= money(due) %></p>
+    <% if (paidCents) { %><p class="muted small"><%= t('Total {total} − already paid {paid}', { total: money(rsvp.total_cents), paid: money(paidCents) }) %></p><% } %>
+    <% if (paymentMode !== 'disabled') { %>
+      <form method="post" action="/tickets/<%= rsvp.id %>/pay"><%- include('../partials/csrf') %>
+        <button class="btn big" style="width:100%"><%= t('Pay {amount} now', { amount: money(due) }) %></button></form>
+      <p class="small muted"><%= t('Card, Apple Pay, Google Pay, PayPal or Venmo') %></p>
+    <% } else { %>
+      <p><%= t('Online payment is not available. Please pay an organizer.') %></p>
+    <% } %>
+    <p class="small"><%= t('Or pay the volunteer in cash.') %></p>
+  <% } %>
+</div>
+<%- include('../partials/foot') %>

@@ -409,6 +409,24 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   });
 });
 
+// Paying online at the door: the volunteer's screen shows a QR code that opens this page on the family's phone.
+router.get('/tickets/:id/pay', requireAuth, (req, res) => {
+  const { db } = req.app.locals;
+  const rsvp = loadTicket(req);
+  if (!rsvp) return res.status(404).render('error', { title: 'Not found', message: 'Ticket not found.' });
+  res.render('member/pay_now', { title: 'Pay online', rsvp, due: svc.amountDue(db, rsvp), paidCents: svc.paidForRsvp(db, rsvp.id) });
+});
+
+router.post('/tickets/:id/pay', requireAuth, async (req, res) => {
+  const { db, gateway } = req.app.locals;
+  const rsvp = loadTicket(req);
+  if (!rsvp) return res.status(404).render('error', { title: 'Not found', message: 'Ticket not found.' });
+  const payment = svc.createEventPayment(db, { rsvpId: rsvp.id, userId: rsvp.user_id, payerId: req.user.id });
+  const url = await gateway.startCheckout(payment, req.user);
+  if (!url) throw new svc.UserError('Online payment is not available. Please pay an organizer.');
+  res.redirect(303, url);
+});
+
 router.get('/tickets/:id/qr.png', requireAuth, async (req, res) => {
   const rsvp = loadTicket(req);
   if (!rsvp || rsvp.status !== 'confirmed') return res.sendStatus(404);

@@ -639,6 +639,11 @@ td .btn { white-space: nowrap; }
 .pay-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
 .pay-buttons .small { flex-basis: 100%; }
 .pay-buttons .btn { min-width: 96px; }
+.pay-sent { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; flex-basis: 100%; }
+.pay-online { margin-top: 14px; }
+.pay-online img { display: block; margin: 6px auto 0; background: #fff; border-radius: 8px; width: 180px; height: 180px; }
+.pay-or { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 700; }
+.pay-or::before, .pay-or::after { content: ''; flex: 1; border-top: 1px solid var(--warn); opacity: .5; }
 /* Checkout: card (Stripe), PayPal and Venmo, each in its own colours so they're easy to tell apart. */
 .pay-options { display: grid; gap: 10px; }
 .pay-options .btn { width: 100%; min-height: 56px; }
