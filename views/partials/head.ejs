@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#E67817">
+  <%# Tells browsers the app has its own dark colors, so their own darkening (e.g. Samsung Internet) leaves them alone. %>
+  <meta name="color-scheme" content="<%= theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'light dark' %>">
   <title><%= t.data(title) %> · <%= t.data(orgName) %></title>
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
