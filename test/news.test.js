@@ -205,7 +205,16 @@ test('celebrations: a member can add their date of birth right in the Celebratio
   const om = db.prepare(`SELECT id FROM household_members WHERE name = 'Om Member'`).get().id;
   await m.post('/profile/celebrations', { [`birthday_month_${om}`]: '9', [`birthday_day_${om}`]: '14', [`share_birthday_${om}`]: '1' });
   assert.equal(db.prepare('SELECT birthday FROM household_members WHERE id = ?').get(om).birthday, '03-14');
-  assert.match((await m.get('/profile')).text, new RegExp(`name="birthday_month_${om}"[^>]*>\\s*<option value="3" selected>March</option>\\s*</select>`));
+  // On the profile, Om's month and year are shown locked; only the day can be picked (March has 31).
+  const omRow = (await m.get('/profile')).text.split(`name="birthday_month_${om}"`)[1].split('</fieldset>')[0];
+  assert.match(omRow, /^ value="3">\s*<span class="locked-field"[^>]*>Mar 2015 🔒<\/span>/);
+  assert.match(omRow, /<option value="31" *>31<\/option>/);
+  assert.match(omRow, /<option value="14" selected>14<\/option>/);
+  // No February 29 for a child born in a common year.
+  await m.post('/profile/household', { name: 'Leela Member', relationship: 'Daughter', birth_month: '2', birth_year: '2015' });
+  const leela = db.prepare(`SELECT id FROM household_members WHERE name = 'Leela Member'`).get().id;
+  await m.post('/profile/celebrations', { [`birthday_day_${leela}`]: '29', [`share_birthday_${leela}`]: '1' });
+  assert.deepEqual({ ...db.prepare('SELECT birthday, share_birthday FROM household_members WHERE id = ?').get(leela) }, { birthday: null, share_birthday: 0 });
   // The same date shows in Personal details.
   assert.match((await m.get('/profile')).text, new RegExp(`name="date_of_birth" value="1985-${today.slice(5)}"`));
 });

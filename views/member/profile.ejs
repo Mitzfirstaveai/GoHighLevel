@@ -112,22 +112,31 @@
     <% const kids = owner ? [] : household.filter((h) => !h.login_user_id); %>
     <% if (kids.length) { %>
       <h3 style="margin-bottom:0"><%= t("Family members' birthdays") %></h3>
+      <p class="small muted" style="margin:0"><%= t("Optional. For children, the birth month and year are locked; just add the day to celebrate their birthday.") %></p>
       <% const months = Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2024, i, 15)))); %>
       <% for (const h of kids) { %>
         <% const [bm, bd] = (h.birthday || '-').split('-'); %>
         <fieldset class="birthday-row">
           <legend><strong><%= h.name %></strong> <span class="muted small">· <%= t.data(h.relationship) || '' %></span></legend>
           <div class="actions">
-            <%# A child's birth month is locked (it sets event prices), so their birthday is in that month. %>
+            <% if (h.birth_month && h.birth_year) { %>
+              <%# A child's birth month and year are locked (they set event prices), so only the day is theirs to add. %>
+              <input type="hidden" name="birthday_month_<%= h.id %>" value="<%= h.birth_month %>">
+              <span class="locked-field" title="<%= t('To change, ask a committee member') %>"><%= new Intl.DateTimeFormat(lang === 'gu' ? 'gu-IN' : 'en-US', { month: lang === 'gu' ? 'long' : 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(h.birth_year, h.birth_month - 1, 15))) %> 🔒</span>
+              <select class="day" name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
+                <option value=""><%= t('Day') %></option>
+                <% for (let d = 1; d <= new Date(Date.UTC(h.birth_year, h.birth_month, 0)).getUTCDate(); d++) { %><option value="<%= d %>" <%= Number(bd) === d ? 'selected' : '' %>><%= d %></option><% } %>
+              </select>
+            <% } else { %>
             <select name="birthday_month_<%= h.id %>" aria-label="<%= t('Birthday month for {name}', { name: h.name }) %>">
-              <% if (h.birth_month) { %><option value="<%= h.birth_month %>" selected><%= months[h.birth_month - 1] %></option>
-              <% } else { %><option value=""><%= t('Month') %></option>
-              <% months.forEach((name, i) => { %><option value="<%= i + 1 %>" <%= Number(bm) === i + 1 ? 'selected' : '' %>><%= name %></option><% }) %><% } %>
+              <option value=""><%= t('Month') %></option>
+              <% months.forEach((name, i) => { %><option value="<%= i + 1 %>" <%= Number(bm) === i + 1 ? 'selected' : '' %>><%= name %></option><% }) %>
             </select>
-            <select name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
+            <select class="day" name="birthday_day_<%= h.id %>" aria-label="<%= t('Birthday day for {name}', { name: h.name }) %>">
               <option value=""><%= t('Day') %></option>
               <% for (let d = 1; d <= 31; d++) { %><option value="<%= d %>" <%= Number(bd) === d ? 'selected' : '' %>><%= d %></option><% } %>
             </select>
+            <% } %>
             <label class="check"><input type="checkbox" name="share_birthday_<%= h.id %>" value="1" <%= h.share_birthday ? 'checked' : '' %>> <span><%= t('Share') %></span></label>
           </div>
         </fieldset>

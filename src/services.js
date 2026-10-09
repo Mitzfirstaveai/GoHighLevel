@@ -1119,11 +1119,13 @@ function updateCelebrations(db, userId, body) {
   db.prepare('UPDATE users SET share_birthday = ?, anniversary = ?, share_anniversary = ? WHERE id = ?')
     .run(shareBirthday, anniversary || null, anniversary && body.share_anniversary ? 1 : 0, userId);
   if (user.owner_id) return;
-  for (const h of db.prepare('SELECT id, birth_month FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
+  for (const h of db.prepare('SELECT id, birth_month, birth_year FROM household_members WHERE user_id = ? AND login_user_id IS NULL').all(userId)) {
     // A locked birth month (children) is also their birthday month.
     const month = String(h.birth_month || body[`birthday_month_${h.id}`] || '').padStart(2, '0');
     const day = String(body[`birthday_day_${h.id}`] || '').padStart(2, '0');
-    const birthday = MONTH_DAY_RE.test(`${month}-${day}`) ? `${month}-${day}` : null;
+    // A day that month really has (Feb 29 only for a child born in a leap year; 2024 is a leap year).
+    const daysInMonth = new Date(Date.UTC(h.birth_month && h.birth_year ? h.birth_year : 2024, Number(month), 0)).getUTCDate();
+    const birthday = MONTH_DAY_RE.test(`${month}-${day}`) && Number(day) <= daysInMonth ? `${month}-${day}` : null;
     db.prepare('UPDATE household_members SET birthday = ?, share_birthday = ? WHERE id = ?')
       .run(birthday, birthday && body[`share_birthday_${h.id}`] ? 1 : 0, h.id);
   }
