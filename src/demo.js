@@ -254,7 +254,7 @@ function seedDemo(db, { photosDir } = {}) {
     rsvp(garba1, 'hemant.thakkar@example.com', 1, 'confirmed');
     rsvp(garba1, 'dhruv.amin@example.com', 1, 'confirmed');
 
-    // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & pay live.
+    // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & Pay live.
     paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program', diet('Jain'));
     paidRsvp(diwali, 'vipul.bhatt@example.com', 4, 'Diwali Dinner & Cultural Program', diet('Regular'));
     paidRsvp(diwali, 'raj.desai@example.com', 2, 'Diwali Dinner & Cultural Program', diet('Swaminarayan'));

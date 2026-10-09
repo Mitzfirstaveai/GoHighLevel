@@ -98,7 +98,9 @@
           </fieldset>
         <% } %>
         <% if (event.capacity) { %><label class="check"><input type="checkbox" name="waitlist" value="1" <%= spotsLeft === 0 ? 'checked' : '' %>> <%= t("If there isn't room, put me on the waitlist") %></label><% } %>
-        <button class="btn big <%= rsvp ? 'secondary' : '' %>"><%= rsvp ? t('Update RSVP') : spotsLeft === 0 ? t('Join waitlist') : (event.fee_cents || event.guest_fee_cents ? t('RSVP & pay') : t('RSVP')) %></button>
+        <%# "RSVP & Pay" only when paying online; paying at the door is just "RSVP" (forms.js switches it as they choose). %>
+        <% const paidEvent = event.fee_cents || event.guest_fee_cents; const doorChosen = rsvp ? Boolean(rsvp.pay_at_door) : paymentMode === 'disabled'; %>
+        <button class="btn big <%= rsvp ? 'secondary' : '' %>"<% if (!rsvp && spotsLeft !== 0 && paidEvent) { %> data-label-online="<%= t('RSVP & Pay') %>" data-label-door="<%= t('RSVP') %>"<% } %>><%= rsvp ? t('Update RSVP') : spotsLeft === 0 ? t('Join waitlist') : (paidEvent && !doorChosen ? t('RSVP & Pay') : t('RSVP')) %></button>
       </form>
       <% } %>
       <% if (rsvp) { %>

@@ -31,3 +31,15 @@
   form.addEventListener('input', update);
   update();
 })();
+
+// Paid events: the RSVP button says "RSVP & Pay" when paying online, just "RSVP" when paying at the door.
+(function () {
+  const button = document.querySelector('button[data-label-online]');
+  if (!button) return;
+  const sync = () => {
+    const choice = button.form.querySelector('input[name="pay"]:checked');
+    button.textContent = choice && choice.value === 'door' ? button.dataset.labelDoor : button.dataset.labelOnline;
+  };
+  button.form.querySelectorAll('input[name="pay"]').forEach((r) => r.addEventListener('change', sync));
+  sync();
+})();

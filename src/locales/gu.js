@@ -361,7 +361,7 @@ module.exports = {
   "If there isn't room, put me on the waitlist": 'જગ્યા ન હોય તો મને રાહ-યાદીમાં મૂકો',
   'Update RSVP': 'RSVP બદલો',
   'Join waitlist': 'રાહ-યાદીમાં જોડાઓ',
-  'RSVP & pay': 'RSVP કરો અને ચુકવણી કરો',
+  'RSVP & Pay': 'RSVP કરો અને ચુકવણી કરો',
   'RSVP': 'RSVP કરો',
   'Cancel your RSVP?': 'તમારું RSVP રદ કરવું છે?',
   'Cancel RSVP': 'RSVP રદ કરો',
