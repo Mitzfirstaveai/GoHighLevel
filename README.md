@@ -92,7 +92,7 @@ Other sample members use the password `demo1234`.
 1. Tap **ગુજરાતી** at the top — the whole member app switches to Gujarati. Tap **A+** to make the text bigger.
    Tap the moon/sun button to switch between dark and light colors. (Also under *More → Language, text size and colors*.)
 2. *Home*: quick tiles, latest news, and the "Get the GSA app" card (install it to the home screen). Closing it hides
-   it for 30 days; *More* always has it.
+   it until the app is next opened; *More* always has it.
 3. *Tickets*: the Navratri Garba #1 QR ticket for Priya, Diya and Aarav — the names are on the ticket (and shown at the
    door). Tap **Change who's coming** to add or remove someone; a new QR code replaces the old one.
 4. *Events → Diwali Dinner & Cultural Program*: tick 3 family members + 2 guests, pick a dietary preference, enter coupon

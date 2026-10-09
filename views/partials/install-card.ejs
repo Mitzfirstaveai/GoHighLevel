@@ -1,5 +1,5 @@
 <%# "Get the GSA app": on Home and on both sign-in pages, so people can install before signing in, and always
-    on More (always: true, no ✕). app.js shows it (unless installed, or closed in the last 30 days) and fills in
+    on More (always: true, no ✕). app.js shows it (unless installed, or closed earlier in this visit) and fills in
     the steps for the device. %>
 <% const alwaysShown = locals.always === true; %>
 <div class="card install-card" id="install-card" hidden<% if (alwaysShown) { %> data-always<% } %><% if (typeof narrow !== 'undefined' && narrow) { %> style="max-width:460px;margin:20px auto 0"<% } %>>

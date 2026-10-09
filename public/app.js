@@ -43,12 +43,13 @@
   const card = document.getElementById('install-card');
   if (!card) return;
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  // Closing the card hides it for 30 days, then it comes back until the app is installed. On More it is
-  // always shown (data-always), so the app can be installed any time.
+  // Closing the card hides it for the rest of this visit; it comes back the next time the app is opened, until
+  // the app is installed. (Phones keep a tab open for days, so a "visit" also ends after 6 hours.) On More it
+  // is always shown (data-always), so the app can be installed any time.
   const always = card.hasAttribute('data-always');
   let closedAt = 0;
-  try { closedAt = Number(localStorage.getItem('gsa-install-dismissed')) || 0; } catch { /* private mode */ }
-  const dismissed = !always && Date.now() - closedAt < 30 * 24 * 60 * 60 * 1000; // (an old "1" counts as long ago)
+  try { localStorage.removeItem('gsa-install-dismissed'); closedAt = Number(sessionStorage.getItem('gsa-install-closed')) || 0; } catch { /* private mode */ }
+  const dismissed = !always && Date.now() - closedAt < 6 * 60 * 60 * 1000;
   if (standalone || dismissed) return;
   // iPads (iPadOS 13+) say they are a Mac, so also count a Mac with a touch screen as an iPad.
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -76,7 +77,7 @@
   card.querySelector('[data-dismiss]')?.addEventListener('click', (e) => {
     e.stopPropagation();
     card.hidden = true;
-    try { localStorage.setItem('gsa-install-dismissed', String(Date.now())); } catch { /* ignore */ }
+    try { sessionStorage.setItem('gsa-install-closed', String(Date.now())); } catch { /* ignore */ }
   });
 })();
 
