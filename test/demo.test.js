@@ -113,3 +113,17 @@ test("the demo has a Garba night today: tickets, money due at the door, and RSVP
   assert.match(res.text, /\$55\.00 DUE/);
   assert.doesNotMatch(res.text, /not today/);
 });
+
+test('phones that turned on event-day reminders stay on through a demo reset, and old reminders do not block new ones', async () => {
+  const { db } = t;
+  const priya = () => db.prepare(`SELECT id FROM users WHERE email = 'member@example.com'`).get().id;
+  db.prepare(`INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, 'https://push.example.com/priya-phone', 'k', 'a')`).run(priya());
+  db.prepare(`INSERT INTO reminders_sent (rsvp_id, user_id, sent_on) VALUES (1, ?, '2026-01-01')`).run(priya());
+  const c = new t.Client();
+  await c.get('/admin/login');
+  await c.post('/admin/login', { email: 'admin@example.com', password: 'demo1234' });
+  await c.get('/admin');
+  await c.post('/admin/demo/reset', {});
+  assert.equal(db.prepare(`SELECT user_id FROM push_subscriptions WHERE endpoint = 'https://push.example.com/priya-phone'`).get().user_id, priya());
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM reminders_sent').get().n, 0);
+});

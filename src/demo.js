@@ -347,11 +347,19 @@ function resetDemo(db, { photosDir } = {}) {
       for (const suffix of ['.jpg', '_t.jpg']) fs.rmSync(path.join(photosDir, `${file}${suffix}`), { force: true });
     }
   }
+  // Phones that turned on event-day reminders stay on through a reset (matched again by the demo email).
+  const devices = db.prepare(`SELECT u.email, s.endpoint, s.p256dh, s.auth FROM push_subscriptions s JOIN users u ON u.id = s.user_id`).all();
   transaction(db, () => {
     for (const t of TABLES) db.exec(`DELETE FROM ${t}`);
+    db.exec('DELETE FROM push_subscriptions');
+    db.exec('DELETE FROM reminders_sent'); // ticket numbers start again, so earlier reminders must not count
     db.exec(`DELETE FROM sqlite_sequence WHERE name IN (${TABLES.map((t) => `'${t}'`).join(', ')})`);
   });
   seedDemo(db, { photosDir });
+  for (const d of devices) {
+    db.prepare(`INSERT OR IGNORE INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+                SELECT id, ?, ?, ? FROM users WHERE email = ?`).run(d.endpoint, d.p256dh, d.auth, d.email);
+  }
   require('./contacts').importWebsiteSponsors(db);
 }
 
