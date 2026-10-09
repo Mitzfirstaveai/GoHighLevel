@@ -150,8 +150,10 @@ async function deliver(db, userId, payload) {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload), { TTL: 6 * 3600 });
       sent++;
     } catch (err) {
-      // The device turned notifications off or the app was removed: forget it.
-      if (err.statusCode === 404 || err.statusCode === 410) removeSubscription(db, s.endpoint);
+      // The device turned notifications off or the app was removed (404/410), or it signed up with keys this
+      // server no longer has (401/403, e.g. after the database was replaced): forget it. The app signs the
+      // device up again the next time it is opened.
+      if ([401, 403, 404, 410].includes(err.statusCode)) removeSubscription(db, s.endpoint);
       else console.error(`Reminder not delivered (${err.statusCode || err.message})`);
     }
   }
@@ -161,13 +163,17 @@ async function deliver(db, userId, payload) {
 // Sends what's due now; returns how many notifications went out.
 async function sendDue(db, now = nowLocal()) {
   let sent = 0;
+  // Logged as sent only once it reached a device. If none took it (a passing outage, or the device's sign-up was
+  // stale), it is tried again next time, and as soon as the device signs up again.
   for (const { rsvp, userId, kind } of dueReminders(db, now)) {
-    db.prepare('INSERT OR IGNORE INTO reminders_sent (rsvp_id, user_id, sent_on) VALUES (?, ?, ?)').run(rsvp.id, userId, now.slice(0, 10));
-    sent += await deliver(db, userId, message(db, rsvp, userId, kind));
+    const n = await deliver(db, userId, message(db, rsvp, userId, kind));
+    if (n) db.prepare('INSERT OR IGNORE INTO reminders_sent (rsvp_id, user_id, sent_on) VALUES (?, ?, ?)').run(rsvp.id, userId, now.slice(0, 10));
+    sent += n;
   }
   for (const { event, userId } of dueInvites(db, now)) {
-    db.prepare('INSERT OR IGNORE INTO invites_sent (event_id, user_id) VALUES (?, ?)').run(event.id, userId);
-    sent += await deliver(db, userId, inviteMessage(db, event, userId));
+    const n = await deliver(db, userId, inviteMessage(db, event, userId));
+    if (n) db.prepare('INSERT OR IGNORE INTO invites_sent (event_id, user_id) VALUES (?, ?)').run(event.id, userId);
+    sent += n;
   }
   return sent;
 }

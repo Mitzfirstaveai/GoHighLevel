@@ -108,6 +108,18 @@ test('an early event is reminded two hours before; a device that was switched of
   await reminders.sendDue(t.db, `${day}T06:30`);
   failWith = null;
   assert.equal(t.db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE endpoint = ?').get(device(7).endpoint).n, 0);
+  // A sign-up made with keys this server no longer has (403) is dropped too. Not delivered, so not used up:
+  // when the phone signs up again (the app does this by itself), the reminder goes out.
+  await m.post('/reminders/subscribe', device(7));
+  failWith = 403;
+  assert.equal(await reminders.sendDue(t.db, `${day}T06:35`), 0);
+  failWith = null;
+  assert.equal(t.db.prepare('SELECT COUNT(*) AS n FROM push_subscriptions WHERE endpoint = ?').get(device(7).endpoint).n, 0);
+  await m.post('/reminders/subscribe', device(8));
+  sent.length = 0;
+  assert.equal(await reminders.sendDue(t.db, `${day}T06:40`), 1);
+  assert.equal(sent[0].title, 'Today: Morning Puja');
+  assert.equal(await reminders.sendDue(t.db, `${day}T06:45`), 0, 'then only once');
 });
 
 test('the app pops up a reminder on the day, except on the ticket itself and for people without a ticket', async (ctx) => {

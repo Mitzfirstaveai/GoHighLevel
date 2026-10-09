@@ -38,7 +38,7 @@
   const back = encodeURIComponent(url);
   const sizeLabels = { normal: 'Text size: normal', large: 'Text size: large', xlarge: 'Text size: extra large' };
 %>
-<body class="<%= user ? 'signed-in' : '' %><%= doorMode ? ' staff-mode door-mode' : adminMode ? ' staff-mode admin-mode' : '' %>">
+<body<% if (user && locals.csrf) { %> data-csrf="<%= csrf %>"<% } %> class="<%= user ? 'signed-in' : '' %><%= doorMode ? ' staff-mode door-mode' : adminMode ? ' staff-mode admin-mode' : '' %>">
 <a class="skip" href="#main"><%= t('Skip to content') %></a>
 <header class="topbar">
   <div class="inner">

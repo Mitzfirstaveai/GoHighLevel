@@ -140,3 +140,34 @@
   popup.addEventListener('cancel', done); // Esc / back
   popup.showModal();
 })();
+
+// Event reminders stay working on their own: when this device has reminders allowed, it re-registers with the
+// server now and then (at most every 30 minutes), signing up again with the server's current key if it
+// changed (e.g. the server's data was replaced). Nothing is asked of the member.
+(function () {
+  if (!document.body.classList.contains('signed-in') || document.body.classList.contains('staff-mode')) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  const csrf = document.body.dataset.csrf || document.querySelector('input[name=_csrf]')?.value;
+  if (!csrf) return;
+  try { if (Date.now() - Number(localStorage.getItem('gsa-push-sync') || 0) < 30 * 60 * 1000) return; } catch { /* no storage: sync */ }
+  const bytes = (b64) => Uint8Array.from(atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  const same = (a, b) => a && b && a.byteLength === b.byteLength && new Uint8Array(a).every((v, i) => v === b[i]);
+  (async () => {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) return; // reminders were never turned on (or were turned off) on this device
+    const { key } = await (await fetch('/reminders/key', { credentials: 'same-origin' })).json();
+    const serverKey = bytes(key);
+    if (!same(sub.options && sub.options.applicationServerKey, serverKey)) {
+      await sub.unsubscribe();
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey });
+    }
+    const j = sub.toJSON();
+    const res = await fetch('/reminders/subscribe', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, _csrf: csrf }),
+    });
+    if (res.ok) { try { localStorage.setItem('gsa-push-sync', String(Date.now())); } catch { /* no storage */ } }
+  })().catch(() => {});
+})();
