@@ -1,7 +1,7 @@
 // Service worker: makes the app installable and keeps QR tickets available offline
 // (venues often have poor signal). Pages are always fetched fresh when online.
-const VERSION = 'gsa-v10';
-const STATIC = ['/styles.css', '/logo.png', '/icon-192.png', '/offline.html', '/forms.js', '/app.js', '/checkin.js', '/checkin-result.js', '/vendor/html5-qrcode-2.3.8.min.js'];
+const VERSION = 'gsa-v11';
+const STATIC = ['/styles.css', '/logo.png', '/icon-192.png', '/offline.html', '/forms.js', '/app.js', '/checkin.js', '/checkin-result.js', '/reminders.js', '/vendor/html5-qrcode-2.3.8.min.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting()));
@@ -16,6 +16,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   // Sent on sign-out so the next person on this phone can't see someone else's tickets.
   if (event.data === 'clear-tickets') caches.delete('gsa-tickets');
+});
+
+// Event-day reminders: shown even when the app is closed. Tapping one opens the ticket.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { title: event.data && event.data.text() }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'GSA', {
+    body: data.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: data.tag, data: { url: data.url || '/tickets' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '/tickets', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+    const open = wins.find((w) => w.url.startsWith(self.location.origin));
+    return open ? open.navigate(url).then((w) => (w || open).focus()) : self.clients.openWindow(url);
+  }));
 });
 
 self.addEventListener('fetch', (event) => {

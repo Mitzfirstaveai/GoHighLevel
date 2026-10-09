@@ -291,6 +291,29 @@ CREATE TABLE IF NOT EXISTS news_items (
   UNIQUE (source_id, guid)
 );
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
+
+-- Event-day reminders on members' phones and computers (web push), sent even when the app is closed.
+-- One row per device that turned reminders on; it stays when they sign out, until they turn it off.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+-- Each person gets one reminder per ticket on the event day.
+CREATE TABLE IF NOT EXISTS reminders_sent (
+  rsvp_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  sent_on TEXT NOT NULL,
+  PRIMARY KEY (rsvp_id, user_id, sent_on)
+);
+-- App settings that aren't website content (e.g. the web-push keys when none are configured).
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 const SCHEMA_VERSION = 15; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;

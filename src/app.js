@@ -36,6 +36,8 @@ function createApp(config) {
   // Set by a demo reset: display choices remembered by a browser before then are forgotten (see i18n.js).
   app.locals.prefsEpoch = db.prepare(`SELECT value FROM pages WHERE key = 'prefs_epoch'`).get()?.value || null;
   app.locals.config = config;
+  // Web-push keys for event-day reminders (made once and kept, unless given in the environment).
+  app.locals.vapidPublicKey = require('./reminders').setup(db, config);
   app.locals.usStates = require('./usStates').US_STATES;
   app.locals.gateway = gateway;
   app.locals.imageUpload = imageUpload(config);
@@ -99,6 +101,7 @@ function createApp(config) {
     res.locals.user = null;
     res.locals.doorMode = false;
     res.locals.adminMode = false;
+    res.locals.todayTicket = null;
     res.locals.org = getContent(db, 'org');
     next();
   });
@@ -107,11 +110,18 @@ function createApp(config) {
   app.use(doorModeOnly);
   app.use(i18nMiddleware);
   app.use(csrf);
+  // Event-day pop-up on member pages: the family's ticket for an event today, if there is one.
+  app.use((req, res, next) => {
+    res.locals.todayTicket = req.method === 'GET' && req.user && !req.session.doorMode && !req.session.adminMode
+      ? require('./services').todayTicket(db, req.user.id) : null;
+    next();
+  });
   app.get('/prefs', prefsRoute(db));
 
   app.use(require('./routes/auth'));
   app.use(require('./routes/public'));
   app.use(require('./routes/member'));
+  app.use(require('./routes/reminders'));
   app.use(require('./routes/donations').router);
   app.use('/pay', require('./routes/pay'));
   app.use(require('./routes/photos'));

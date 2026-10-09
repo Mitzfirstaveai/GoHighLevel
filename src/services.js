@@ -476,6 +476,18 @@ function removeHouseholdMember(db, { ownerId, householdId, byAdmin = false }) {
   db.prepare('DELETE FROM household_members WHERE id = ?').run(h.id);
 }
 
+// The family's ticket for an event today that hasn't been used yet (the member's own first), for the
+// event-day pop-up: until the event ends (end of the day when no end time is set).
+function todayTicket(db, userId) {
+  const now = nowLocal();
+  const ids = familyUserIds(db, userId);
+  const r = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
+    WHERE r.user_id IN (${ids.map(() => '?').join(',')}) AND r.status = 'confirmed' AND r.checked_in_at IS NULL
+      AND e.status = 'published' AND substr(e.starts_at, 1, 10) = ? AND COALESCE(e.ends_at, substr(e.starts_at, 1, 10) || 'T23:59') > ?
+    ORDER BY r.user_id != ?, e.starts_at LIMIT 1`).get(...ids, now.slice(0, 10), now, userId);
+  return r ? { ...r, due: amountDue(db, r) } : null;
+}
+
 // Accounts that share a family: the member and their family logins.
 function familyUserIds(db, userId) {
   const ownerId = householdOwnerId(db, userId);
@@ -1216,7 +1228,7 @@ function updateCelebrations(db, userId, body) {
 
 module.exports = {
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
-  celebrations, updateCelebrations, DOOR_METHODS,
+  celebrations, updateCelebrations, DOOR_METHODS, todayTicket,
   UserError, PROFILE_FIELDS, REQUIRED_PROFILE, FIELD_RULES, NAME_RE, cleanPhone, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,

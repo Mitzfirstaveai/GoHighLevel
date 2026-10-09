@@ -1,0 +1,20 @@
+<%# Event-day reminders: turned on per device (phone, tablet or computer). public/reminders.js shows the right part
+    for this device — without JavaScript the card stays hidden. %>
+<div class="card reminders-card no-print" id="reminders" hidden data-csrf="<%= csrf %>"
+     data-labels="<%= JSON.stringify({ wait: t('One moment…'), on: t('Reminders are on for this device.'), off: t('Reminders are off for this device.'), failed: t('Reminders could not be turned on on this device.'), testSent: t('Test sent — it should appear in a few seconds.'), testNone: t('No reminder was sent. Turn reminders on first.') }) %>">
+  <h2 style="margin-top:0">🔔 <%= t('Event-day reminders') %></h2>
+  <p class="muted"><%= t('Get a reminder on this phone or computer on the day of an event you have a ticket for — even when the app is closed.') %></p>
+  <div data-state="off" hidden><button type="button" class="btn" data-on><%= t('Turn on reminders') %></button></div>
+  <div data-state="on" hidden>
+    <p><span class="badge ok">✔ <%= t('On for this device') %></span></p>
+    <div class="actions">
+      <button type="button" class="btn secondary small" data-test><%= t('Send a test') %></button>
+      <button type="button" class="btn secondary small" data-off><%= t('Turn off') %></button>
+    </div>
+  </div>
+  <p data-state="ios" hidden><%= t('On iPhone or iPad, first add the app to your Home Screen (Share button, then "Add to Home Screen"), open it from there, and turn on reminders here.') %></p>
+  <p data-state="blocked" hidden><%= t('Notifications are blocked for this app. Allow them in your phone or browser settings, then come back here.') %></p>
+  <p data-state="unsupported" hidden><%= t('This browser cannot show reminders. Try Chrome, Edge, Firefox or Safari.') %></p>
+  <p class="small" data-msg role="status"></p>
+</div>
+<script src="<%= asset('/reminders.js') %>" defer></script>

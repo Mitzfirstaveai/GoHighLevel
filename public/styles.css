@@ -674,3 +674,13 @@ td .btn { white-space: nowrap; }
   .install-card [data-dismiss] { grid-column: 3; grid-row: 1; margin: -8px -8px 0 0; }
   .install-card [data-install] { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
 }
+
+/* Event-day pop-up */
+.today-popup { border: 2px solid var(--ok); border-radius: var(--radius); background: var(--surface); color: var(--text);
+  padding: 20px; max-width: min(420px, calc(100vw - 32px)); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.today-popup::backdrop { background: rgba(0,0,0,.55); }
+.today-popup h2 { margin: 4px 0 6px; }
+.today-popup-icon { font-size: 2.2rem; margin: 0; }
+.today-popup .actions { justify-content: center; margin-top: 12px; }
+/* Event-day reminders card */
+.reminders-card [data-msg]:empty { display: none; }

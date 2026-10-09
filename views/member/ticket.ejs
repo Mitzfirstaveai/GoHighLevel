@@ -50,6 +50,8 @@
   <% } %>
 </div>
 
+<%# Right after an RSVP is a good moment to turn on reminders for the day. %>
+<% if (mine && qrDataUrl && !rsvp.checked_in_at) { %><div style="max-width:520px;margin:16px auto"><%- include('../partials/reminders') %></div><% } %>
 <% if (canChange) { %>
 <div class="card no-print" id="change" style="max-width:520px;margin:16px auto">
   <h2><%= t("Change who's coming") %></h2>

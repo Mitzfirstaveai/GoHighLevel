@@ -127,3 +127,16 @@
     input.addEventListener('input', () => input.setCustomValidity(''));
   });
 })();
+
+// Event-day pop-up: shown once a day per ticket on this device ("Later" or showing the ticket ends it).
+(function () {
+  const popup = document.getElementById('today-popup');
+  if (!popup || typeof popup.showModal !== 'function') return;
+  const key = popup.dataset.key;
+  try { if (localStorage.getItem(key)) return; } catch { /* private window: show it */ }
+  const done = () => { try { localStorage.setItem(key, '1'); } catch { /* private window */ } };
+  popup.querySelector('[data-close]').addEventListener('click', () => { done(); popup.close(); });
+  popup.querySelector('a').addEventListener('click', done);
+  popup.addEventListener('cancel', done); // Esc / back
+  popup.showModal();
+})();

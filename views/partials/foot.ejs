@@ -18,6 +18,19 @@
     <a href="<%= href %>" class="<%= on(href, exact) || (href === '/more' && moreSection.some((m) => path === m || path.startsWith(m + '/'))) ? 'active' : '' %>"><%- include('icon', { name: icon }) %><span><%= t(label).replace(/^Membership$/, 'Member\u00ADship') %></span></a>
   <% } %>
 </nav>
+<% if (todayTicket && !path.startsWith('/tickets/')) { %>
+  <%# Event-day pop-up: once a day per ticket (app.js remembers "Later" on this device). %>
+  <dialog class="today-popup" id="today-popup" data-key="gsa-today-<%= todayTicket.id %>-<%= todayTicket.starts_at.slice(0, 10) %>" aria-labelledby="today-popup-title">
+    <p class="today-popup-icon" aria-hidden="true">🎉</p>
+    <h2 id="today-popup-title"><%= t('Today: {event}', { event: loc(todayTicket, 'title') }) %></h2>
+    <p><%= fmtTime(todayTicket.starts_at) %><%= todayTicket.location ? ` · ${String(todayTicket.location).split(/[|,]/)[0].trim()}` : '' %></p>
+    <% if (todayTicket.due) { %><p class="pay-door-note">💵 <%= t('Please pay {amount} at the door.', { amount: money(todayTicket.due) }) %></p><% } %>
+    <div class="actions">
+      <a class="btn big" href="/tickets/<%= todayTicket.id %>"><%= t('Show my QR ticket') %></a>
+      <button type="button" class="btn secondary" data-close><%= t('Later') %></button>
+    </div>
+  </dialog>
+<% } %>
 <% } else if (user && adminMode) { %>
 <%# Phones: the admin bottom bar. "More" covers the admin pages not on the bar. %>
 <nav class="tabbar mobile-only admin-tabbar" aria-label="Admin" lang="en">
