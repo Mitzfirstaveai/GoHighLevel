@@ -61,16 +61,20 @@
 </div>
 
 
-<%# The latest GSA announcement stays near the top: it's from GSA and often time-sensitive. %>
-<% if (latestNews) { %>
+<%# GSA announcements stay near the top: they're from GSA and often time-sensitive. Events announce themselves
+    (today's first), then the committee's latest post. %>
+<% if (eventNews.length || latestNews) { %>
 <section class="card home-news">
   <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0">📢 <%= t('GSA announcements') %></h2><a href="/news"><%= t('All announcements') %> →</a></div>
+  <% for (const a of eventNews.slice(0, 3)) { %><%- include('../partials/event-announcement', { a, short: true }) %><% } %>
+  <% if (latestNews) { %>
   <a class="home-announcement" href="/news">
     <div class="small muted"><%= fmtDay(latestNews.created_at) %></div>
     <strong><%= loc(latestNews, 'title') %></strong>
     <% const newsBody = loc(latestNews, 'body'); %>
     <div class="muted small"><%= newsBody.length > 140 ? newsBody.slice(0, 140) + '…' : newsBody %></div>
   </a>
+  <% } %>
 </section>
 <% } %>
 

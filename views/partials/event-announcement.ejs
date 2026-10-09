@@ -1,0 +1,13 @@
+<%# One event announcing itself (see svc.eventAnnouncements): "Coming up" / "Tomorrow" / "Today" / "Happening now",
+    when and where, the committee's own message, and what to do (open the ticket or RSVP). %>
+<% const ev = a.event;
+   const heading = { now: 'Happening now: {event}', today: 'Today: {event}', tomorrow: 'Tomorrow: {event}', soon: 'Coming up: {event}' }[a.when];
+   const note = loc(ev, 'announce_note') || '';
+   const action = a.hasTicket ? t('Tap to open your QR ticket.') : a.rsvpOpen ? t('Tap to RSVP.') : '';
+   const href = a.hasTicket ? '/tickets' : `/events/${ev.id}`; %>
+<a class="home-announcement event-announcement<%= a.when === 'soon' ? '' : ' is-near' %>" href="<%= href %>">
+  <div class="small muted"><%- include('event-line', { event: ev, showPrice: false }) %></div>
+  <strong><%= t(heading, { event: loc(ev, 'title') }) %></strong>
+  <% if (note) { %><div class="small" style="white-space:pre-line"><%= short && note.length > 140 ? note.slice(0, 140) + '…' : note %></div><% } %>
+  <% if (action) { %><div class="small announce-action"><%= action %></div><% } %>
+</a>

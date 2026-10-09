@@ -128,6 +128,10 @@ tickets; that member app has no Admin link and no access to other families' tick
    Photos are resized, location data from phones is removed, and only signed-in members can see them. Set the cover
    photo, add captions, delete photos.
 7. *Website*: change the motto or committee list and open the public pages. *News*: post an announcement with a photo.
+   Events announce themselves in **GSA announcements** on members' Home: "Coming up" from the day the RSVP invitation
+   goes out, then "Tomorrow", "Today" and "Happening now", pointing ticket holders to their QR ticket and everyone else
+   to RSVP. On each event's *Edit* page (**GSA announcements**) add your own message (English and Gujarati) or switch
+   it off — e.g. Navratri Garba #1 in the demo.
 8. *Overview → Reset demo data* before the next presentation.
 
 **As a door volunteer** (Dhruv Amin in the demo)

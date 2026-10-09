@@ -123,6 +123,11 @@ CREATE TABLE IF NOT EXISTS events (
   remind_day_before TEXT,
   remind_week_before TEXT,
   invite_at TEXT,
+  -- GSA announcements: the event announces itself on Home from its invitation date (announce = 0: off),
+  -- with the committee's own message added below the automatic text.
+  announce INTEGER NOT NULL DEFAULT 1,
+  announce_note TEXT,
+  announce_note_gu TEXT,
   status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'cancelled')),
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -328,15 +333,21 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 17; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 18; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
 // 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
 // 16: event-day reminders (devices, sent log) and each event's reminder schedule and RSVP invitation;
 // 17: every event has an RSVP invitation (existing ones: a week before at 10 AM)
+// 18: events announce themselves in GSA announcements, with an optional message from the committee
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  18: [
+    'ALTER TABLE events ADD COLUMN announce INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE events ADD COLUMN announce_note TEXT',
+    'ALTER TABLE events ADD COLUMN announce_note_gu TEXT',
+  ],
   17: [`UPDATE events SET invite_at = date(substr(starts_at, 1, 10), '-7 days') || 'T10:00' WHERE invite_at IS NULL`],
   16: [
     "ALTER TABLE events ADD COLUMN remind_day_of TEXT DEFAULT '09:00'",

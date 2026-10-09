@@ -72,6 +72,14 @@
   </div>
 
   <div class="card stack">
+    <h2>GSA announcements</h2>
+    <label class="check"><input type="checkbox" name="announce" value="1" <%= event.announce === 0 ? '' : 'checked' %>> Announce this event on members' Home screen</label>
+    <p class="muted small" style="margin:0">Shown from the day the RSVP invitation goes out until the event ends. It says when and where, and changes to “Tomorrow” the day before and “Today” on the day. Members with a ticket are pointed to their QR ticket; everyone else to RSVP.</p>
+    <label>Add your own message (optional) <textarea name="announce_note" rows="3" maxlength="1000" placeholder="e.g. Wear your best chaniya choli! Parking is at the back of the building."><%= event.announce_note || '' %></textarea></label>
+    <label>Your message in Gujarati (optional) <textarea name="announce_note_gu" rows="3" maxlength="1000" lang="gu"><%= event.announce_note_gu || '' %></textarea></label>
+  </div>
+
+  <div class="card stack">
     <h2>Registration questions (optional)</h2>
     <label>One question per line. Start with <code>*</code> to make it required. Add choices after a colon.
       <textarea name="questions" rows="4" placeholder="*Dietary preference: Regular, Jain, Swaminarayan

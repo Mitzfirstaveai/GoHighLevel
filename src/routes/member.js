@@ -50,6 +50,7 @@ router.get('/dashboard', requireAuth, (req, res) => {
     // Members who signed up before these were required (or were imported) are asked to complete their profile.
     missingProfile: svc.missingProfile(req.user),
     missingBirths: req.user.owner_id ? [] : svc.getHousehold(db, req.user.id).filter((h) => !svc.birthLocked(h)).map((h) => h.name),
+    eventNews: svc.eventAnnouncements(db, req.user.id),
     title: 'My dashboard', membership, nextTicket, moreEvents, nextIsToday, upcoming, latestNews, headlines, holder, canRenew, renewYear, celebrations: celebrationList(req, res),
   });
 });
@@ -172,7 +173,7 @@ router.get('/directory', requireAuth, (req, res) => {
 
 router.get('/news', requireAuth, (req, res) => {
   const posts = req.app.locals.db.prepare('SELECT * FROM news_posts ORDER BY created_at DESC, id DESC').all();
-  res.render('member/news', { title: 'News', posts, celebrations: celebrationList(req, res) });
+  res.render('member/news', { title: 'News', posts, eventNews: svc.eventAnnouncements(req.app.locals.db, req.user.id), celebrations: celebrationList(req, res) });
 });
 
 // "2 hours ago", "Yesterday" or the date, for a story's UTC publish time.

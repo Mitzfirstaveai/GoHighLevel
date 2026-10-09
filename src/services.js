@@ -502,6 +502,26 @@ function todayTicket(db, userId) {
   return r ? { ...r, due: amountDue(db, r) } : null;
 }
 
+// GSA announcements made by the events themselves: each published event (unless switched off) is announced
+// from the day its RSVP invitation goes out (so a last-minute event shows at once) until it ends — "Coming up", then "Tomorrow", "Today" and "Happening now".
+// Soonest first; `hasTicket` when someone in the member's family has a ticket.
+function eventAnnouncements(db, userId, now = nowLocal()) {
+  const day = now.slice(0, 10);
+  const tomorrow = nextDay(day);
+  const ids = userId ? familyUserIds(db, userId) : [];
+  const ticketed = new Set(ids.length ? db.prepare(`SELECT DISTINCT event_id FROM rsvps
+    WHERE user_id IN (${ids.map(() => '?').join(',')}) AND status != 'cancelled'`).all(...ids).map((r) => r.event_id) : []);
+  return db.prepare(`SELECT * FROM events WHERE status = 'published' AND announce = 1
+      AND substr(COALESCE(invite_at, date(substr(starts_at, 1, 10), '-7 days')), 1, 10) <= ?
+      AND COALESCE(ends_at, substr(starts_at, 1, 10) || 'T23:59') > ?
+    ORDER BY starts_at`).all(day, now)
+    .map((event) => {
+      const on = event.starts_at.slice(0, 10);
+      const when = event.starts_at <= now ? 'now' : on === day ? 'today' : on === tomorrow ? 'tomorrow' : 'soon';
+      return { event, when, hasTicket: ticketed.has(event.id), rsvpOpen: rsvpWindowOpen(event) };
+    });
+}
+
 // Accounts that share a family: the member and their family logins.
 function familyUserIds(db, userId) {
   const ownerId = householdOwnerId(db, userId);
@@ -1241,6 +1261,7 @@ function updateCelebrations(db, userId, body) {
 }
 
 module.exports = {
+  eventAnnouncements,
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
   celebrations, updateCelebrations, DOOR_METHODS, todayTicket, defaultInviteAt,
   UserError, PROFILE_FIELDS, REQUIRED_PROFILE, FIELD_RULES, NAME_RE, cleanPhone, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,

@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { transaction } = require('./db');
-const { newToken, formatTime } = require('./util');
+const { newToken } = require('./util');
 
 const DEMO_PASSWORD = 'demo1234';
 const GSA_CENTER = require('./content').ORG.venue;
@@ -198,7 +198,10 @@ function seedDemo(db, { photosDir } = {}) {
     // Garba prices (as on the flyer): $5 paid members, children 10 and under free, $50 in-state non-members,
     // $15 out-of-state guests, $15 students with a school ID.
     set(garba1, { fee_cents: 500, guest_fee_cents: 5000, out_of_state_fee_cents: 1500, student_fee_cents: 1500, child_free_age: 10, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #1',
-      description_gu: 'જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસ. તમારા સૌથી સુંદર ચણિયા ચોળી અને કેડિયું પહેરીને આવો!' });
+      description_gu: 'જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસ. તમારા સૌથી સુંદર ચણિયા ચોળી અને કેડિયું પહેરીને આવો!',
+      // The committee's own words on the event's announcement (Admin → event → Edit → GSA announcements).
+      announce_note: 'Prize for the best-dressed family! Parking is behind the building; please carpool if you can.',
+      announce_note_gu: 'શ્રેષ્ઠ પોશાકવાળા પરિવાર માટે ઇનામ! પાર્કિંગ બિલ્ડિંગની પાછળ છે; શક્ય હોય તો સાથે મળીને આવો.' });
     const garba2 = addEvent('Navratri Garba #2', 'Second night of Navratri garba and dandiya raas with live music.',
       localDateTime(3, '19:30'), localDateTime(3, '23:30'), 0, 600, 10);
     const diwali = addEvent('Diwali Dinner & Cultural Program', 'Celebrate Diwali and the Gujarati new year with a cultural program and dinner. Dinner fee $15 per person.',
@@ -321,12 +324,6 @@ function seedDemo(db, { photosDir } = {}) {
     rsvp(workshop, 'anjali.vyas@example.com', 2, 'waitlisted');
 
     const news = db.prepare(`INSERT INTO news_posts (title, body, title_gu, body_gu, author_id, created_at) VALUES (?, ?, ?, ?, ?, datetime('now', ?))`);
-    // The newest announcement is about tonight's Garba, at its actual start time.
-    const at = (lang) => formatTime(`2000-01-01T${hhmm(startMin)}`, lang);
-    news.run('Navratri Garba tonight!', `Join us tonight at ${at('en-US')} at the GSA Community Center for garba and dandiya raas with live music. RSVP in the app and show your QR ticket at the door. Paying at the door? Cash, Venmo, PayPal or Zelle — or pay on your phone.`,
-      'આજે રાત્રે નવરાત્રી ગરબા!', `આજે ${at('gu-IN')} વાગ્યે GSA કોમ્યુનિટી સેન્ટર ખાતે જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસમાં જોડાઓ. એપમાં RSVP કરો અને દરવાજે તમારી QR ટિકિટ બતાવો. દરવાજે ચૂકવવું છે? રોકડ, Venmo, PayPal કે Zelle — અથવા તમારા ફોન પર ચૂકવો.`, admin, '-2 hours');
-    news.run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.',
-      'આ સપ્તાહના અંતે નવરાત્રી ગરબા!', 'નવરાત્રી ગરબા #1 અને #2 GSA કોમ્યુનિટી સેન્ટર ખાતે છે. એપમાં આવનાર પરિવારના સભ્યોની સંખ્યા સાથે RSVP કરો, પછી ઝડપી પ્રવેશ માટે દરવાજે તમારી QR ટિકિટ બતાવો.', admin, '-1 day');
     news.run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.',
       'અમારી નવી સભ્ય એપમાં આપનું સ્વાગત છે', 'હવે તમે તમારા ફોનથી જ પરિવારની પ્રોફાઇલ અપડેટ કરી શકો છો, સભ્યપદ ફી ભરી શકો છો, કાર્યક્રમો માટે RSVP કરી શકો છો અને QR ટિકિટ મેળવી શકો છો. એક ટૅપમાં ખોલવા માટે તેને તમારી હોમ સ્ક્રીન પર ઉમેરો.', admin, '-14 days');
 

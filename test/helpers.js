@@ -128,8 +128,8 @@ async function startTestApp(overrides = {}) {
 
   async function createEvent(admin, fields) {
     const res = await admin.post('/admin/events', {
-      // Like the new-event form: the morning-of reminder is ticked (9 AM).
-      title: 'Garba Night', starts_at: futureDate(10), fee: '0', max_party_size: '6', status: 'published', remind_day_of: '1', remind_day_of_time: '09:00', ...fields,
+      // Like the new-event form: the morning-of reminder (9 AM) and the GSA announcement are ticked.
+      title: 'Garba Night', starts_at: futureDate(10), fee: '0', max_party_size: '6', status: 'published', remind_day_of: '1', remind_day_of_time: '09:00', announce: '1', ...fields,
     });
     assert.equal(res.status, 302);
     return Number(res.location.split('/').pop());
@@ -155,6 +155,7 @@ const ADDED_COLUMNS = {
     ['events', 'child_free_age'], ['rsvps', 'guest_types']],
   15: [['users', 'birth_year'], ['users', 'birth_month'], ['users', 'birthday']],
   16: [['events', 'remind_day_of'], ['events', 'remind_day_before'], ['events', 'remind_week_before'], ['events', 'invite_at']],
+  18: [['events', 'announce'], ['events', 'announce_note'], ['events', 'announce_note_gu']],
 };
 // Columns a later version removed (put back when rewinding to before it).
 const REMOVED_COLUMNS = { 15: [['users', 'date_of_birth TEXT']] };

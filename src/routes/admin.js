@@ -396,6 +396,9 @@ function parseEventForm(body) {
     remind_day_before: remindTime(body.remind_day_before, body.remind_day_before_time, '18:00'),
     remind_week_before: remindTime(body.remind_week_before, body.remind_week_before_time, '09:00'),
     invite_at: inviteAt,
+    announce: body.announce ? 1 : 0,
+    announce_note: String(body.announce_note || '').trim().slice(0, 1000) || null,
+    announce_note_gu: String(body.announce_note_gu || '').trim().slice(0, 1000) || null,
     title,
     description: String(body.description || '').trim().slice(0, 5000) || null,
     title_gu: String(body.title_gu || '').trim().slice(0, 200) || null,
@@ -422,7 +425,8 @@ function parseEventForm(body) {
 
 const EVENT_COLUMNS = ['title', 'description', 'title_gu', 'description_gu', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
   'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'out_of_state_fee_cents', 'student_fee_cents', 'child_free_age',
-  'max_guests', 'early_fee_cents', 'early_until', 'questions', 'remind_day_of', 'remind_day_before', 'remind_week_before', 'invite_at'];
+  'max_guests', 'early_fee_cents', 'early_until', 'questions', 'remind_day_of', 'remind_day_before', 'remind_week_before', 'invite_at',
+  'announce', 'announce_note', 'announce_note_gu'];
 
 router.get('/events', (req, res) => {
   const { db } = req.app.locals;

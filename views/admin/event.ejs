@@ -7,7 +7,8 @@
     <% const at = (time) => fmtTime(`2000-01-01T${time}`);
        const plan = [event.remind_week_before && `a week before at ${at(event.remind_week_before)}`, event.remind_day_before && `the day before at ${at(event.remind_day_before)}`,
          event.remind_day_of && `the morning of at ${at(event.remind_day_of)}`].filter(Boolean); %>
-    <div class="small muted" style="margin-top:4px">🔔 Phone reminders: <%= plan.length ? plan.join(' · ') : 'off' %><% if (event.invite_at) { %> · RSVP invitation <%= fmtDate(event.invite_at) %><%= invitesSent ? ` (sent to ${invitesSent})` : '' %><% } %></div></div>
+    <div class="small muted" style="margin-top:4px">🔔 Phone reminders: <%= plan.length ? plan.join(' · ') : 'off' %><% if (event.invite_at) { %> · RSVP invitation <%= fmtDate(event.invite_at) %><%= invitesSent ? ` (sent to ${invitesSent})` : '' %><% } %></div>
+    <div class="small muted">📢 GSA announcements: <%= event.announce ? `from ${fmtDay(event.invite_at || event.starts_at)} until it ends${event.announce_note ? ', with your message' : ''}` : 'off' %></div></div>
   <div class="actions">
     <a class="btn" href="/admin/checkin?event=<%= event.id %>">Door check-in</a>
     <a class="btn secondary" href="/admin/events/<%= event.id %>/edit">Edit</a>
