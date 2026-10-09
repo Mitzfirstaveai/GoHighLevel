@@ -476,6 +476,20 @@ function removeHouseholdMember(db, { ownerId, householdId, byAdmin = false }) {
   db.prepare('DELETE FROM household_members WHERE id = ?').run(h.id);
 }
 
+// When an event's "RSVP now" invitation goes out unless the committee picks a time: a week before at 10 AM,
+// or right away (the next quarter hour) when that has already passed.
+function defaultInviteAt(startsAt) {
+  const d = new Date(`${startsAt.slice(0, 10)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 7);
+  const weekBefore = `${d.toISOString().slice(0, 10)}T10:00`;
+  const now = nowLocal();
+  if (weekBefore > now) return weekBefore;
+  const [h, m] = now.slice(11, 16).split(':').map(Number);
+  const mins = Math.min(23 * 60 + 45, Math.ceil((h * 60 + m + 1) / 15) * 15);
+  const soon = `${now.slice(0, 10)}T${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+  return soon < startsAt ? soon : now;
+}
+
 // The family's ticket for an event today that hasn't been used yet (the member's own first), for the
 // event-day pop-up: until the event ends (end of the day when no end time is set).
 function todayTicket(db, userId) {
@@ -1228,7 +1242,7 @@ function updateCelebrations(db, userId, body) {
 
 module.exports = {
   childAgeOn, isChild, birthLocked, guestPrices, personPrice, GUEST_TYPES, setHouseholdBirth,
-  celebrations, updateCelebrations, DOOR_METHODS, todayTicket,
+  celebrations, updateCelebrations, DOOR_METHODS, todayTicket, defaultInviteAt,
   UserError, PROFILE_FIELDS, REQUIRED_PROFILE, FIELD_RULES, NAME_RE, cleanPhone, missingProfile, updateProfile, cleanProfile, ageReached, membershipStatus, grantMembership, upgradeMembership,
   RELATIONSHIPS, getHousehold, planCoverage, planCoverageParts, planProblems, planIneligibility, suggestPlan, addHouseholdMember,
   coveredFamily, membershipQuote, renewalOpensOn, assertCanRenew, periodEnd, householdOwnerId, familyPeople, familyUserIds,

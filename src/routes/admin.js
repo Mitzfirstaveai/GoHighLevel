@@ -387,9 +387,10 @@ function parseEventForm(body) {
   if (!maxGuests) throw new svc.UserError('Max guests per RSVP must be between 1 and 50.');
   // Phone reminders for ticket holders (each on or off, at a time) and an optional "RSVP now" invitation.
   const remindTime = (on, value, fallback) => (on ? (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')) ? value : fallback) : null);
-  const inviteAt = body.invite ? String(body.invite_at || '') : null;
-  if (inviteAt !== null && !dt.test(inviteAt)) throw new svc.UserError('Choose when to send the RSVP invitation.');
-  if (inviteAt !== null && inviteAt >= startsAt) throw new svc.UserError('The RSVP invitation has to go out before the event starts.');
+  // Every event invites members without a ticket to RSVP; blank = a week before at 10 AM (or now, when that has passed).
+  const inviteAt = String(body.invite_at || '').trim() || svc.defaultInviteAt(startsAt);
+  if (!dt.test(inviteAt)) throw new svc.UserError('Choose when to send the RSVP invitation.');
+  if (inviteAt >= startsAt) throw new svc.UserError('The RSVP invitation has to go out before the event starts.');
   return {
     remind_day_of: remindTime(body.remind_day_of, body.remind_day_of_time, '09:00'),
     remind_day_before: remindTime(body.remind_day_before, body.remind_day_before_time, '18:00'),

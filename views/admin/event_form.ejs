@@ -66,8 +66,8 @@
     </fieldset>
     <fieldset class="reminder-plan">
       <legend>To members without a ticket</legend>
-      <label class="check"><input type="checkbox" name="invite" value="1" <%= event.invite_at ? 'checked' : '' %>> Send an “RSVP now” invitation on <input type="datetime-local" name="invite_at" value="<%= event.invite_at || '' %>" aria-label="When to send the RSVP invitation"></label>
-      <p class="muted small" style="margin:0">Goes once to each member who has reminders on and whose family hasn't RSVP'd (only paid members for members-only events). Not sent after RSVPs close.</p>
+      <label>Send the “RSVP now” invitation on <input type="datetime-local" name="invite_at" value="<%= event.invite_at || '' %>"></label>
+      <p class="muted small" style="margin:0">Every event sends one. Leave blank for a week before at 10:00 AM (or right away when the event is less than a week off). It goes once to each member who has reminders on and whose family hasn't RSVP'd (only paid members for members-only events), and isn't sent after RSVPs close or more than a day late.</p>
     </fieldset>
   </div>
 

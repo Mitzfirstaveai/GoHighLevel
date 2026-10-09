@@ -94,7 +94,9 @@ function dueReminders(db, now = nowLocal()) {
 // Members without a ticket to invite to RSVP, as of `now`: events whose invitation time has come and which
 // are still open for RSVPs. Skips families that already have a ticket, and non-members for members-only events.
 function dueInvites(db, now = nowLocal()) {
-  const events = db.prepare(`SELECT * FROM events WHERE status = 'published' AND invite_at IS NOT NULL AND invite_at <= ? AND starts_at > ?`).all(now, now)
+  // Not more than a day late: an invitation whose time passed long ago (an older event, the server was off) is skipped.
+  const yesterday = `${addDays(now.slice(0, 10), -1)}T${now.slice(11, 16)}`;
+  const events = db.prepare(`SELECT * FROM events WHERE status = 'published' AND invite_at IS NOT NULL AND invite_at <= ? AND invite_at > ? AND starts_at > ?`).all(now, yesterday, now)
     .filter((e) => svc.rsvpWindowOpen(e));
   const people = db.prepare(`SELECT DISTINCT u.id FROM users u JOIN push_subscriptions s ON s.user_id = u.id WHERE u.contact_type = 'member'`).all().map((u) => u.id);
   const due = [];

@@ -328,14 +328,16 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 16; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 17; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
 // 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
-// 16: event-day reminders (devices, sent log) and each event's reminder schedule and RSVP invitation
+// 16: event-day reminders (devices, sent log) and each event's reminder schedule and RSVP invitation;
+// 17: every event has an RSVP invitation (existing ones: a week before at 10 AM)
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  17: [`UPDATE events SET invite_at = date(substr(starts_at, 1, 10), '-7 days') || 'T10:00' WHERE invite_at IS NULL`],
   16: [
     "ALTER TABLE events ADD COLUMN remind_day_of TEXT DEFAULT '09:00'",
     'ALTER TABLE events ADD COLUMN remind_day_before TEXT',

@@ -162,10 +162,13 @@ function seedDemo(db, { photosDir } = {}) {
       .run(hash, amitRow, userId['member@example.com']).lastInsertRowid);
     db.prepare('UPDATE household_members SET email = ?, login_user_id = ? WHERE id = ?').run('amit.shah@example.com', userId['amit.shah@example.com'], amitRow);
     const admin = userId['admin@example.com'];
+    // Every event has an "RSVP now" invitation a week before at 10 AM; for events already less than a week off,
+    // that time has passed (more than a day ago), so a reset doesn't send a burst of invitations.
+    const weekBefore = (start) => `${new Date(Date.parse(`${start.slice(0, 10)}T12:00:00Z`) - 7 * 86400000).toISOString().slice(0, 10)}T10:00`;
     const addEvent = (title, description, start, end, feeCents, capacity, maxParty, membersOnly = 0, location = GSA_CENTER) =>
       Number(db.prepare(`INSERT INTO events (title, description, location, starts_at, ends_at, fee_cents, capacity,
-          max_party_size, members_only, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?)`)
-        .run(title, description, location, start, end, feeCents, capacity, maxParty, membersOnly, admin).lastInsertRowid);
+          max_party_size, members_only, status, created_by, invite_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)`)
+        .run(title, description, location, start, end, feeCents, capacity, maxParty, membersOnly, admin, weekBefore(start)).lastInsertRowid);
 
     const set = (id, fields) => db.prepare(`UPDATE events SET ${Object.keys(fields).map((k) => `${k} = ?`).join(', ')} WHERE id = ?`)
       .run(...Object.values(fields), id);
@@ -205,6 +208,8 @@ function seedDemo(db, { photosDir } = {}) {
     // Reminder schedules: Garba nights also remind the evening before; Diwali reminds a week ahead too, and invites
     // members who haven't RSVP'd yet ten days before.
     for (const id of [garba1, garba2]) set(id, { remind_day_before: '18:00' });
+    // Garba #2's invitation goes out today at noon, so a phone with reminders on (and no ticket) sees one.
+    set(garba2, { invite_at: localDateTime(0, '12:00') });
     set(diwali, { remind_day_before: '18:00', remind_week_before: '09:00', invite_at: localDateTime(14, '10:00') });
     set(diwali, {
       title_gu: 'દિવાળી ભોજન અને સાંસ્કૃતિક કાર્યક્રમ',

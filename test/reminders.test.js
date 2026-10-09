@@ -199,3 +199,29 @@ test('an "RSVP now" invitation goes once to members with reminders on whose fami
   const club = await t.createEvent(admin, { title: 'Members AGM Invite', starts_at: `${day}T14:00`, members_only: '1', invite: '1', invite_at: `${inviteDay}T10:00` });
   assert.ok(!reminders.dueInvites(t.db, `${inviteDay}T11:00`).some((d) => d.event.id === club && d.userId === userId('invitee-i@test.org')));
 });
+
+test('every event has an RSVP invitation: a week before at 10 AM unless chosen, right away when sooner, never a day late', async () => {
+  const far = t.futureDate(20).slice(0, 10);
+  const ev = await t.createEvent(admin, { title: 'Default Invite', starts_at: `${far}T18:00` });
+  const weekBefore = new Date(Date.parse(`${far}T12:00:00Z`) - 7 * 86400000).toISOString().slice(0, 10);
+  assert.equal(t.db.prepare('SELECT invite_at FROM events WHERE id = ?').get(ev).invite_at, `${weekBefore}T10:00`);
+  // Less than a week off: the next quarter hour.
+  const soon = await t.createEvent(admin, { title: 'Soon Invite', starts_at: t.futureDate(2) });
+  const at = t.db.prepare('SELECT invite_at FROM events WHERE id = ?').get(soon).invite_at;
+  assert.ok(at >= nowLocal().slice(0, 16) && at <= `${t.futureDate(0).slice(0, 10)}T23:59`, at);
+  // Chosen time kept.
+  const chosen = await t.createEvent(admin, { title: 'Chosen Invite', starts_at: `${far}T18:00`, invite_at: `${weekBefore}T08:15` });
+  assert.equal(t.db.prepare('SELECT invite_at FROM events WHERE id = ?').get(chosen).invite_at, `${weekBefore}T08:15`);
+  // No checkbox to turn it off.
+  const form = (await admin.get(`/admin/events/${ev}/edit`)).text;
+  assert.doesNotMatch(form, /name="invite"/);
+  assert.match(form, new RegExp(`name="invite_at" value="${weekBefore}T10:00"`));
+  // Not sent more than a day late.
+  const m = await t.register('late-i@test.org', 'Lata');
+  await m.post('/reminders/subscribe', device(40));
+  const late = (now) => reminders.dueInvites(t.db, now).some((d) => d.event.id === ev && d.userId === userId('late-i@test.org'));
+  assert.ok(late(`${weekBefore}T10:00`));
+  const next = new Date(Date.parse(`${weekBefore}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  assert.ok(late(`${next}T09:59`), 'within a day');
+  assert.ok(!late(`${next}T10:01`), 'more than a day late');
+});
