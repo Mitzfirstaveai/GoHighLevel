@@ -357,6 +357,8 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 }
 textarea.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9rem; }
 .install-card { display: flex; gap: 12px; align-items: center; cursor: pointer; } .install-steps { margin-top: 6px; font-weight: 600; } .install-card[hidden] { display: none; } .install-card img { border-radius: 12px; }
+/* The ✕ that closes the card: a full finger-sized target on phones. */
+.install-card [data-dismiss] { min-width: 44px; min-height: 44px; justify-content: center; align-items: center; font-size: 1.2rem; flex: none; }
 .gu-fields { border: 1px dashed var(--border); border-radius: 10px; padding: 8px 12px; } .gu-fields summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 
 /* ---------- Easy reading: text size setting, larger targets, Gujarati ---------- */
@@ -658,3 +660,10 @@ td .btn { white-space: nowrap; }
 .complete-profile h2 { margin-top: 0; }
 .share-list { display: grid; gap: 4px; }
 .add-day { margin-top: 6px; }
+/* Narrow phones (e.g. a folded Galaxy Fold): the text gets the width, Install goes underneath, ✕ stays top right. */
+@media (max-width: 480px) {
+  .install-card { display: grid; grid-template-columns: 48px 1fr 44px; align-items: start; }
+  .install-card[hidden] { display: none; }
+  .install-card [data-dismiss] { grid-column: 3; grid-row: 1; margin: -8px -8px 0 0; }
+  .install-card [data-install] { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
+}
