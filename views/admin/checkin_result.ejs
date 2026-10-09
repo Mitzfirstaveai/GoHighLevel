@@ -48,20 +48,39 @@
       </div>
     <% } %>
 
-    <%# Payment, shown big: PAID (and how), or how much to collect — with buttons to record it. %>
+    <%# Payment, shown big: PAID (and how), or how much to collect. Collecting at the door is one tap:
+        Cash / Check / Other records the money and checks the family in (then Quick mode returns to the camera). %>
+    <% const canCheckIn = ['confirmed', 'pending_payment'].includes(rsvp.status) && !rsvp.checked_in_at; %>
+    <% const arriving = () => { %>
+      <label><%= t('How many people are arriving?') %>
+        <select name="guests" style="font-size:1.3rem">
+          <% for (let i = rsvp.party_size; i >= 1; i--) { %><option value="<%= i %>"><%= i %></option><% } %>
+        </select>
+      </label>
+    <% }; %>
     <% if (rsvp.total_cents && ['confirmed', 'pending_payment'].includes(rsvp.status)) { %>
       <% if (due) { %>
         <div class="pay-panel due">
           <div class="pay-big">💵 <%= t('{amount} DUE', { amount: money(due) }) %></div>
           <p style="margin:4px 0 10px"><%= rsvp.pay_at_door ? t('They chose to pay at the door. Collect it before checking them in.') : t('Not paid yet. Collect it before checking them in.') %></p>
-          <form method="post" action="/admin/checkin/<%= token %>/payment" class="pay-buttons">
+          <form method="post" action="/admin/checkin/<%= token %>/payment" class="stack">
             <%- include('../partials/csrf') %>
-            <span class="small"><%= t('Collected {amount} by:', { amount: money(due) }) %></span>
-            <button class="btn" name="method" value="cash"><%= t('Cash') %></button>
-            <button class="btn" name="method" value="check"><%= t('Check') %></button>
-            <button class="btn secondary" name="method" value="other"><%= t('Other (card, Zelle…)') %></button>
+            <% if (canCheckIn) { %><input type="hidden" name="checkin" value="1"><% arriving(); %><% } %>
+            <div class="pay-buttons">
+              <span class="small"><%= canCheckIn ? t('Collected {amount} — tap how they paid to check them in:', { amount: money(due) }) : t('Collected {amount} by:', { amount: money(due) }) %></span>
+              <button class="btn big" name="method" value="cash"><%= t('Cash') %></button>
+              <button class="btn big" name="method" value="check"><%= t('Check') %></button>
+              <button class="btn secondary" name="method" value="other"><%= t('Other (card, Zelle…)') %></button>
+            </div>
           </form>
         </div>
+        <% if (rsvp.status === 'confirmed' && canCheckIn) { %>
+          <form method="post" action="/admin/checkin/<%= token %>" class="stack">
+            <%- include('../partials/csrf') %>
+            <input type="hidden" name="guests" value="<%= rsvp.party_size %>">
+            <button class="btn secondary" onclick="this.form.guests.value = document.querySelector('.pay-panel select[name=guests]').value; return confirm(<%= JSON.stringify(t('They still owe {amount}. Check them in anyway?', { amount: money(due) })) %>)"><%= t('Check in without payment') %></button>
+          </form>
+        <% } %>
       <% } else { %>
         <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
         <div class="pay-panel paid"><div class="pay-big">✔ <%= t('PAID') %></div>
@@ -69,19 +88,11 @@
       <% } %>
     <% } %>
 
-    <% if (rsvp.status === 'confirmed' && !rsvp.checked_in_at) { %>
+    <% if (rsvp.status === 'confirmed' && !rsvp.checked_in_at && !due) { %>
       <form method="post" action="/admin/checkin/<%= token %>" class="stack">
         <%- include('../partials/csrf') %>
-        <label><%= t('How many people are arriving?') %>
-          <select name="guests" style="font-size:1.3rem">
-            <% for (let i = rsvp.party_size; i >= 1; i--) { %><option value="<%= i %>"><%= i %></option><% } %>
-          </select>
-        </label>
-        <% if (due) { %>
-          <button class="btn big secondary" onclick="return confirm(<%= JSON.stringify(t('They still owe {amount}. Check them in anyway?', { amount: money(due) })) %>)"><%= t('Check in without payment') %></button>
-        <% } else { %>
-          <button class="btn big ok"><%= t('Check in') %></button>
-        <% } %>
+        <% arriving(); %>
+        <button class="btn big ok"><%= t('Check in') %></button>
       </form>
     <% } %>
   <% } %>

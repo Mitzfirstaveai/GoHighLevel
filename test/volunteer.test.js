@@ -178,10 +178,13 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   // Volunteers still can't use the admin pages; the door has its own button.
   res = await volunteer.post(`/admin/rsvps/${rsvp.id}/record-payment`, { method: 'cash' });
   assert.equal(res.location, '/admin/checkin');
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash' }));
-  assert.match(res.text, /Recorded \$15\.00 paid by cash/);
+  // One tap: Cash records the money and checks them in (Quick mode then returns to the camera).
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  assert.match(res.text, /Recorded \$15\.00 paid by cash and checked in Dev Member — 1 person/);
+  assert.match(res.text, /✅ Checked in/);
+  assert.match(res.text, /id="auto-return"/, 'Quick mode goes back to the camera');
   assert.match(res.text, /class="pay-panel paid"[\s\S]*PAID[\s\S]*\$15\.00 paid \(cash\)/);
-  assert.match(res.text, /<button class="btn big ok">Check in<\/button>/);
+  assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_count, 1);
   const pay = t.db.prepare(`SELECT * FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id);
   assert.deepEqual([pay.amount_cents, pay.method], [1500, 'cash']);
 

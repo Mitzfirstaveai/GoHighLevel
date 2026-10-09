@@ -107,15 +107,32 @@ router.get('/:token', (req, res) => {
   });
 });
 
-// Money collected at the door (cash, check or other) for a family that still owes.
+// Money collected at the door (cash, check or other) for a family that still owes. With `checkin`,
+// the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
   const { db } = req.app.locals;
+  const back = `/admin/checkin/${encodeURIComponent(req.params.token)}`;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
   const method = ['cash', 'check', 'other'].includes(req.body.method) ? req.body.method : 'cash';
   const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
-  req.flash('success', 'Recorded {amount} paid by {method}. Now check them in.', { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', check: 'check', other: 'other' }[method]) });
-  res.redirect(`/admin/checkin/${req.params.token}`);
+  const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', check: 'check', other: 'other' }[method]) };
+  if (!req.body.checkin) {
+    req.flash('success', 'Recorded {amount} paid by {method}.', vars);
+    return res.redirect(back);
+  }
+  const guests = parseIntInRange(req.body.guests, 1, 1000);
+  try {
+    const done = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id });
+    req.session.justCheckedIn = req.params.token;
+    req.flash('success', guests === 1 ? 'Recorded {amount} paid by {method} and checked in {name} — 1 person.'
+      : 'Recorded {amount} paid by {method} and checked in {name} — {n} people.', { ...vars, name: `${done.first_name} ${done.last_name}`, n: guests });
+  } catch (err) {
+    if (!(err instanceof svc.UserError)) throw err;
+    req.flash('success', 'Recorded {amount} paid by {method}.', vars);
+    req.flash('error', err.template, err.vars);
+  }
+  res.redirect(back);
 });
 
 router.post('/:token', (req, res) => {
