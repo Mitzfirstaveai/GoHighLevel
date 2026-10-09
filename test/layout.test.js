@@ -93,4 +93,9 @@ test('the install card has steps for iPhone/iPad, Mac Safari and other browsers,
   assert.match(card, /On iPhone or iPad: tap the Share button/);
   assert.match(card, /private or incognito window/);
   assert.match(card, /<button class="btn small" data-install>Install<\/button>/, 'Install is always there (app.js decides what it does)');
+
+  // Also before signing in: on the member sign-in and the committee & volunteer sign-in.
+  const visitor = new t.Client();
+  assert.match((await visitor.get('/login')).text, /id="install-card"[\s\S]*your QR tickets work even without signal[\s\S]*<h1[^>]*>Sign in<\/h1>/);
+  assert.match((await visitor.get('/admin/login')).text, /id="install-card"[\s\S]*opens straight to the admin area or door check-in[\s\S]*data-steps="ios"/);
 });

@@ -2,19 +2,7 @@
 <%# Home, in order of what members need most: their next event (green on the day), status tiles, GSA announcement,
     celebrations, what's on, then Gujarat & India headlines to read. %>
 <div class="page-head"><h1><%= t('Namaste, {name}', { name: user.first_name }) %> 🙏</h1></div>
-<div class="card install-card" id="install-card" hidden>
-  <img src="/icon-192.png" alt="" width="48" height="48">
-  <div style="flex:1">
-    <strong><%= t('Get the GSA app') %></strong>
-    <div class="small muted"><%= t('Add it to your home screen — your QR tickets work even without signal.') %></div>
-    <%# app.js shows the steps for this device when "Install" can't open the browser's own install prompt. %>
-    <div class="small install-steps" data-steps="ios" hidden><%= t('On iPhone or iPad: tap the Share button (square with an arrow), then "Add to Home Screen".') %></div>
-    <div class="small install-steps" data-steps="mac" hidden><%= t('In Safari on a Mac: choose File, then "Add to Dock".') %></div>
-    <div class="small install-steps" data-steps="other" hidden><%= t('Open your browser menu (⋮ or ⋯) and choose "Install app" or "Add to Home screen".') %> <%= t('This does not work in a private or incognito window.') %></div>
-  </div>
-  <button class="btn small" data-install><%= t('Install') %></button>
-  <button class="linkish" data-dismiss aria-label="<%= t('Dismiss') %>">✕</button>
-</div>
+<%- include('../partials/install-card') %>
 <div class="home-top">
   <%# Your next event: replaces a separate ticket tile, event list and event-day banner. Turns green on the day. %>
   <section class="card next-event<%= nextIsToday ? ' today' : '' %>" aria-label="<%= t('Your next event') %>">

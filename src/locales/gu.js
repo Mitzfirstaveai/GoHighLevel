@@ -129,6 +129,7 @@ module.exports = {
   'My dashboard': 'મારું હોમ',
   'Namaste, {name}': 'નમસ્તે, {name}',
   'Get the GSA app': 'GSA એપ મેળવો',
+  'Add it to your home screen — opens straight to the admin area or door check-in.': 'તેને તમારી હોમ સ્ક્રીન પર ઉમેરો — તે સીધું એડમિન વિભાગ અથવા દરવાજા પરના ચેક-ઇન પર ખુલે છે.',
   'Add it to your home screen — your QR tickets work even without signal.': 'તેને તમારી હોમ સ્ક્રીન પર ઉમેરો — નેટવર્ક ન હોય તો પણ તમારી QR ટિકિટ ચાલશે.',
   'On iPhone: tap the Share button, then "Add to Home Screen".': 'iPhone પર: શેર બટન ટૅપ કરો, પછી "Add to Home Screen" પસંદ કરો.',
   'On iPhone or iPad: tap the Share button (square with an arrow), then "Add to Home Screen".': 'iPhone કે iPad પર: શેર બટન (તીર સાથેનો ચોરસ) ટૅપ કરો, પછી "Add to Home Screen" પસંદ કરો.',
