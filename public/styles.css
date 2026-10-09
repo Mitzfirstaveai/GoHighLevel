@@ -120,6 +120,13 @@ h2 { font-size: 1.2rem; }
   html.size-large .admin-menu, html.size-xlarge .admin-menu { --cols: 3; }
 }
 
+/* Phones turned sideways (short screens): slimmer tiles, icon beside the name, so the page isn't mostly menu. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .menu-band .inner { padding: 6px 16px; gap: 6px; }
+  .menu-band a { flex-direction: row; min-height: 40px; padding: 4px 6px; gap: 6px; font-size: .85rem; }
+  .menu-band a .icon { width: 20px; height: 20px; }
+}
+
 /* Mobile bottom tab bar */
 .tabbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; background: var(--surface);
   border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
