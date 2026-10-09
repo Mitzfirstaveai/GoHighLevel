@@ -631,3 +631,9 @@ td .btn { white-space: nowrap; }
 .pay-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
 .pay-buttons .small { flex-basis: 100%; }
 .pay-buttons .btn { min-width: 96px; }
+/* Checkout: card (Stripe), PayPal and Venmo, each in its own colours so they're easy to tell apart. */
+.pay-options { display: grid; gap: 10px; }
+.pay-options .btn { width: 100%; min-height: 56px; }
+:root .pay-options .btn.pay-paypal { gap: 0; background: #FFC439; border-color: #FFC439; color: #003087 !important; font-size: 1.35rem; font-weight: 800; font-style: italic; }
+:root .pay-options .btn.pay-paypal .pp-2 { color: #009CDE; }
+:root .pay-options .btn.pay-venmo { background: #008CFF; border-color: #008CFF; color: #fff !important; font-size: 1.4rem; font-weight: 800; font-style: italic; letter-spacing: .01em; }

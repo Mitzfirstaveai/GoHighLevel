@@ -99,3 +99,52 @@ test('the install card has steps for iPhone/iPad, Mac Safari and other browsers,
   assert.match((await visitor.get('/login')).text, /id="install-card"[\s\S]*your QR tickets work even without signal[\s\S]*<h1[^>]*>Sign in<\/h1>/);
   assert.match((await visitor.get('/admin/login')).text, /id="install-card"[\s\S]*opens straight to the admin area or door check-in[\s\S]*data-steps="ios"/);
 });
+
+test('checkout offers card, PayPal and Venmo; the choice shows on the receipt, at the door and in QuickBooks', async () => {
+  const eventId = await t.createEvent(admin, { title: 'Venmo Night', fee: '20', starts_at: t.futureDate(1) });
+  const m = await t.register('venmo@test.org', 'Ven');
+  let res = await m.post(`/events/${eventId}/rsvp`, { party_size: '1', pay: 'online' });
+  const page = await m.get(res.location);
+  assert.match(page.text, /How would you like to pay\?[\s\S]*value="demo"[^>]*>💳 Card, Apple Pay, Google Pay or Cash App Pay[\s\S]*value="paypal"[\s\S]*value="venmo"/);
+  res = await m.post(res.location, { method: 'venmo' });
+  const rsvp = t.rsvpFor(eventId, 'venmo@test.org');
+  assert.equal(rsvp.status, 'confirmed');
+  const pay = t.db.prepare(`SELECT * FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id);
+  assert.equal(pay.method, 'venmo');
+  assert.match((await m.get(`/receipts/${pay.id}`)).text, /Payment method<\/span><br><strong>Venmo/);
+  assert.match((await admin.get(`/admin/checkin/${rsvp.qr_token}`)).text, /\$20\.00 paid \(Venmo\)/);
+  assert.match((await admin.get(`/admin/reports/quickbooks.csv?year=${new Date().getFullYear()}`)).text, /Venmo Night — 1 person,Venmo,/);
+
+  // PayPal works the same way (e.g. a donation).
+  res = await m.post('/donate', { amount: '2500' });
+  await m.post(res.location, { method: 'paypal' });
+  assert.equal(t.db.prepare(`SELECT method FROM payments WHERE kind = 'donation' AND user_id = ? AND status = 'paid'`).get(pay.user_id).method, 'paypal');
+});
+
+test('upgrading to v13 keeps every payment and the memberships that point at them', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { DatabaseSync } = require('node:sqlite');
+  const { openDb } = require('../src/db');
+  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'gsa-v13-'));
+  const file = path.join(dir, 'old.db');
+  let db = openDb(file);
+  const uid = Number(db.prepare(`INSERT INTO users (first_name, last_name) VALUES ('Old', 'Payer')`).run().lastInsertRowid);
+  db.prepare(`INSERT INTO membership_plans (name, amount_cents, duration_months) VALUES ('Family', 33000, 12)`).run();
+  const pid = Number(db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, paid_at)
+    VALUES (?, 'membership', 1, 'Dues', 33000, 'paid', 'cash', datetime('now'))`).run(uid).lastInsertRowid);
+  db.prepare(`INSERT INTO memberships (user_id, plan_id, start_date, end_date, payment_id) VALUES (?, 1, '2026-01-01', '2026-12-31', ?)`).run(uid, pid);
+  db.close();
+  const raw = new DatabaseSync(file);
+  raw.exec('PRAGMA user_version = 12');
+  raw.close();
+  db = openDb(file);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 13);
+  assert.equal(db.prepare('SELECT method FROM payments WHERE id = ?').get(pid).method, 'cash');
+  assert.equal(db.prepare('SELECT payment_id FROM memberships WHERE user_id = ?').get(uid).payment_id, pid);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method) VALUES (?, 'donation', 'Gift', 500, 'paid', 'venmo')`).run(uid);
+  assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1);
+  db.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});

@@ -1,11 +1,18 @@
 <%- include('../partials/head') %>
-<div class="card" style="max-width:460px;margin:20px auto;text-align:center">
+<%# Demo checkout: the choice members will get once Stripe and PayPal are connected. Each button records
+    the payment as made that way (no real money). With Stripe, "Card" opens Stripe's page, which also
+    offers Apple Pay, Google Pay and Cash App Pay; PayPal's page offers PayPal and Venmo. %>
+<div class="card checkout" style="max-width:460px;margin:20px auto;text-align:center">
   <h1><%= t('Checkout') %></h1>
   <p><%= payment.description %></p>
   <p style="font-size:2rem;font-weight:800;margin:8px 0"><%= money(payment.amount_cents) %></p>
-  <p class="flash info small"><%= t('This is a demo checkout — no real money is charged.') %></p>
-  <form method="post" action="/pay/<%= payment.id %>/demo"><%- include('../partials/csrf') %>
-    <button class="btn big"><%= t('Simulate successful payment') %></button></form>
+  <h2 style="font-size:1.1rem;margin:16px 0 8px"><%= t('How would you like to pay?') %></h2>
+  <form method="post" action="/pay/<%= payment.id %>/demo" class="pay-options"><%- include('../partials/csrf') %>
+    <button class="btn big pay-card" name="method" value="demo">💳 <%= t('Card, Apple Pay, Google Pay or Cash App Pay') %></button>
+    <button class="btn big pay-paypal" name="method" value="paypal" aria-label="PayPal"><span class="pp-1">Pay</span><span class="pp-2">Pal</span></button>
+    <button class="btn big pay-venmo" name="method" value="venmo" aria-label="Venmo">venmo</button>
+  </form>
+  <p class="flash info small" style="margin-top:14px"><%= t('This is a demo checkout — no real money is charged.') %></p>
   <p><a href="/pay/<%= payment.id %>/cancelled"><%= t('Cancel') %></a></p>
 </div>
 <%- include('../partials/foot') %>

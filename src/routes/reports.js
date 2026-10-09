@@ -69,7 +69,7 @@ router.get('/reports/quickbooks.csv', (req, res) => {
   const { db } = req.app.locals;
   const year = /^\d{4}$/.test(req.query.year || '') ? req.query.year : nowLocal().slice(0, 4);
   const label = Object.fromEntries(CATEGORIES);
-  const methods = { stripe: 'Credit Card', demo: 'Credit Card', cash: 'Cash', check: 'Check', other: 'Other' };
+  const methods = { stripe: 'Credit Card', paypal: 'PayPal', venmo: 'Venmo', demo: 'Credit Card', cash: 'Cash', check: 'Check', other: 'Other' };
   const rows = [['Date', 'Transaction Type', 'Num', 'Customer', 'Item', 'Memo', 'Payment Method', 'Ref No', 'Amount']];
   for (const p of paidPayments(db, year)) {
     const [y, m, d] = localDate(p.paid_at).split('-');

@@ -79,7 +79,7 @@
   <% if (!payments.length) { %><p class="muted">None.</p><% } else { %>
   <div class="table-wrap"><table>
     <thead><tr><th>Date</th><th>Description</th><th>Method</th><th class="num">Amount</th></tr></thead>
-    <tbody><% for (const p of payments) { %><tr><td><%= fmtDay(p.paid_at) %></td><td><%= p.description %></td><td><%= p.method %><%= p.provider_ref ? ` (${p.provider_ref})` : '' %></td><td class="num"><%= money(p.amount_cents) %></td></tr><% } %></tbody>
+    <tbody><% for (const p of payments) { %><tr><td><%= fmtDay(p.paid_at) %></td><td><%= p.description %></td><td><%- include('../partials/payment-method', { method: p.method }) %><%= p.provider_ref ? ` (${p.provider_ref})` : '' %></td><td class="num"><%= money(p.amount_cents) %></td></tr><% } %></tbody>
   </table></div>
   <% } %>
 </div>

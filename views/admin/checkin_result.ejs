@@ -76,7 +76,7 @@
           </form>
         </div>
       <% } else { %>
-        <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
+        <% const how = String(paid?.methods || '').split(',').filter(Boolean).map((m) => t({ stripe: 'online', demo: 'online', paypal: 'PayPal', venmo: 'Venmo', cash: 'cash', check: 'check', other: 'other' }[m] || m)).join(', '); %>
         <div class="pay-panel paid"><div class="pay-big">✔ <%= t('PAID') %></div>
           <p style="margin:4px 0 0"><%= how ? t('{amount} paid ({how})', { amount: money(paid.cents), how }) : t('{amount} paid', { amount: money(paid.cents) }) %></p></div>
       <% } %>

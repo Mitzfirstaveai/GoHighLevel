@@ -66,7 +66,10 @@ router.post('/:id/demo', requireAuth, async (req, res) => {
     req.flash('error', 'This checkout has expired. Please start again.');
     return res.redirect(backFromCheckout(db, payment));
   }
-  const result = await settlePayment(db, gateway, payment.id, { method: 'demo', providerRef: `demo_${payment.id}` });
+  // The demo checkout offers card (Stripe: card, Apple Pay, Google Pay, Cash App Pay), PayPal and Venmo,
+  // and records which one was chosen so receipts, the door and reports show it.
+  const method = ['paypal', 'venmo'].includes(req.body.method) ? req.body.method : 'demo';
+  const result = await settlePayment(db, gateway, payment.id, { method, providerRef: `${method}_demo_${payment.id}` });
   if (result === 'refund') req.flash('error', REFUNDED);
   else req.flash('success', 'Payment received — thank you!');
   res.redirect(redirectAfterPayment(db, payment));

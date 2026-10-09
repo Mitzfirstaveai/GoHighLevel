@@ -39,8 +39,8 @@
     <thead><tr><th>Date</th><th>Donor</th><th>Fund</th><th>Method</th><th class="num">Amount</th><th></th></tr></thead>
     <tbody><% for (const d of donations) { %>
       <tr><td class="d-hide"><%= fmtDay(d.paid_at) %></td><td class="d-donor"><a href="/admin/members/<%= d.user_id %>"><%= d.first_name %> <%= d.last_name %></a>
-          <div class="muted small d-meta"><%= fmtDay(d.paid_at) %> · <%= d.campaign_title || 'General fund' %> · <%= d.method %></div><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
-        <td class="d-hide"><%= d.campaign_title || 'General fund' %></td><td class="d-hide"><%= d.method %></td><td class="num d-amount"><%= money(d.amount_cents) %></td><td class="num d-receipt"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
+          <div class="muted small d-meta"><%= fmtDay(d.paid_at) %> · <%= d.campaign_title || 'General fund' %> · <%- include('../partials/payment-method', { method: d.method }) %></div><% if (d.note) { %><div class="muted small"><%= d.note %></div><% } %></td>
+        <td class="d-hide"><%= d.campaign_title || 'General fund' %></td><td class="d-hide"><%- include('../partials/payment-method', { method: d.method }) %></td><td class="num d-amount"><%= money(d.amount_cents) %></td><td class="num d-receipt"><a href="/receipts/<%= d.id %>">Receipt</a></td></tr>
     <% } %>
     <% if (!donations.length) { %><tr><td colspan="6" class="muted">No donations match.</td></tr><% } %></tbody>
   </table>

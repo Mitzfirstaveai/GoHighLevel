@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS payments (
   description TEXT NOT NULL,
   amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
-  method TEXT CHECK (method IN ('stripe', 'demo', 'cash', 'check', 'other')),
+  method TEXT CHECK (method IN ('stripe', 'paypal', 'venmo', 'demo', 'cash', 'check', 'other')),
   provider_ref TEXT,
   recorded_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -286,13 +286,39 @@ CREATE TABLE IF NOT EXISTS news_items (
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 `;
 
-const SCHEMA_VERSION = 12; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 13; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
-// 12: pay at the door
+// 12: pay at the door; 13: PayPal and Venmo payment methods
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
   12: ['ALTER TABLE rsvps ADD COLUMN pay_at_door INTEGER NOT NULL DEFAULT 0'],
+  // SQLite can't change a CHECK in place, so payments is rebuilt with PayPal and Venmo allowed
+  // (openDb turns foreign keys off around this, as SQLite's docs advise for rebuilding a table).
+  13: [
+    `CREATE TABLE payments_v13 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('membership', 'membership_upgrade', 'event', 'donation', 'other')),
+      reference_id INTEGER,
+      note TEXT,
+      description TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
+      method TEXT CHECK (method IN ('stripe', 'paypal', 'venmo', 'demo', 'cash', 'check', 'other')),
+      provider_ref TEXT,
+      recorded_by INTEGER REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      paid_at TEXT,
+      refunded_at TEXT
+    )`,
+    `INSERT INTO payments_v13 (id, user_id, kind, reference_id, note, description, amount_cents, status, method,
+       provider_ref, recorded_by, created_at, paid_at, refunded_at)
+     SELECT id, user_id, kind, reference_id, note, description, amount_cents, status, method,
+       provider_ref, recorded_by, created_at, paid_at, refunded_at FROM payments`,
+    'DROP TABLE payments',
+    'ALTER TABLE payments_v13 RENAME TO payments',
+  ],
   4: ['ALTER TABLE users ADD COLUMN checkin_access INTEGER NOT NULL DEFAULT 0'],
   // rsvp_attendees itself is created by SCHEMA. Older RSVPs have no names and show a head count.
   5: [
@@ -351,8 +377,16 @@ function openDb(file) {
       + 'It only holds demo data, so delete the file (and its -wal/-shm files) and start again.');
   }
   if (hasTables) {
+    // Rebuilding a table (v13) needs foreign keys off; they're checked again afterwards.
+    const rebuild = version < 13;
+    if (rebuild) db.exec('PRAGMA foreign_keys = OFF;');
     for (let v = version + 1; v <= SCHEMA_VERSION; v++) {
       transaction(db, () => (MIGRATIONS[v] || []).forEach((sql) => db.exec(sql)));
+    }
+    if (rebuild) {
+      db.exec('PRAGMA foreign_keys = ON;');
+      const broken = db.prepare('PRAGMA foreign_key_check').all();
+      if (broken.length) throw new Error(`Database upgrade left ${broken.length} broken references: ${JSON.stringify(broken.slice(0, 3))}`);
     }
   }
   db.exec(SCHEMA);
