@@ -1,9 +1,9 @@
-<%# Event-day reminders: turned on per device (phone, tablet or computer). public/reminders.js shows the right part
+<%# Event reminders: turned on per device (phone, tablet or computer). public/reminders.js shows the right part
     for this device — without JavaScript the card stays hidden. %>
 <div class="card reminders-card no-print" id="reminders" hidden data-csrf="<%= csrf %>"
      data-labels="<%= JSON.stringify({ wait: t('One moment…'), on: t('Reminders are on for this device.'), off: t('Reminders are off for this device.'), failed: t('Reminders could not be turned on on this device.'), testSent: t('Test sent — it should appear in a few seconds.'), testNone: t('No reminder was sent. Turn reminders on first.') }) %>">
-  <h2 style="margin-top:0">🔔 <%= t('Event-day reminders') %></h2>
-  <p class="muted"><%= t('Get a reminder on this phone or computer on the day of an event you have a ticket for — even when the app is closed.') %></p>
+  <h2 style="margin-top:0">🔔 <%= t('Event reminders') %></h2>
+  <p class="muted"><%= t('Get reminders on this phone or computer for events you have a ticket for, and invitations to RSVP — even when the app is closed.') %></p>
   <div data-state="off" hidden><button type="button" class="btn" data-on><%= t('Turn on reminders') %></button></div>
   <div data-state="on" hidden>
     <p><span class="badge ok">✔ <%= t('On for this device') %></span></p>

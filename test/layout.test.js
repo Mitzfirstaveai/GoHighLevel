@@ -139,7 +139,7 @@ test('upgrading to v13 keeps every payment and the memberships that point at the
   require('./helpers').rewindSchema(raw, 12);
   raw.close();
   db = openDb(file);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 15);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 16);
   assert.equal(db.prepare('SELECT method FROM payments WHERE id = ?').get(pid).method, 'cash');
   assert.equal(db.prepare('SELECT payment_id FROM memberships WHERE user_id = ?').get(uid).payment_id, pid);
   assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);

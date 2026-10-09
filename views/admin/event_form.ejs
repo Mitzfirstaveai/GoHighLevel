@@ -55,6 +55,23 @@
   </div>
 
   <div class="card stack">
+    <h2>Phone reminders</h2>
+    <p class="muted small" style="margin:0">Sent to members' phones and computers where they turned on event reminders (Profile → Event reminders), even when the app is closed. Each person gets each reminder once; anyone already checked in is skipped.</p>
+    <fieldset class="reminder-plan">
+      <legend>To people with a ticket</legend>
+      <label class="check"><input type="checkbox" name="remind_day_of" value="1" <%= event.remind_day_of ? 'checked' : '' %>> Morning of the event, at <input type="time" name="remind_day_of_time" value="<%= event.remind_day_of || '09:00' %>" aria-label="Time for the morning-of reminder"></label>
+      <label class="check"><input type="checkbox" name="remind_day_before" value="1" <%= event.remind_day_before ? 'checked' : '' %>> The day before, at <input type="time" name="remind_day_before_time" value="<%= event.remind_day_before || '18:00' %>" aria-label="Time for the day-before reminder"></label>
+      <label class="check"><input type="checkbox" name="remind_week_before" value="1" <%= event.remind_week_before ? 'checked' : '' %>> One week before, at <input type="time" name="remind_week_before_time" value="<%= event.remind_week_before || '09:00' %>" aria-label="Time for the week-before reminder"></label>
+      <p class="muted small" style="margin:0">A morning event is reminded no later than two hours before it starts.</p>
+    </fieldset>
+    <fieldset class="reminder-plan">
+      <legend>To members without a ticket</legend>
+      <label class="check"><input type="checkbox" name="invite" value="1" <%= event.invite_at ? 'checked' : '' %>> Send an “RSVP now” invitation on <input type="datetime-local" name="invite_at" value="<%= event.invite_at || '' %>" aria-label="When to send the RSVP invitation"></label>
+      <p class="muted small" style="margin:0">Goes once to each member who has reminders on and whose family hasn't RSVP'd (only paid members for members-only events). Not sent after RSVPs close.</p>
+    </fieldset>
+  </div>
+
+  <div class="card stack">
     <h2>Registration questions (optional)</h2>
     <label>One question per line. Start with <code>*</code> to make it required. Add choices after a colon.
       <textarea name="questions" rows="4" placeholder="*Dietary preference: Regular, Jain, Swaminarayan

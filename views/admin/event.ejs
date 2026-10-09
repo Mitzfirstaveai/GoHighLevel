@@ -3,7 +3,11 @@
 <div class="page-head">
   <div><h1><%= event.title %></h1><div class="muted"><%= fmtDate(event.starts_at) %><%= event.location ? ` · ${event.location}` : '' %>
     <span class="badge <%= event.status === 'published' ? 'ok' : event.status === 'cancelled' ? 'err' : 'neutral' %>"><%= event.status %></span></div>
-    <div class="small" style="margin-top:4px"><%- include('../partials/event-prices', { event }) %></div></div>
+    <div class="small" style="margin-top:4px"><%- include('../partials/event-prices', { event }) %></div>
+    <% const at = (time) => fmtTime(`2000-01-01T${time}`);
+       const plan = [event.remind_week_before && `a week before at ${at(event.remind_week_before)}`, event.remind_day_before && `the day before at ${at(event.remind_day_before)}`,
+         event.remind_day_of && `the morning of at ${at(event.remind_day_of)}`].filter(Boolean); %>
+    <div class="small muted" style="margin-top:4px">🔔 Phone reminders: <%= plan.length ? plan.join(' · ') : 'off' %><% if (event.invite_at) { %> · RSVP invitation <%= fmtDate(event.invite_at) %><%= invitesSent ? ` (sent to ${invitesSent})` : '' %><% } %></div></div>
   <div class="actions">
     <a class="btn" href="/admin/checkin?event=<%= event.id %>">Door check-in</a>
     <a class="btn secondary" href="/admin/events/<%= event.id %>/edit">Edit</a>

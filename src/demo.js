@@ -202,6 +202,10 @@ function seedDemo(db, { photosDir } = {}) {
       localDateTime(24, '17:00'), localDateTime(24, '21:30'), 1500, 400, 10);
     set(garba2, { fee_cents: 500, guest_fee_cents: 5000, out_of_state_fee_cents: 1500, student_fee_cents: 1500, child_free_age: 10, max_guests: 4, title_gu: 'નવરાત્રી ગરબા #2',
       description_gu: 'જીવંત સંગીત સાથે નવરાત્રી ગરબા અને દાંડિયા રાસની બીજી રાત.' });
+    // Reminder schedules: Garba nights also remind the evening before; Diwali reminds a week ahead too, and invites
+    // members who haven't RSVP'd yet ten days before.
+    for (const id of [garba1, garba2]) set(id, { remind_day_before: '18:00' });
+    set(diwali, { remind_day_before: '18:00', remind_week_before: '09:00', invite_at: localDateTime(14, '10:00') });
     set(diwali, {
       title_gu: 'દિવાળી ભોજન અને સાંસ્કૃતિક કાર્યક્રમ',
       description_gu: 'સાંસ્કૃતિક કાર્યક્રમ અને ભોજન સાથે દિવાળી અને ગુજરાતી નવા વર્ષની ઉજવણી કરો. ભોજન ફી વ્યક્તિ દીઠ $15.',

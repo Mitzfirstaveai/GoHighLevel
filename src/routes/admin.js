@@ -385,7 +385,16 @@ function parseEventForm(body) {
   if (body.capacity && !capacity) throw new svc.UserError('Capacity must be a positive number.');
   if (!maxParty) throw new svc.UserError('Max people per RSVP must be between 1 and 100.');
   if (!maxGuests) throw new svc.UserError('Max guests per RSVP must be between 1 and 50.');
+  // Phone reminders for ticket holders (each on or off, at a time) and an optional "RSVP now" invitation.
+  const remindTime = (on, value, fallback) => (on ? (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '')) ? value : fallback) : null);
+  const inviteAt = body.invite ? String(body.invite_at || '') : null;
+  if (inviteAt !== null && !dt.test(inviteAt)) throw new svc.UserError('Choose when to send the RSVP invitation.');
+  if (inviteAt !== null && inviteAt >= startsAt) throw new svc.UserError('The RSVP invitation has to go out before the event starts.');
   return {
+    remind_day_of: remindTime(body.remind_day_of, body.remind_day_of_time, '09:00'),
+    remind_day_before: remindTime(body.remind_day_before, body.remind_day_before_time, '18:00'),
+    remind_week_before: remindTime(body.remind_week_before, body.remind_week_before_time, '09:00'),
+    invite_at: inviteAt,
     title,
     description: String(body.description || '').trim().slice(0, 5000) || null,
     title_gu: String(body.title_gu || '').trim().slice(0, 200) || null,
@@ -412,7 +421,7 @@ function parseEventForm(body) {
 
 const EVENT_COLUMNS = ['title', 'description', 'title_gu', 'description_gu', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
   'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'out_of_state_fee_cents', 'student_fee_cents', 'child_free_age',
-  'max_guests', 'early_fee_cents', 'early_until', 'questions'];
+  'max_guests', 'early_fee_cents', 'early_until', 'questions', 'remind_day_of', 'remind_day_before', 'remind_week_before', 'invite_at'];
 
 router.get('/events', (req, res) => {
   const { db } = req.app.locals;
@@ -424,7 +433,7 @@ router.get('/events', (req, res) => {
 router.get('/events/new', (req, res) => {
   res.render('admin/event_form', {
     title: 'New event', questionsText: '',
-    event: { max_party_size: 10, max_guests: 4, status: 'published', location: getContent(req.app.locals.db, 'org').venue },
+    event: { max_party_size: 10, max_guests: 4, status: 'published', location: getContent(req.app.locals.db, 'org').venue, remind_day_of: '09:00' },
   });
 });
 
@@ -504,6 +513,7 @@ router.get('/events/:id', (req, res) => {
   if (!event) return notFound(res, 'Event');
   res.render('admin/event', {
     title: event.title, event,
+    invitesSent: db.prepare('SELECT COUNT(*) AS n FROM invites_sent WHERE event_id = ?').get(event.id).n,
     stats: svc.eventStats(db, event.id),
     revenue: svc.eventRevenue(db, event.id),
     attendees: eventAttendees(db, event),

@@ -30,7 +30,7 @@ function loadConfig(overrides = {}) {
     // Demo payments let you try the full flow without Stripe. Never on in production
     // unless explicitly enabled.
     newsRefreshMinutes: env.NEWS_REFRESH_MINUTES === undefined ? 60 : Number(env.NEWS_REFRESH_MINUTES),
-    // Event-day reminders: how often to check for reminders to send (0 turns them off), and optional
+    // Event reminders: how often to check for reminders to send (0 turns them off), and optional
     // web-push keys (made automatically and kept in the database when not given).
     reminderMinutes: env.REMINDER_MINUTES === undefined ? 5 : Number(env.REMINDER_MINUTES),
     vapidPublicKey: env.VAPID_PUBLIC_KEY || '',

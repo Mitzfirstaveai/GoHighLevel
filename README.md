@@ -17,10 +17,12 @@ Organization details (About, Committee, Sponsors, Contact) live in `src/content.
   out US politics, elections and political parties (important for a 501(c)(3)) and distressing stories. The four
   suggested sources are a starting point; check them on the live site and add Gujarati papers' RSS feeds.
   `NEWS_REFRESH_MINUTES` changes the refresh interval (0 turns it off).
-- **Event-day reminders**: on the day of an event they have a ticket for, members get a notification on the phones,
-  tablets and computers where they turned reminders on (Profile → Event-day reminders, or on a ticket) — even when the
-  app is closed or they are signed out. It goes out at 9 AM (two hours before a morning event), says the time and place
-  and anything still to pay at the door, and opens the QR ticket. On iPhone and iPad this needs the app added to the
+- **Event reminders**: members get notifications on the phones, tablets and computers where they turned reminders on
+  (Profile → Event reminders, or on a ticket) — even when the app is closed or they are signed out. Each event sets its
+  own schedule (Edit event → Phone reminders): the morning of (9 AM by default, never later than two hours before the
+  start), the day before and/or a week before, each at a chosen time, plus an optional one-time "RSVP now" invitation
+  to members whose family has no ticket. Reminders say the time and place and anything still to pay at the door, and
+  open the QR ticket. On iPhone and iPad this needs the app added to the
   Home Screen (iOS 16.4 or later). Opening the app that day also shows a pop-up with the ticket. Push keys are made
   automatically (or set `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`); `REMINDER_MINUTES` sets how often reminders are
   checked (default 5, 0 turns them off). The server must keep running for reminders to go out on time.

@@ -684,3 +684,8 @@ td .btn { white-space: nowrap; }
 .today-popup .actions { justify-content: center; margin-top: 12px; }
 /* Event-day reminders card */
 .reminders-card [data-msg]:empty { display: none; }
+/* Event form: reminder schedule (checkbox + time on one line, wrapping on phones). */
+.reminder-plan { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px 10px; margin: 0; display: grid; gap: 6px; }
+.reminder-plan legend { font-weight: 600; padding: 0 4px; }
+.reminder-plan label.check { flex-wrap: wrap; }
+.reminder-plan input[type=time], .reminder-plan input[type=datetime-local] { width: auto; min-width: 0; }

@@ -1,13 +1,21 @@
-// Event-day reminders: a notification on members' phones and computers on the day of an event they
-// have a ticket for, even when the app is closed (web push, through the service worker). Members turn
-// it on per device; each person gets one reminder per ticket, in the morning (or two hours before an
-// early event, or straight away when they turn reminders on later in the day).
+// Event reminders: notifications on members' phones and computers, even when the app is closed (web push,
+// through the service worker). Members turn them on per device. Each event sets its own schedule for ticket
+// holders — the morning of, the day before and/or a week before, each at a chosen time — and can invite
+// members without a ticket to RSVP at a chosen moment. Each reminder goes to each person once.
 const webpush = require('web-push');
 const svc = require('./services');
 const { translator } = require('./i18n');
-const { nowLocal, formatTime, formatMoney } = require('./util');
+const { nowLocal, formatTime, formatMoney, formatDateTime } = require('./util');
 
 const REMIND_FROM = '09:00';
+// Kinds of reminder for ticket holders: how many days before the event, and the event column with its time.
+const KINDS = [['week_before', 7, 'remind_week_before'], ['day_before', 1, 'remind_day_before'], ['day_of', 0, 'remind_day_of']];
+
+function addDays(isoDate, days) {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 // Keys that identify this app to the browsers' push services: from the environment, or made once and kept.
 function vapidKeys(db, config = {}) {
@@ -52,48 +60,85 @@ function ticketPeople(db, rsvp) {
   return [...ids];
 }
 
-// When a ticket's reminder goes out: 9 AM, or two hours before an event that starts before 11 AM.
-function remindAt(startsAt) {
-  const start = startsAt.slice(11, 16);
-  if (start >= '11:00') return REMIND_FROM;
-  const [h, m] = start.split(':').map(Number);
+// When the morning-of reminder goes out: the event's chosen time (9 AM unless changed), but no later than
+// two hours before it starts (an 8:30 AM puja is reminded at 6:30).
+function remindAt(startsAt, time = REMIND_FROM) {
+  const [h, m] = startsAt.slice(11, 16).split(':').map(Number);
   const mins = Math.max(0, h * 60 + m - 120);
-  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+  const early = `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+  return time < early ? time : early;
 }
 
-// Tickets for today's events that someone still needs reminding about, as of `now` (local 'YYYY-MM-DDTHH:MM').
+// Reminders for ticket holders due as of `now` (local 'YYYY-MM-DDTHH:MM'): each kind the event switched on,
+// on its own day, from its time until the event starts. Logged by the day it went out, so each goes once.
 function dueReminders(db, now = nowLocal()) {
   const day = now.slice(0, 10);
-  const rows = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
-    WHERE e.status = 'published' AND substr(e.starts_at, 1, 10) = ? AND e.starts_at > ?
-      AND r.status = 'confirmed' AND r.checked_in_at IS NULL`).all(day, now);
   const due = [];
-  for (const r of rows) {
-    if (now.slice(11, 16) < remindAt(r.starts_at)) continue;
-    for (const userId of ticketPeople(db, r)) {
-      if (db.prepare('SELECT 1 FROM reminders_sent WHERE rsvp_id = ? AND user_id = ? AND sent_on = ?').get(r.id, userId, day)) continue;
-      if (!db.prepare('SELECT 1 FROM push_subscriptions WHERE user_id = ?').get(userId)) continue; // nowhere to send it yet
-      due.push({ rsvp: r, userId });
+  for (const [kind, daysAhead, column] of KINDS) {
+    const rows = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.${column} AS remind_time FROM rsvps r JOIN events e ON e.id = r.event_id
+      WHERE e.status = 'published' AND substr(e.starts_at, 1, 10) = ? AND e.starts_at > ? AND e.${column} IS NOT NULL
+        AND r.status = 'confirmed' AND r.checked_in_at IS NULL`).all(addDays(day, daysAhead), now);
+    for (const r of rows) {
+      const at = kind === 'day_of' ? remindAt(r.starts_at, r.remind_time) : r.remind_time;
+      if (now.slice(11, 16) < at) continue;
+      for (const userId of ticketPeople(db, r)) {
+        if (db.prepare('SELECT 1 FROM reminders_sent WHERE rsvp_id = ? AND user_id = ? AND sent_on = ?').get(r.id, userId, day)) continue;
+        if (!db.prepare('SELECT 1 FROM push_subscriptions WHERE user_id = ?').get(userId)) continue; // nowhere to send it yet
+        due.push({ rsvp: r, userId, kind });
+      }
     }
   }
   return due;
 }
 
-// The notification, in the person's language: "Today: Navratri Garba" / "7:30 PM · GSA Community Center".
-function message(db, rsvp, userId) {
-  const user = db.prepare('SELECT language FROM users WHERE id = ?').get(userId);
-  const lang = user?.language === 'gu' ? 'gu' : 'en';
+// Members without a ticket to invite to RSVP, as of `now`: events whose invitation time has come and which
+// are still open for RSVPs. Skips families that already have a ticket, and non-members for members-only events.
+function dueInvites(db, now = nowLocal()) {
+  const events = db.prepare(`SELECT * FROM events WHERE status = 'published' AND invite_at IS NOT NULL AND invite_at <= ? AND starts_at > ?`).all(now, now)
+    .filter((e) => svc.rsvpWindowOpen(e));
+  const people = db.prepare(`SELECT DISTINCT u.id FROM users u JOIN push_subscriptions s ON s.user_id = u.id WHERE u.contact_type = 'member'`).all().map((u) => u.id);
+  const due = [];
+  for (const e of events) {
+    for (const userId of people) {
+      if (db.prepare('SELECT 1 FROM invites_sent WHERE event_id = ? AND user_id = ?').get(e.id, userId)) continue;
+      const family = svc.familyUserIds(db, userId);
+      if (db.prepare(`SELECT 1 FROM rsvps WHERE event_id = ? AND status != 'cancelled' AND user_id IN (${family.map(() => '?').join(',')})`).get(e.id, ...family)) continue;
+      if (e.members_only && !svc.membershipStatus(db, userId).active) continue;
+      due.push({ event: e, userId });
+    }
+  }
+  return due;
+}
+
+const languageOf = (db, userId) => (db.prepare('SELECT language FROM users WHERE id = ?').get(userId)?.language === 'gu' ? 'gu' : 'en');
+const placeOf = (event) => String(event.location || '').split(/[|,]/)[0].trim();
+
+// The reminder, in the person's language: "Today: Navratri Garba" / "7:30 PM · GSA Community Center. …";
+// the day before and a week before name the date: "Tomorrow: …" / "Next week: …" with "Sat, Oct 17, 7:30 PM".
+function message(db, rsvp, userId, kind = 'day_of') {
+  const lang = languageOf(db, userId);
+  const locale = lang === 'gu' ? 'gu-IN' : 'en-US';
   const t = translator(lang);
   const title = (lang === 'gu' && rsvp.title_gu) || rsvp.title;
-  const where = String(rsvp.location || '').split(/[|,]/)[0].trim();
   const due = svc.amountDue(db, rsvp);
-  const parts = [formatTime(rsvp.starts_at, lang === 'gu' ? 'gu-IN' : 'en-US'), where].filter(Boolean).join(' · ');
+  const when = kind === 'day_of' ? formatTime(rsvp.starts_at, locale) : formatDateTime(rsvp.starts_at, locale);
+  const parts = [when, placeOf(rsvp)].filter(Boolean).join(' · ');
+  const heading = { day_of: 'Today: {event}', day_before: 'Tomorrow: {event}', week_before: 'Next week: {event}' }[kind];
   return {
-    title: t('Today: {event}', { event: title }),
+    title: t(heading, { event: title }),
     body: due ? `${parts}. ${t('Please pay {amount} at the door.', { amount: formatMoney(due, 'USD') })}` : `${parts}. ${t('Tap to open your QR ticket.')}`,
     url: `/tickets/${rsvp.id}`,
     tag: `event-${rsvp.event_id}`,
   };
+}
+
+// "RSVP now: Diwali Dinner" / "Sun, Nov 1, 5:00 PM · GSA Community Center. Tap to RSVP."
+function inviteMessage(db, event, userId) {
+  const lang = languageOf(db, userId);
+  const t = translator(lang);
+  const title = (lang === 'gu' && event.title_gu) || event.title;
+  const parts = [formatDateTime(event.starts_at, lang === 'gu' ? 'gu-IN' : 'en-US'), placeOf(event)].filter(Boolean).join(' · ');
+  return { title: t('RSVP now: {event}', { event: title }), body: `${parts}. ${t('Tap to RSVP.')}`, url: `/events/${event.id}`, tag: `invite-${event.id}` };
 }
 
 async function deliver(db, userId, payload) {
@@ -114,9 +159,13 @@ async function deliver(db, userId, payload) {
 // Sends what's due now; returns how many notifications went out.
 async function sendDue(db, now = nowLocal()) {
   let sent = 0;
-  for (const { rsvp, userId } of dueReminders(db, now)) {
+  for (const { rsvp, userId, kind } of dueReminders(db, now)) {
     db.prepare('INSERT OR IGNORE INTO reminders_sent (rsvp_id, user_id, sent_on) VALUES (?, ?, ?)').run(rsvp.id, userId, now.slice(0, 10));
-    sent += await deliver(db, userId, message(db, rsvp, userId));
+    sent += await deliver(db, userId, message(db, rsvp, userId, kind));
+  }
+  for (const { event, userId } of dueInvites(db, now)) {
+    db.prepare('INSERT OR IGNORE INTO invites_sent (event_id, user_id) VALUES (?, ?)').run(event.id, userId);
+    sent += await deliver(db, userId, inviteMessage(db, event, userId));
   }
   return sent;
 }
@@ -124,7 +173,7 @@ async function sendDue(db, now = nowLocal()) {
 // "Send a test" from the profile: proves this person's devices can show reminders.
 async function sendTest(db, userId, lang) {
   const t = translator(lang === 'gu' ? 'gu' : 'en');
-  return deliver(db, userId, { title: t('Event-day reminders are on'), body: t('On the day of an event you have a ticket for, a reminder like this will appear.'), url: '/tickets', tag: 'test' });
+  return deliver(db, userId, { title: t('Event reminders are on'), body: t('Reminders for your events, and invitations to RSVP, will appear like this.'), url: '/tickets', tag: 'test' });
 }
 
 function startReminders(db, config) {
@@ -135,4 +184,4 @@ function startReminders(db, config) {
   return setInterval(run, config.reminderMinutes * 60 * 1000);
 }
 
-module.exports = { setup, vapidKeys, saveSubscription, removeSubscription, dueReminders, remindAt, message, sendDue, sendTest, startReminders, ticketPeople };
+module.exports = { setup, vapidKeys, saveSubscription, removeSubscription, dueReminders, dueInvites, remindAt, message, inviteMessage, sendDue, sendTest, startReminders, ticketPeople };

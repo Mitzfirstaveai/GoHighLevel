@@ -1,4 +1,4 @@
-// Event-day reminders (a notification on the member's devices, even with the app closed) and the
+// Event reminders (a notification on the member's devices, even with the app closed) and the
 // event-day pop-up inside the app.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -43,7 +43,7 @@ test('a device turns reminders on and off; the public key is available to the pa
   // A test reminder reaches the device.
   sent.length = 0;
   assert.deepEqual(JSON.parse((await m.post('/reminders/test', {})).text), { sent: 1 });
-  assert.equal(sent[0].title, 'Event-day reminders are on');
+  assert.equal(sent[0].title, 'Event reminders are on');
   // Off (works signed out too).
   await new t.Client().post('/reminders/unsubscribe', { endpoint: device(1).endpoint });
   const anon = new t.Client(); await anon.get('/login');
@@ -127,4 +127,75 @@ test('the app pops up a reminder on the day, except on the ticket itself and for
   t.db.prepare(`UPDATE rsvps SET checked_in_at = datetime('now') WHERE id = ?`).run(rsvp.id);
   res = await m.get('/dashboard');
   assert.doesNotMatch(res.text, /id="today-popup"/);
+});
+
+test('each event sets its own reminders: a week before, the day before and the morning of, each at its time', async () => {
+  const day = t.futureDate(20).slice(0, 10);
+  const ev = await t.createEvent(admin, {
+    title: 'Diwali Remind', starts_at: `${day}T17:00`,
+    remind_day_of: '1', remind_day_of_time: '08:30', remind_day_before: '1', remind_day_before_time: '18:00',
+    remind_week_before: '1', remind_week_before_time: '10:00',
+  });
+  const m = await t.register('schedule@test.org', 'Sona');
+  await m.post(`/events/${ev}/rsvp`, { party_size: '1' });
+  await m.post('/reminders/subscribe', device(20));
+  const dayMinus = (n) => { const d = new Date(`${day}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+  const titles = async (now) => { sent.length = 0; await reminders.sendDue(t.db, now); return sent.filter((s) => s.endpoint === device(20).endpoint).map((s) => s.title); };
+
+  assert.deepEqual(await titles(`${dayMinus(7)}T09:59`), []);
+  assert.deepEqual(await titles(`${dayMinus(7)}T10:00`), ['Next week: Diwali Remind']);
+  assert.match(sent[0].body, /^[A-Z][a-z]{2} \d{1,2}, \d{4}, 5:00 PM/, 'names the date');
+  assert.deepEqual(await titles(`${dayMinus(7)}T15:00`), [], 'once');
+  assert.deepEqual(await titles(`${dayMinus(1)}T17:59`), []);
+  assert.deepEqual(await titles(`${dayMinus(1)}T18:00`), ['Tomorrow: Diwali Remind']);
+  assert.deepEqual(await titles(`${day}T08:29`), []);
+  assert.deepEqual(await titles(`${day}T08:30`), ['Today: Diwali Remind']);
+
+  // Switched off on the event: no morning-of reminder.
+  const quiet = await t.createEvent(admin, { title: 'Quiet Meeting', starts_at: `${day}T19:00`, remind_day_of: '' });
+  await m.post(`/events/${quiet}/rsvp`, { party_size: '1' });
+  assert.equal(reminders.dueReminders(t.db, `${day}T12:00`).filter((d) => d.rsvp.event_id === quiet).length, 0);
+
+  // The committee sees the plan on the event page and in the form.
+  const page = (await admin.get(`/admin/events/${ev}`)).text;
+  assert.match(page, /Phone reminders: a week before at 10:00 AM · the day before at 6:00 PM · the morning of at 8:30 AM/);
+  const form = (await admin.get(`/admin/events/${ev}/edit`)).text;
+  assert.match(form, /name="remind_week_before" value="1" checked[\s\S]*name="remind_week_before_time" value="10:00"/);
+  assert.match((await admin.get(`/admin/events/${quiet}`)).text, /Phone reminders: off/);
+  assert.match((await admin.get('/admin/events/new')).text, /name="remind_day_of" value="1" checked/, 'new events remind the morning of by default');
+});
+
+test('an "RSVP now" invitation goes once to members with reminders on whose family has no ticket', async () => {
+  const day = t.futureDate(30).slice(0, 10);
+  const inviteDay = t.futureDate(25).slice(0, 10);
+  let res = await admin.follow(await admin.post('/admin/events', { title: 'Too Late Invite', starts_at: `${day}T18:00`, max_party_size: '6', status: 'published', invite: '1', invite_at: `${day}T19:00` }));
+  assert.match(res.text, /has to go out before the event starts/);
+  const ev = await t.createEvent(admin, { title: 'Kite Festival Invite', starts_at: `${day}T11:00`, invite: '1', invite_at: `${inviteDay}T10:00` });
+
+  const going = await t.register('going-i@test.org', 'Gopi');
+  await going.post(`/events/${ev}/rsvp`, { party_size: '1' });
+  await going.post('/reminders/subscribe', device(30));
+  const invitee = await t.register('invitee-i@test.org', 'Indu');
+  await invitee.post('/reminders/subscribe', device(31));
+  const noDevice = await t.register('nodevice-i@test.org', 'Nayan'); // reminders not turned on: nothing to send to
+  void noDevice;
+
+  // (People from earlier tests have reminders on too; this looks at the two set up here.)
+  const ours = [userId('going-i@test.org'), userId('invitee-i@test.org')];
+  const invited = (now) => reminders.dueInvites(t.db, now).filter((d) => d.event.id === ev && ours.includes(d.userId)).map((d) => d.userId);
+  assert.deepEqual(invited(`${inviteDay}T09:59`), []);
+  assert.deepEqual(invited(`${inviteDay}T10:00`), [userId('invitee-i@test.org')]);
+  sent.length = 0;
+  await reminders.sendDue(t.db, `${inviteDay}T10:05`);
+  const msg = sent.find((s) => s.endpoint === device(31).endpoint);
+  assert.equal(msg.title, 'RSVP now: Kite Festival Invite');
+  assert.equal(msg.url, `/events/${ev}`);
+  assert.match(msg.body, /Tap to RSVP\.$/);
+  assert.equal(sent.filter((s) => s.endpoint === device(30).endpoint).length, 0, 'already has a ticket');
+  assert.deepEqual(invited(`${inviteDay}T12:00`), [], 'once');
+  assert.match((await admin.get(`/admin/events/${ev}`)).text, /RSVP invitation [^<]*\(sent to \d+\)/);
+
+  // Members-only events invite only paid members.
+  const club = await t.createEvent(admin, { title: 'Members AGM Invite', starts_at: `${day}T14:00`, members_only: '1', invite: '1', invite_at: `${inviteDay}T10:00` });
+  assert.ok(!reminders.dueInvites(t.db, `${inviteDay}T11:00`).some((d) => d.event.id === club && d.userId === userId('invitee-i@test.org')));
 });

@@ -117,6 +117,12 @@ CREATE TABLE IF NOT EXISTS events (
   early_until TEXT,                                     -- …until this date-time
   image_path TEXT,
   questions TEXT NOT NULL DEFAULT '[]',                 -- JSON: custom registration questions
+  -- Phone reminders for ticket holders ('HH:MM' to send at; NULL = off), and a one-time
+  -- "RSVP now" invitation to members without a ticket ('YYYY-MM-DDTHH:MM'; NULL = none).
+  remind_day_of TEXT DEFAULT '09:00',
+  remind_day_before TEXT,
+  remind_week_before TEXT,
+  invite_at TEXT,
   status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'cancelled')),
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -292,7 +298,7 @@ CREATE TABLE IF NOT EXISTS news_items (
 );
 CREATE INDEX IF NOT EXISTS idx_news_items_published ON news_items(published_at);
 
--- Event-day reminders on members' phones and computers (web push), sent even when the app is closed.
+-- Event reminders on members' phones and computers (web push), sent even when the app is closed.
 -- One row per device that turned reminders on; it stays when they sign out, until they turn it off.
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -309,6 +315,12 @@ CREATE TABLE IF NOT EXISTS reminders_sent (
   sent_on TEXT NOT NULL,
   PRIMARY KEY (rsvp_id, user_id, sent_on)
 );
+-- Members invited to an event (once each).
+CREATE TABLE IF NOT EXISTS invites_sent (
+  event_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (event_id, user_id)
+);
 -- App settings that aren't website content (e.g. the web-push keys when none are configured).
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -316,13 +328,20 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 15; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 16; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
-// 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth
+// 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
+// 16: event-day reminders (devices, sent log) and each event's reminder schedule and RSVP invitation
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  16: [
+    "ALTER TABLE events ADD COLUMN remind_day_of TEXT DEFAULT '09:00'",
+    'ALTER TABLE events ADD COLUMN remind_day_before TEXT',
+    'ALTER TABLE events ADD COLUMN remind_week_before TEXT',
+    'ALTER TABLE events ADD COLUMN invite_at TEXT',
+  ],
   15: [
     'ALTER TABLE users ADD COLUMN birth_year INTEGER',
     'ALTER TABLE users ADD COLUMN birth_month INTEGER CHECK (birth_month BETWEEN 1 AND 12)',

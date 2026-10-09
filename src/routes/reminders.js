@@ -1,4 +1,4 @@
-// Event-day reminders: a device turns them on (or off), and a member can send themselves a test.
+// Event reminders: a device turns them on (or off), and a member can send themselves a test.
 const express = require('express');
 const { requireAuth } = require('../middleware');
 const reminders = require('../reminders');
