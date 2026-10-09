@@ -180,12 +180,14 @@ test('family-login screens are fully translated', async () => {
   await c.get('/prefs?lang=gu&back=/');
   const { db } = t;
   const garba = db.prepare(`SELECT id FROM events WHERE title = 'Navratri Garba #1'`).get().id;
-  const priyasTicket = db.prepare(`SELECT r.id FROM rsvps r JOIN users u ON u.id = r.user_id WHERE u.email = 'member@example.com' AND r.event_id = ?`).get(garba).id;
+  // Priya has no paid event tickets in the demo; her family's free Ganesh Chaturthi ticket is shown instead.
+  const priyasTicket = db.prepare(`SELECT r.id FROM rsvps r JOIN users u ON u.id = r.user_id JOIN events e ON e.id = r.event_id
+    WHERE u.email = 'member@example.com' AND e.title = 'Ganesh Chaturthi Utsav'`).get().id;
   missing.clear();
   for (const p of ['/dashboard', '/profile', '/membership', '/tickets', `/events/${garba}`, `/tickets/${priyasTicket}`]) {
     assert.equal((await c.get(p)).status, 200, p);
   }
-  // Amit adds himself (Priya's ticket is for her and the kids), then sees his own ticket.
+  // Amit registers himself, then sees his own ticket.
   const amit = db.prepare(`SELECT h.id FROM household_members h JOIN users u ON u.id = h.login_user_id WHERE u.email = 'amit.shah@example.com'`).get().id;
   // Garba costs $5 now; paying at the door gives the ticket straight away.
   const res = await c.follow(await c.post(`/events/${garba}/rsvp`, { choose: '1', people: `h:${amit}`, pay: 'door' }));

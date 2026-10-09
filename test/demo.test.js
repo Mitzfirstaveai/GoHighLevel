@@ -90,10 +90,18 @@ test("the demo has a Garba night today: tickets, money due at the door, and RSVP
   assert.deepEqual([ev.fee_cents, ev.child_free_age, ev.title_gu], [500, 10, 'નવરાત્રી ગરબા — આજે રાત્રે']);
   if (nowLocal().slice(11, 16) < '23:30') assert.ok(svc.rsvpWindowOpen(ev), 'RSVPs are open until it starts');
 
-  // Priya's Home turns green with tonight's ticket.
+  // Priya (the demo member) has paid for no event, so she can RSVP & Pay for tonight from the start;
+  // once she has, her Home turns green with tonight's ticket.
+  const priyaId = db.prepare(`SELECT id FROM users WHERE email = 'member@example.com'`).get().id;
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE kind = 'event' AND user_id = ?`).get(priyaId).n, 0);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS n FROM rsvps r JOIN events e ON e.id = r.event_id WHERE r.user_id = ? AND e.starts_at >= ?`).get(priyaId, nowLocal()).n, 0);
   const m = new t.Client();
   await m.get('/login');
   await m.post('/login', { email: 'member@example.com', password: 'demo1234' });
+  let res = await m.get(`/events/${ev.id}`);
+  assert.match(res.text, /RSVP &amp; Pay/);
+  res = await m.post(`/events/${ev.id}/rsvp`, { choose: '1', people: `u:${priyaId}`, pay: 'online' });
+  await m.post(res.location, { method: 'demo' });
   assert.match((await m.get('/dashboard')).text, /next-event today[\s\S]*Navratri Garba — Tonight/);
 
   // At the door, the Joshis owe $55 tonight, with no "not today" warning.
@@ -101,7 +109,7 @@ test("the demo has a Garba night today: tickets, money due at the door, and RSVP
   const door = new t.Client();
   await door.get('/admin/login');
   await door.post('/admin/login', { email: 'dhruv.amin@example.com', password: 'demo1234' });
-  const res = await door.get(`/admin/checkin/${joshi.qr_token}`);
+  res = await door.get(`/admin/checkin/${joshi.qr_token}`);
   assert.match(res.text, /\$55\.00 DUE/);
   assert.doesNotMatch(res.text, /not today/);
 });

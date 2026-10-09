@@ -268,32 +268,29 @@ function seedDemo(db, { photosDir } = {}) {
     rsvp(pastIds['Cook-Off'], 'falguni.trivedi@example.com', 2, 'confirmed', 2, 3);
     rsvp(pastIds['Cook-Off'], 'anjali.vyas@example.com', 2, 'confirmed', 2, 3);
 
-    // Navratri Garba #1 (free): the demo member has a ticket for herself and the kids — not Amit,
-    // who can add himself from his own family login.
     // Garba #1, at the flyer's prices ($5 members, children 10 and under free). Paid online, except the
-    // Joshis, who pay at the door (5 family at $5 + 2 out-of-state guests at $15).
+    // Joshis, who pay at the door (5 family at $5 + 2 out-of-state guests at $15). The demo member (Priya)
+    // has not paid for any event, so RSVP & Pay can be tried with her from the start.
     const garbaPaid = (email, n, total, extra = {}) => {
       const id = rsvp(garba1, email, n, 'confirmed', null, 0, { total, ...extra });
       db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
                   VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-1 days'))`)
         .run(userId[email], id, `Navratri Garba #1 — ${n} ${n === 1 ? 'person' : 'people'}`, total, `demo_g${id}`);
     };
-    garbaPaid('member@example.com', 3, 1000, { who: ['Priya', 'Diya', 'Aarav'] }); // Aarav is 9: free
     garbaPaid('admin@example.com', 3, 1500);
     rsvp(garba1, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, types: { outofstate: 2 }, total: 5500, payAtDoor: true });
     garbaPaid('anjali.vyas@example.com', 2, 1000);
     garbaPaid('hemant.thakkar@example.com', 1, 500);
     garbaPaid('dhruv.amin@example.com', 1, 500);
 
-    // Tonight's Garba: the demo member has a paid ticket (Home turns green with it), the Joshis and the Bhatts
-    // pay at the door ($55 and $15 due), the Vyases paid online. Everyone else can RSVP live; Amit can add himself.
+    // Tonight's Garba: the Joshis and the Bhatts pay at the door ($55 and $15 due), the Vyases paid online.
+    // Everyone else, Priya included, can RSVP live.
     const tonightPaid = (email, n, total, extra = {}) => {
       const id = rsvp(tonight, email, n, 'confirmed', null, 0, { total, ...extra });
       db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
                   VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-1 days'))`)
         .run(userId[email], id, `Navratri Garba — Tonight — ${n} ${n === 1 ? 'person' : 'people'}`, total, `demo_t${id}`);
     };
-    tonightPaid('member@example.com', 3, 1000, { who: ['Priya', 'Diya', 'Aarav'] }); // Aarav is 9: free
     tonightPaid('anjali.vyas@example.com', 2, 1000);
     rsvp(tonight, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, types: { outofstate: 2 }, total: 5500, payAtDoor: true });
     rsvp(tonight, 'vipul.bhatt@example.com', 4, 'confirmed', null, 0, { total: 1500, payAtDoor: true }); // Riya is 10: free
