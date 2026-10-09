@@ -237,3 +237,15 @@ test('every event has an RSVP invitation: a week before at 10 AM unless chosen, 
   assert.ok(late(`${next}T09:59`), 'within a day');
   assert.ok(!late(`${next}T10:01`), 'more than a day late');
 });
+
+test('the push keys come from the app secret, so they survive the server starting over with an empty database', () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const fresh = () => { const db = new DatabaseSync(':memory:'); db.exec('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)'); return db; };
+  const config = { sessionSecret: 'render-generated-secret' };
+  const a = reminders.vapidKeys(fresh(), config);
+  assert.deepEqual(reminders.vapidKeys(fresh(), config), a, 'same keys after a restart');
+  assert.notDeepEqual(reminders.vapidKeys(fresh(), { sessionSecret: 'another-secret' }), a);
+  assert.notDeepEqual(reminders.vapidKeys(fresh(), {}), a, 'no secret: made at random');
+  assert.doesNotThrow(() => require('web-push').setVapidDetails('mailto:x@example.com', a.publicKey, a.privateKey));
+  reminders.setup(t.db, t.config()); // back to the test server's keys
+});

@@ -2,6 +2,7 @@
 // through the service worker). Members turn them on per device. Each event sets its own schedule for ticket
 // holders — the morning of, the day before and/or a week before, each at a chosen time — and can invite
 // members without a ticket to RSVP at a chosen moment. Each reminder goes to each person once.
+const crypto = require('node:crypto');
 const webpush = require('web-push');
 const svc = require('./services');
 const { translator } = require('./i18n');
@@ -17,12 +18,23 @@ function addDays(isoDate, days) {
   return d.toISOString().slice(0, 10);
 }
 
+// Keys made from the app's secret, so they stay the same when the server starts over with an empty database
+// (as free hosting does): phones that turned reminders on keep working without signing up again.
+function keysFromSecret(secret) {
+  if (!secret || secret === 'dev-only-secret-change-me') return null;
+  try {
+    const ecdh = crypto.createECDH('prime256v1');
+    ecdh.setPrivateKey(crypto.createHash('sha256').update(`gsa-vapid:${secret}`).digest());
+    return { publicKey: ecdh.getPublicKey().toString('base64url'), privateKey: ecdh.getPrivateKey().toString('base64url') };
+  } catch { return null; } // (a hash that isn't a valid key: practically never)
+}
+
 // Keys that identify this app to the browsers' push services: from the environment, or made once and kept.
 function vapidKeys(db, config = {}) {
   if (config.vapidPublicKey && config.vapidPrivateKey) return { publicKey: config.vapidPublicKey, privateKey: config.vapidPrivateKey };
   const saved = db.prepare(`SELECT value FROM settings WHERE key = 'vapid'`).get();
   if (saved) return JSON.parse(saved.value);
-  const keys = webpush.generateVAPIDKeys();
+  const keys = keysFromSecret(config.sessionSecret) || webpush.generateVAPIDKeys();
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('vapid', ?)`).run(JSON.stringify(keys));
   return JSON.parse(db.prepare(`SELECT value FROM settings WHERE key = 'vapid'`).get().value);
 }

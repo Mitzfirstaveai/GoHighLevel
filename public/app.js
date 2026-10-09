@@ -150,7 +150,12 @@
   if (Notification.permission !== 'granted') return;
   const csrf = document.body.dataset.csrf || document.querySelector('input[name=_csrf]')?.value;
   if (!csrf) return;
-  try { if (Date.now() - Number(localStorage.getItem('gsa-push-sync') || 0) < 30 * 60 * 1000) return; } catch { /* no storage: sync */ }
+  // Right away after signing in (a new session, e.g. after the server started over), else every 30 minutes.
+  const session = csrf.slice(0, 8);
+  try {
+    const [was, at] = (localStorage.getItem('gsa-push-sync') || '').split('|');
+    if (was === session && Date.now() - Number(at) < 30 * 60 * 1000) return;
+  } catch { /* no storage: sync */ }
   const bytes = (b64) => Uint8Array.from(atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
   const same = (a, b) => a && b && a.byteLength === b.byteLength && new Uint8Array(a).every((v, i) => v === b[i]);
   (async () => {
@@ -168,6 +173,6 @@
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, _csrf: csrf }),
     });
-    if (res.ok) { try { localStorage.setItem('gsa-push-sync', String(Date.now())); } catch { /* no storage */ } }
+    if (res.ok) { try { localStorage.setItem('gsa-push-sync', `${session}|${Date.now()}`); } catch { /* no storage */ } }
   })().catch(() => {});
 })();
