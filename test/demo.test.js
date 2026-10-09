@@ -79,3 +79,29 @@ test('resetting the demo puts every browser back to dark, English, normal text',
   await phone.get('/prefs?theme=light&back=/');
   assert.match((await phone.get('/login')).text, /data-theme="light"/);
 });
+
+test("the demo has a Garba night today: tickets, money due at the door, and RSVPs still open", async () => {
+  const { db } = t;
+  const svc = require('../src/services');
+  const { nowLocal } = require('../src/util');
+  const ev = db.prepare(`SELECT * FROM events WHERE title = 'Navratri Garba — Tonight'`).get();
+  assert.ok(ev, 'tonight’s Garba exists');
+  assert.equal(ev.starts_at.slice(0, 10), nowLocal().slice(0, 10), 'it is today');
+  assert.deepEqual([ev.fee_cents, ev.child_free_age, ev.title_gu], [500, 10, 'નવરાત્રી ગરબા — આજે રાત્રે']);
+  if (nowLocal().slice(11, 16) < '23:30') assert.ok(svc.rsvpWindowOpen(ev), 'RSVPs are open until it starts');
+
+  // Priya's Home turns green with tonight's ticket.
+  const m = new t.Client();
+  await m.get('/login');
+  await m.post('/login', { email: 'member@example.com', password: 'demo1234' });
+  assert.match((await m.get('/dashboard')).text, /next-event today[\s\S]*Navratri Garba — Tonight/);
+
+  // At the door, the Joshis owe $55 tonight, with no "not today" warning.
+  const joshi = db.prepare(`SELECT r.qr_token FROM rsvps r JOIN users u ON u.id = r.user_id WHERE u.email = 'nilesh.joshi@example.com' AND r.event_id = ?`).get(ev.id);
+  const door = new t.Client();
+  await door.get('/admin/login');
+  await door.post('/admin/login', { email: 'dhruv.amin@example.com', password: 'demo1234' });
+  const res = await door.get(`/admin/checkin/${joshi.qr_token}`);
+  assert.match(res.text, /\$55\.00 DUE/);
+  assert.doesNotMatch(res.text, /not today/);
+});

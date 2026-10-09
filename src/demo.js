@@ -212,6 +212,16 @@ function seedDemo(db, { photosDir } = {}) {
       ]),
     });
     db.prepare(`INSERT INTO coupons (code, event_id, percent_off, max_uses) VALUES ('DIWALI10', ?, 10, 50)`).run(diwali);
+    // A Garba night TODAY (whenever the demo is reset), for trying RSVPs, tickets and the door live.
+    // It starts at 7:30 PM, or within the hour when the demo is reset later than that, so RSVPs stay open.
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const startMin = Math.min(Math.max(19 * 60 + 30, Math.ceil((nowMin + 45) / 15) * 15), 23 * 60 + 30);
+    const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    const tonight = addEvent('Navratri Garba — Tonight', 'Garba and dandiya raas tonight with live music. Show your QR ticket at the door; paying at the door is cash, Venmo, PayPal or Zelle.',
+      localDateTime(0, hhmm(startMin)), localDateTime(0, '23:59'), 0, 600, 10);
+    set(tonight, { fee_cents: 500, guest_fee_cents: 5000, out_of_state_fee_cents: 1500, student_fee_cents: 1500, child_free_age: 10, max_guests: 4,
+      title_gu: 'નવરાત્રી ગરબા — આજે રાત્રે',
+      description_gu: 'આજે રાત્રે જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસ. દરવાજે તમારી QR ટિકિટ બતાવો; દરવાજે રોકડ, Venmo, PayPal કે Zelleથી ચૂકવી શકાય.' });
     const workshop = addEvent('Garba Dance Workshop for Kids', 'Learn garba steps before Navratri! Ages 6–14. Limited to 10 spots.',
       localDateTime(1, '16:00'), localDateTime(1, '17:30'), 0, 10, 4);
     set(workshop, { title_gu: 'બાળકો માટે ગરબા વર્કશોપ', description_gu: 'નવરાત્રી પહેલાં ગરબાના સ્ટેપ્સ શીખો! ઉંમર 6–14. ફક્ત 10 જગ્યા.' });
@@ -274,6 +284,19 @@ function seedDemo(db, { photosDir } = {}) {
     garbaPaid('anjali.vyas@example.com', 2, 1000);
     garbaPaid('hemant.thakkar@example.com', 1, 500);
     garbaPaid('dhruv.amin@example.com', 1, 500);
+
+    // Tonight's Garba: the demo member has a paid ticket (Home turns green with it), the Joshis and the Bhatts
+    // pay at the door ($55 and $15 due), the Vyases paid online. Everyone else can RSVP live; Amit can add himself.
+    const tonightPaid = (email, n, total, extra = {}) => {
+      const id = rsvp(tonight, email, n, 'confirmed', null, 0, { total, ...extra });
+      db.prepare(`INSERT INTO payments (user_id, kind, reference_id, description, amount_cents, status, method, provider_ref, paid_at)
+                  VALUES (?, 'event', ?, ?, ?, 'paid', 'demo', ?, datetime('now', '-1 days'))`)
+        .run(userId[email], id, `Navratri Garba — Tonight — ${n} ${n === 1 ? 'person' : 'people'}`, total, `demo_t${id}`);
+    };
+    tonightPaid('member@example.com', 3, 1000, { who: ['Priya', 'Diya', 'Aarav'] }); // Aarav is 9: free
+    tonightPaid('anjali.vyas@example.com', 2, 1000);
+    rsvp(tonight, 'nilesh.joshi@example.com', 7, 'confirmed', null, 0, { guests: 2, types: { outofstate: 2 }, total: 5500, payAtDoor: true });
+    rsvp(tonight, 'vipul.bhatt@example.com', 4, 'confirmed', null, 0, { total: 1500, payAtDoor: true }); // Riya is 10: free
 
     // Diwali dinner (paid): the demo member hasn't RSVP'd yet, so you can show RSVP & Pay live.
     paidRsvp(diwali, 'nilesh.joshi@example.com', 5, 'Diwali Dinner & Cultural Program', diet('Jain'));
