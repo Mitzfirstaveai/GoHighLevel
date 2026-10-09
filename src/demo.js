@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const { transaction } = require('./db');
-const { newToken } = require('./util');
+const { newToken, formatTime } = require('./util');
 
 const DEMO_PASSWORD = 'demo1234';
 const GSA_CENTER = require('./content').ORG.venue;
@@ -321,6 +321,10 @@ function seedDemo(db, { photosDir } = {}) {
     rsvp(workshop, 'anjali.vyas@example.com', 2, 'waitlisted');
 
     const news = db.prepare(`INSERT INTO news_posts (title, body, title_gu, body_gu, author_id, created_at) VALUES (?, ?, ?, ?, ?, datetime('now', ?))`);
+    // The newest announcement is about tonight's Garba, at its actual start time.
+    const at = (lang) => formatTime(`2000-01-01T${hhmm(startMin)}`, lang);
+    news.run('Navratri Garba tonight!', `Join us tonight at ${at('en-US')} at the GSA Community Center for garba and dandiya raas with live music. RSVP in the app and show your QR ticket at the door. Paying at the door? Cash, Venmo, PayPal or Zelle — or pay on your phone.`,
+      'આજે રાત્રે નવરાત્રી ગરબા!', `આજે ${at('gu-IN')} વાગ્યે GSA કોમ્યુનિટી સેન્ટર ખાતે જીવંત સંગીત સાથે ગરબા અને દાંડિયા રાસમાં જોડાઓ. એપમાં RSVP કરો અને દરવાજે તમારી QR ટિકિટ બતાવો. દરવાજે ચૂકવવું છે? રોકડ, Venmo, PayPal કે Zelle — અથવા તમારા ફોન પર ચૂકવો.`, admin, '-2 hours');
     news.run('Navratri Garba this weekend!', 'Navratri Garba #1 and #2 are at the GSA Community Center. RSVP in the app with the number of family members coming, then show your QR ticket at the door for quick check-in.',
       'આ સપ્તાહના અંતે નવરાત્રી ગરબા!', 'નવરાત્રી ગરબા #1 અને #2 GSA કોમ્યુનિટી સેન્ટર ખાતે છે. એપમાં આવનાર પરિવારના સભ્યોની સંખ્યા સાથે RSVP કરો, પછી ઝડપી પ્રવેશ માટે દરવાજે તમારી QR ટિકિટ બતાવો.', admin, '-1 day');
     news.run('Welcome to our new member app', 'You can now update your family profile, pay membership dues, RSVP to events and get a QR ticket — all from your phone. Add it to your home screen for one-tap access.',
