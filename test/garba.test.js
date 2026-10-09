@@ -133,3 +133,29 @@ test('guests by kind: in-state $50, out-of-state $15, students $15, children fre
   const res = await m.follow(await m.post(`/events/${plain}/rsvp`, { choose: '1', people: `u:${uid}`, guests_student: '1' }));
   assert.match(res.text, /does not offer that kind of guest/);
 });
+
+test('money already paid shows on the form and at checkout, also after cancelling (it counts toward a new RSVP)', async () => {
+  const m = await t.register('credit@test.org', 'Cora', 0);
+  await m.post('/profile/household', { name: 'Cora Spouse', relationship: 'Spouse' });
+  const uid = t.db.prepare(`SELECT id FROM users WHERE email = 'credit@test.org'`).get().id;
+  grantMembership(t.db, { userId: uid, planId: t.planId('Family') });
+  const spouse = `h:${t.db.prepare('SELECT id FROM household_members WHERE user_id = ?').get(uid).id}`;
+
+  // Cora pays $5 online for herself, then cancels.
+  let res = await m.post(`/events/${garba.id}/rsvp`, { choose: '1', people: `u:${uid}`, pay: 'online' });
+  await m.post(`${res.location}`, { method: 'demo' });
+  const r = t.rsvpFor(garba.id, 'credit@test.org');
+  await m.post(`/events/${garba.id}/cancel`, {});
+  res = await m.get(`/events/${garba.id}`);
+  assert.match(res.text, /You cancelled your RSVP\. The \$5\.00 you already paid is non-refundable, but it counts toward a new RSVP/);
+  assert.match(res.text, /data-paid="500"/);
+
+  // Coming back with her spouse: $10 total, $5 already paid, so checkout asks for $5 and says why.
+  res = await m.post(`/events/${garba.id}/rsvp`, { choose: '1', people: [`u:${uid}`, spouse], pay: 'online' });
+  res = await m.get(res.location);
+  assert.match(res.text, /\$5\.00<\/p>\s*<p class="muted">Total \$10\.00 − already paid \$5\.00<\/p>/);
+  assert.equal(t.rsvpFor(garba.id, 'credit@test.org').id, r.id);
+
+  // An RSVP with nothing paid yet shows no breakdown.
+  assert.match((await t.register('nocredit@test.org', 'Nia', 0).then((n) => n.get(`/events/${garba.id}`))).text, /data-paid="0"/);
+});

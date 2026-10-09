@@ -375,6 +375,9 @@ input[type=checkbox], input[type=radio] { width: 22px; height: 22px; min-height:
 label.check { gap: 12px; padding: 6px 0; }
 .big-touch { padding: 14px 22px; font-size: 1.05rem; }
 .estimate { font-size: 1.1rem; font-weight: 700; }
+.estimate .muted { font-weight: 400; }
+.estimate-due { color: var(--brand); }
+.pay-card { text-wrap: balance; }
 
 /* Six buttons: labels shrink a little on the narrowest phones and may wrap to two lines ("My tickets"). */
 .tabbar a { flex: 1 1 0; min-width: 0; font-size: min(.8rem, 3.4vw); line-height: 1.15; text-align: center; padding: 8px 1px 6px; }

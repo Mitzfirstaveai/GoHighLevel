@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware');
-const { markPaymentPaid } = require('../services');
+const { markPaymentPaid, paidForRsvp } = require('../services');
 
 const router = express.Router();
 
@@ -55,7 +55,11 @@ router.get('/:id/demo', requireAuth, (req, res) => {
   const payment = ownPendingPayment(req);
   if (!payment) return res.sendStatus(404);
   if (payment.status === 'paid') return res.redirect(redirectAfterPayment(req.app.locals.db, payment));
-  res.render('payments/demo', { title: 'Checkout', payment });
+  // For an event, show how the amount was worked out when part was already paid.
+  const db = req.app.locals.db;
+  const rsvp = payment.kind === 'event' ? db.prepare('SELECT total_cents FROM rsvps WHERE id = ?').get(payment.reference_id) : null;
+  const paidBefore = rsvp ? paidForRsvp(db, payment.reference_id) : 0;
+  res.render('payments/demo', { title: 'Checkout', payment, breakdown: paidBefore ? { total: rsvp.total_cents, paid: paidBefore } : null });
 });
 
 router.post('/:id/demo', requireAuth, async (req, res) => {

@@ -6,6 +6,7 @@
   <h1><%= t('Checkout') %></h1>
   <p><%= payment.description %></p>
   <p style="font-size:2rem;font-weight:800;margin:8px 0"><%= money(payment.amount_cents) %></p>
+  <% if (breakdown) { %><p class="muted"><%= t('Total {total} − already paid {paid}', { total: money(breakdown.total), paid: money(breakdown.paid) }) %></p><% } %>
   <h2 style="font-size:1.1rem;margin:16px 0 8px"><%= t('How would you like to pay?') %></h2>
   <form method="post" action="/pay/<%= payment.id %>/demo" class="pay-options"><%- include('../partials/csrf') %>
     <button class="btn big pay-card" name="method" value="demo">💳 <%= t('Card, Apple Pay, Google Pay or Cash App Pay') %></button>

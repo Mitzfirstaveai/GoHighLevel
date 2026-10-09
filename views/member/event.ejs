@@ -46,13 +46,17 @@
       <% } %>
     <% } %>
 
+    <% if (!rsvp && paidCents) { %>
+      <p class="pay-door-note"><%= t('You cancelled your RSVP. The {amount} you already paid is non-refundable, but it counts toward a new RSVP for this event.', { amount: money(paidCents) }) %></p>
+    <% } %>
     <% if (open && !rsvp?.checked_in_at) { %>
       <% if (event.members_only && !membership.active) { %>
         <p class="muted"><%= t('This event is for members with an active membership.') %> <a href="/membership"><%= t('Pay membership') %></a></p>
       <% } else { %>
       <form method="post" action="/events/<%= event.id %>/rsvp" class="stack" style="margin-top:12px"
             data-price="<%= JSON.stringify(prices) %>"
-            data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free') }) %>">
+            data-paid="<%= paidCents %>"
+            data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free'), paid: t('Already paid: {amount}'), due: t('Left to pay: {amount}'), nothingDue: t('Nothing more to pay') }) %>">
         <%- include('../partials/csrf') %>
         <%- include('../partials/people-picker', { people, hasRsvp: Boolean(rsvp) }) %>
         <%# A non-member coming themselves can say they're a student or from out of state (checked at the door). %>

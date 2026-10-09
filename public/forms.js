@@ -28,6 +28,13 @@
     out.textContent = total
       ? L.estimate.replace('{amount}', fmt(total)) + (form.coupon && form.coupon.value ? ` ${L.beforeCoupon}` : '')
       : L.free;
+    // Money already paid for this event (it's non-refundable, so it counts toward the new total).
+    const paid = Number(form.dataset.paid || 0);
+    if (paid && total && L.paid) {
+      const line = (text, cls) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; out.append(document.createElement('br'), s); };
+      line(L.paid.replace('{amount}', fmt(paid)), 'muted small');
+      line(total > paid ? L.due.replace('{amount}', fmt(total - paid)) : L.nothingDue, 'estimate-due');
+    }
   };
   form.addEventListener('change', update);
   form.addEventListener('input', update);

@@ -268,9 +268,12 @@ router.get('/events/:id', requireAuth, (req, res) => {
   const rsvp = db.prepare(`SELECT * FROM rsvps WHERE event_id = ? AND user_id = ? AND status != 'cancelled'`)
     .get(event.id, req.user.id);
   const membership = svc.membershipStatus(db, req.user.id);
+  // Already paid for this event, even on an RSVP they cancelled (non-refundable, so it counts toward a new one).
+  const previous = rsvp || db.prepare('SELECT id FROM rsvps WHERE event_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1').get(event.id, req.user.id);
   res.render('member/event', {
     title: event.title, event, rsvp, membership, open: svc.rsvpWindowOpen(event),
     due: rsvp ? svc.amountDue(db, rsvp) : 0,
+    paidCents: previous ? svc.paidForRsvp(db, previous.id) : 0,
     maxParty: svc.maxPartySize(db, event, req.user.id),
     familyListed: svc.getHousehold(db, svc.householdOwnerId(db, req.user.id)).length,
     people: svc.eventPeople(db, event, req.user.id),
@@ -398,7 +401,7 @@ router.get('/tickets/:id', requireAuth, async (req, res) => {
   // The holder can change who's coming here, until check-in or RSVPs close.
   const canChange = mine && rsvp.status !== 'cancelled' && !rsvp.checked_in_at && svc.rsvpWindowOpen(event);
   res.render('member/ticket', {
-    title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl, event, mine, canChange, prices: rsvpPrices(event),
+    title: `Ticket — ${rsvp.title}`, rsvp, qrDataUrl, event, mine, canChange, prices: rsvpPrices(event), paidCents: canChange ? svc.paidForRsvp(db, rsvp.id) : 0,
     ticketCode: rsvp.qr_token ? svc.shortCode(rsvp.qr_token) : null,
     due: svc.amountDue(db, rsvp),
     names: svc.attendeeNames(db, rsvp),

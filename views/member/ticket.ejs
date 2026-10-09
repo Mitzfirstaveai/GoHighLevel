@@ -55,7 +55,8 @@
   <h2><%= t("Change who's coming") %></h2>
   <form method="post" action="/events/<%= rsvp.event_id %>/rsvp" class="stack"
         data-price="<%= JSON.stringify(prices) %>"
-        data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free') }) %>">
+        data-paid="<%= paidCents %>"
+        data-labels="<%= JSON.stringify({ estimate: t('Estimated total: {amount}'), beforeCoupon: t('(before coupon)'), free: t('Free'), paid: t('Already paid: {amount}'), due: t('Left to pay: {amount}'), nothingDue: t('Nothing more to pay') }) %>">
     <%- include('../partials/csrf') %>
     <input type="hidden" name="from" value="ticket">
     <%- include('../partials/people-picker', { people, hasRsvp: true }) %>
