@@ -170,15 +170,15 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   assert.match(res.text, /data:image\/png;base64/, 'QR code shown before paying');
   assert.match((await m.get('/dashboard')).text, /Pay \$15\.00 at the door/);
 
-  // At the door: big amount due; the volunteer doesn't take money but sends them to a committee member.
+  // At the door: big amount due. Volunteers have one button, Cash (and the QR code to pay on their own phone);
+  // Venmo / PayPal / Zelle sent to GSA's accounts are for a committee member, who can check those accounts.
   res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*Please send them to a committee member to pay/);
-  assert.doesNotMatch(res.text, /name="method"/, 'no payment buttons for volunteers');
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
-  assert.match(res.text, /Door volunteers don&#39;t take payments/);
+  assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*They chose to pay at the door[\s\S]*Took \$15\.00 in cash\?[\s\S]*name="method" value="cash"/);
+  assert.doesNotMatch(res.text, /value="venmo"|value="paypal"|value="other"/, 'only Cash for volunteers');
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'venmo', checkin: '1', guests: '1' }));
+  assert.match(res.text, /Door volunteers record cash only/);
   assert.equal(t.db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id).n, 0);
-  // The committee member at the payment table sees the payment buttons.
-  assert.match((await admin.get(`/admin/checkin/${rsvp.qr_token}`)).text, /They chose to pay at the door[\s\S]*name="method" value="cash"/);
+  assert.match((await admin.get(`/admin/checkin/${rsvp.qr_token}`)).text, /value="cash"[\s\S]*value="venmo"[\s\S]*value="paypal"/, 'committee: every method');
   assert.doesNotMatch(res.text, /Check in without payment|<button class="btn big ok">Check in<\/button>/, 'no way in without paying');
   // Even sent directly, check-in is refused while money is owed.
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '1' }));
@@ -193,8 +193,8 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   res = await admin.follow(await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'check', checkin: '1', guests: '1' }));
   assert.match(res.text, /Event fees are cash only at the door — checks are not accepted/);
   assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_at, null);
-  // One tap: Cash records the money and checks them in (Quick mode then returns to the camera).
-  res = await admin.follow(await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  // One tap: the volunteer's Cash records the money and checks them in (Quick mode then returns to the camera).
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
   assert.match(res.text, /Recorded \$15\.00 paid by cash and checked in Dev Member — 1 person/);
   assert.match(res.text, /✅ Checked in/);
   assert.match(res.text, /id="auto-return"/, 'Quick mode goes back to the camera');
@@ -300,10 +300,10 @@ test('at the door, a family can pay on their own phone (screen turns green), or 
   await m.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
   const rsvp = t.rsvpFor(ev, 'phonepay@test.org');
 
-  // The volunteer sends them to a committee member — or the family can pay now on their own phone (QR code).
+  // The volunteer has Cash, and the QR code so the family can pay on their own phone.
   let res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.doesNotMatch(res.text, /name="method"/);
-  assert.match(res.text, /send them to a committee member[\s\S]*id="pay-online" data-due-url="\/admin\/checkin\/[^"]+\/due"[\s\S]*or they can pay now on their own phone[\s\S]*<img src="data:image\/png;base64/);
+  assert.match(res.text, /value="cash"[\s\S]*id="pay-online" data-due-url="\/admin\/checkin\/[^"]+\/due"[\s\S]*or pay online on their phone[\s\S]*<img src="data:image\/png;base64/);
+  assert.doesNotMatch(res.text, /value="venmo"/);
   // The committee member sees Cash, Venmo, PayPal, Zelle / other, and the same QR code.
   res = await admin.get(`/admin/checkin/${rsvp.qr_token}`);
   assert.match(res.text, /value="cash"[\s\S]*value="venmo"[\s\S]*value="paypal"[\s\S]*value="other">Zelle \/ other[\s\S]*id="pay-online"/);

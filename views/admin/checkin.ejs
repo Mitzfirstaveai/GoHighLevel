@@ -74,8 +74,9 @@
 <div class="card stack" lang="en" id="door-login">
   <h2>Shared door login</h2>
   <p class="muted small" style="margin:0">One username and a simple password to give everyone helping at the door — no account needed. It opens only this
-    check-in screen: volunteers see who has paid and check people in, and send anyone who owes to a committee member (they can't take
-    payments, see contact details or open admin pages). Each person types their first name after signing in; it's saved with every check-in.</p>
+    check-in screen: volunteers see who has paid, take cash (or show the QR code so families pay on their own phone) and check people in.
+    They can't see contact details, payment records or admin pages. Each person types their first name after signing in; it's saved with every
+    check-in and cash payment.</p>
   <% if (doorLogin && doorLogin.checkin_access) { %>
     <p style="margin:0"><span class="badge ok">On</span> Sign in at <strong>Committee &amp; volunteer sign-in</strong> with username <code style="font-size:1.05rem">door</code> and the password you set.</p>
   <% } else { %>

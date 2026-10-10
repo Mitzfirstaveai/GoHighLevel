@@ -1,7 +1,7 @@
 // The shared door login: one username ("door") and a short, simple password the committee sets and gives to
 // everyone helping at the door, so volunteers don't each need their own account. It opens only door check-in
-// (search, scan, see who has paid, check in); volunteers don't handle money. Each person types their first name
-// after signing in, and that name is kept with every check-in they record. Changing the password (or turning
+// (search, scan, see who has paid, take cash, check in). Each person types their first name after signing in,
+// and that name is kept with every check-in and cash payment they record. Changing the password (or turning
 // the login off) signs out every phone using it.
 const { hashPassword } = require('./passwords');
 const { UserError } = require('./services');
@@ -18,7 +18,7 @@ function signOutDoorPhones(db, id) {
 }
 
 // The door password only has to be easy to share out loud: 4 or more characters, anything goes (e.g. "garba25").
-// It can't reach member details or money, wrong guesses pause sign-in, and it can be changed after each event.
+// It can't reach member details or payment records, wrong guesses pause sign-in, and it can be changed after each event.
 const DOOR_MIN_LENGTH = 4;
 
 // Sets (or changes) the password and turns the login on.

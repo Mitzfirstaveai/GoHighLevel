@@ -55,19 +55,15 @@ test('volunteers sign in with "door", type their first name, see only check-in, 
   assert.match(page.text, /Helping at the door: Mitesh[\s\S]*Not you\?/);
   assert.doesNotMatch(page.text, /Shared door login/, 'the settings are for the committee');
 
-  // $5 owed: the volunteer sends them to a committee member, who takes the money; then the volunteer checks them in.
+  // $5 owed in cash: one tap marks it paid and checks them in; both carry Mitesh's name. (Venmo etc. are refused.)
   let r = await door.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(r.text, /\$5\.00 DUE[\s\S]*Please send them to a committee member to pay/);
-  assert.doesNotMatch(r.text, /name="method"/);
-  r = await door.follow(await door.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash' }));
-  assert.match(r.text, /Door volunteers don&#39;t take payments/);
-  assert.equal(t.db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE reference_id = ? AND status = 'paid'`).get(rsvp.id).n, 0);
-  await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash' });
-  r = await door.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(r.text, /PAID[\s\S]*\$5\.00 paid \(cash\)/);
-  r = await door.follow(await door.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '1' }));
-  assert.match(r.text, /by Mitesh/);
+  assert.match(r.text, /\$5\.00 DUE[\s\S]*value="cash"[\s\S]*id="pay-online"/);
+  r = await door.follow(await door.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'venmo', checkin: '1', guests: '1' }));
+  assert.match(r.text, /Door volunteers record cash only/);
+  r = await door.follow(await door.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  assert.match(r.text, /Recorded \$5\.00 paid by cash and checked in Tara Member[\s\S]*by Mitesh/);
   assert.equal(t.db.prepare('SELECT checked_in_name FROM rsvps WHERE id = ?').get(rsvp.id).checked_in_name, 'Mitesh');
+  assert.equal(t.db.prepare(`SELECT recorded_name FROM payments WHERE reference_id = ? AND status = 'paid'`).get(rsvp.id).recorded_name, 'Mitesh');
 
   // Someone else takes over the phone: "Not you?" asks for the new name.
   await door.post('/admin/checkin/name', { name: 'Hetal' });

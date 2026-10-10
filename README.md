@@ -152,19 +152,19 @@ tickets; that member app has no Admin link and no access to other families' tick
 **Shared door login** (the demo's **Door team (shared login)** button: username `door`, password `demo1234`)
 - On the real site the committee turns it on under *Admin → Check-in → Shared door login*: set a short password
   (4 or more characters, or tap **Suggest one**, e.g. `mango47`) and give everyone helping at the door the username
-  `door` and that password — no accounts needed. It can't reach member details or money, wrong guesses pause
-  sign-in, and it can be changed after each event.
+  `door` and that password — no accounts needed. It can't reach member details or payment records, wrong guesses
+  pause sign-in, and it can be changed after each event.
 - Volunteers sign in on **Committee & volunteer sign-in**, type their first name, and see only door check-in. Their
-  name is saved with every check-in they record ("Checked in … by Mitesh"); **Not you?** switches
+  name is saved with every check-in and cash payment they record ("Checked in … by Mitesh"); **Not you?** switches
   the name when the phone is handed over.
 - Changing the password, or **Turn off the door login**, signs out every phone using it — e.g. after each event.
 
 **As a door volunteer with their own login** (Dhruv Amin in the demo)
 1. Open **Committee & volunteer sign-in** and tap **Door volunteer**. The app opens straight into door check-in: scan
    tickets, search for a family by name or phone, check people in. There are no member menus and no admin pages. A ticket that
-   still owes money shows the amount due: volunteers don't take money — they send the family to a committee member
-   (who records cash, Venmo, PayPal or Zelle on the same screen in the admin area), or the family scans a QR code and
-   pays on their own phone (the screen turns green when it arrives).
+   still owes money shows the amount due: the volunteer taps **Cash** when they take cash (marked paid and checked in
+   at once), or the family scans the QR code and pays on their own phone (the screen turns green when it arrives).
+   Money sent by Venmo, PayPal or Zelle to GSA's accounts is recorded by a committee member, who can check those accounts.
 2. **Sign out** returns to the committee & volunteer sign-in, ready for the next volunteer.
 3. The same person signing in on the normal member sign-in gets their ordinary member app — no check-in anywhere.
 4. To add a volunteer: *Admin → Contacts →* open the person → **Make door volunteer** (this also adds their

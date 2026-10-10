@@ -25,8 +25,8 @@ router.get('/:token', (req, res, next) => {
 
 router.use(requireCheckin);
 
-// The shared door login: each volunteer types their first name first; it's kept with every check-in they
-// record, and shown at the top of the door screen ("Helping at the door: Mitesh · Not you?").
+// The shared door login: each volunteer types their first name first; it's kept with every check-in and cash
+// payment they record, and shown at the top of the door screen ("Helping at the door: Mitesh · Not you?").
 const doorName = (req) => (req.session.doorShared ? req.session.doorName : null);
 router.use((req, res, next) => {
   if (req.session.doorShared && !req.session.doorName && req.path !== '/name') return res.redirect('/admin/checkin/name');
@@ -154,13 +154,17 @@ router.get('/:token/due', (req, res) => {
 // the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
   const { db } = req.app.locals;
-  // Door volunteers don't handle money: they send families who owe to a committee member, who records it here.
-  if (!req.session.adminMode) throw new svc.UserError("Door volunteers don't take payments. Please send the family to a committee member to pay.");
+  // Door volunteers can take cash (one tap marks it paid and checks the family in, with the volunteer's name).
+  // Venmo, PayPal and Zelle sent to GSA's accounts are recorded by a committee member, who can check those
+  // accounts; at the door, families pay those on their own phone with the QR code instead.
+  if (!req.session.adminMode && req.body.method !== 'cash') {
+    throw new svc.UserError('Door volunteers record cash only. For Venmo, PayPal or a card, have them scan the QR code and pay on their phone.');
+  }
   const back = `/admin/checkin/${encodeURIComponent(req.params.token)}`;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
   const method = String(req.body.method || 'cash');
-  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
+  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id, recordedName: doorName(req) });
   const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', venmo: 'Venmo', paypal: 'PayPal', other: 'Zelle / other' }[method]) };
   if (!req.body.checkin) {
     req.flash('success', 'Recorded {amount} paid by {method}.', vars);

@@ -57,9 +57,9 @@
       </div>
     <% } %>
 
-    <%# Payment, shown big: PAID (and how), or how much is owed. Door volunteers don't handle money: they send the
-        family to a committee member, who records it here in one tap (Cash / Venmo / PayPal / Zelle; no checks for
-        events), which also checks the family in. Or the family pays on their own phone and the screen turns green.
+    <%# Payment, shown big: PAID (and how), or how much is owed. One tap records the money and checks the family in:
+        door volunteers have Cash; committee members also Venmo / PayPal / Zelle (they can check GSA's accounts; no
+        checks for events). Or the family pays on their own phone with the QR code and the screen turns green.
         Nobody who still owes can be checked in without paying. %>
     <% const canCheckIn = ['confirmed', 'pending_payment'].includes(rsvp.status) && !rsvp.checked_in_at; %>
     <% const arriving = () => { %>
@@ -73,14 +73,15 @@
       <% if (due) { %>
         <div class="pay-panel due">
           <div class="pay-big">💵 <%= t('{amount} DUE', { amount: money(due) }) %></div>
-          <% if (!adminMode) { %>
-            <p class="door-send" style="margin:4px 0 10px"><strong><%= t('Not paid yet. Please send them to a committee member to pay, then scan their ticket again.') %></strong></p>
-          <% } else { %>
           <p style="margin:4px 0 10px"><%= rsvp.pay_at_door ? t('They chose to pay at the door. Collect it before checking them in.') : t('Not paid yet. Collect it before checking them in.') %></p>
           <form method="post" action="/admin/checkin/<%= token %>/payment" class="stack">
             <%- include('../partials/csrf') %>
             <% if (canCheckIn) { %><input type="hidden" name="checkin" value="1"><% arriving(); %><% } %>
             <div class="pay-buttons">
+              <% if (!adminMode) { %>
+              <span class="small"><%= canCheckIn ? t('Took {amount} in cash? Tap Cash to mark it paid and check them in:', { amount: money(due) }) : t('Took {amount} in cash? Tap Cash to mark it paid:', { amount: money(due) }) %></span>
+              <button class="btn big" name="method" value="cash"><%= t('Cash') %></button>
+              <% } else { %>
               <span class="small"><%= canCheckIn ? t('Collected {amount} — tap how they paid to check them in:', { amount: money(due) }) : t('Collected {amount} by:', { amount: money(due) }) %></span>
               <button class="btn big" name="method" value="cash"><%= t('Cash') %></button>
               <span class="pay-sent">
@@ -89,13 +90,13 @@
                 <button class="btn secondary" name="method" value="other"><%= t('Zelle / other') %></button>
               </span>
               <span class="small muted"><%= t("Venmo, PayPal or Zelle: tap only after you see on their phone that it went to GSA's account.") %></span>
+              <% } %>
             </div>
           </form>
-          <% } %>
           <% if (payQr) { %>
             <%# Or they pay on their own phone; this screen turns green by itself when the money arrives. %>
             <div class="pay-online" id="pay-online" data-due-url="/admin/checkin/<%= token %>/due">
-              <p class="pay-or"><span><%= adminMode ? t('or pay online on their phone') : t('or they can pay now on their own phone') %></span></p>
+              <p class="pay-or"><span><%= t('or pay online on their phone') %></span></p>
               <img src="<%= payQr %>" alt="<%= t('QR code to pay online') %>" width="180" height="180">
               <p class="small" style="margin:6px 0 0"><%= t('Have them scan this with their phone camera to pay by card, Apple Pay, Google Pay, PayPal or Venmo.') %></p>
               <p class="small muted" id="pay-waiting" style="margin:4px 0 0">⏳ <%= t('This screen turns green by itself once it is paid.') %></p>

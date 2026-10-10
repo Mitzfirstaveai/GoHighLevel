@@ -932,7 +932,7 @@ function payAtDoorInstead(db, { rsvpId, userId }) {
 }
 
 // Money collected for an RSVP (at the door or by the committee): records what's still owed as paid.
-function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
+function recordRsvpPayment(db, { rsvpId, method, recordedBy, recordedName = null }) {
   // At the door: cash, or Venmo / PayPal / Zelle sent straight to GSA's account ("other" covers Zelle).
   // Checks aren't accepted for events.
   if (!DOOR_METHODS.includes(method)) throw new UserError('Event fees are cash only at the door — checks are not accepted.');
@@ -945,6 +945,7 @@ function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
   const payment = createPayment(db, { userId: rsvp.user_id, kind: 'event', referenceId: rsvp.id, amountCents: due,
     description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}` });
   markPaymentPaid(db, payment.id, { method, recordedBy });
+  if (recordedName) db.prepare('UPDATE payments SET recorded_name = ? WHERE id = ?').run(recordedName, payment.id);
   return { due, payment };
 }
 
