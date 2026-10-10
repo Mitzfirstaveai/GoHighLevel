@@ -333,6 +333,15 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 .chart .tick, .chart .cat { fill: var(--chart-ink); font-size: 12px; }
 .chart .cat { font-size: 13px; fill: var(--text); }
 .chart .value { fill: var(--text); font-size: 12px; font-weight: 600; }
+.chart .value.small { font-size: 11px; }
+/* Phones: the chart is shrunk to fit, so its text is drawn bigger to stay readable. */
+@media (max-width: 600px) {
+  .chart .value { font-size: 19px; }
+  .chart .value.small { font-size: 17px; }
+  .chart .tick { font-size: 17px; }
+  .chart .tick.x { font-size: 14px; } /* names under the bars: room for event names side by side */
+  .chart .cat { font-size: 19px; }
+}
 .chart .mark .hit { fill: transparent; }
 .chart .mark path { transition: opacity .15s; }
 .chart .mark.s1 path { fill: var(--series-1); }
