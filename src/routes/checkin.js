@@ -99,7 +99,11 @@ router.get('/', (req, res) => {
     ? db.prepare(`SELECT id, first_name, last_name FROM users WHERE checkin_access = 1 AND role != 'admin' AND contact_type = 'member' ORDER BY first_name, last_name`).all()
     : [];
   const doorLogin = req.session.adminMode ? doorAccount(db) : null;
-  res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers, doorLogin });
+  // The family just checked in (Quick mode), confirmed inside the camera box.
+  const confirm = req.session.doorConfirm;
+  delete req.session.doorConfirm;
+  const confirmation = confirm ? req.t(confirm.message, confirm.vars) : null;
+  res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers, doorLogin, confirmation });
 });
 
 // Manual entry: the short code under the QR code (K7Q-3MX), a bare token or a pasted ticket link.
@@ -150,6 +154,17 @@ router.get('/:token/due', (req, res) => {
   res.json({ due: rsvp ? svc.amountDue(db, rsvp) : 0 });
 });
 
+// After a successful check-in, Quick mode (the switch under the camera, sent with the form) goes straight back to
+// the camera, with the green confirmation inside the camera box; otherwise the ticket page stays open with it.
+function afterCheckIn(req, res, rsvp, back, message, vars) {
+  if (req.body.quick !== '1') {
+    req.flash('success', message, vars);
+    return res.redirect(back);
+  }
+  req.session.doorConfirm = { message, vars };
+  res.redirect(`/admin/checkin?event=${rsvp.event_id}#scanner`);
+}
+
 // Money collected at the door (cash, or Venmo / PayPal / Zelle sent to GSA's account; no checks) for a family that still owes. With `checkin`,
 // the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
@@ -174,7 +189,7 @@ router.post('/:token/payment', (req, res) => {
   try {
     const done = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id, byName: doorName(req) });
     req.session.justCheckedIn = req.params.token;
-    req.flash('success', guests === 1 ? 'Recorded {amount} paid by {method} and checked in {name} — 1 person.'
+    return afterCheckIn(req, res, done, back, guests === 1 ? 'Recorded {amount} paid by {method} and checked in {name} — 1 person.'
       : 'Recorded {amount} paid by {method} and checked in {name} — {n} people.', { ...vars, name: `${done.first_name} ${done.last_name}`, n: guests });
   } catch (err) {
     if (!(err instanceof svc.UserError)) throw err;
@@ -198,9 +213,8 @@ router.post('/:token', (req, res) => {
     return res.redirect(back);
   }
   req.session.justCheckedIn = req.params.token;
-  req.flash('success', guests === 1 ? 'Checked in {name} — 1 person.' : 'Checked in {name} — {n} people.',
+  afterCheckIn(req, res, rsvp, back, guests === 1 ? 'Checked in {name} — 1 person.' : 'Checked in {name} — {n} people.',
     { name: `${rsvp.first_name} ${rsvp.last_name}`, n: guests });
-  res.redirect(back);
 });
 
 module.exports = router;

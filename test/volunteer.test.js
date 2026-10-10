@@ -117,17 +117,20 @@ test('a door volunteer checks a family in, and is recorded as the person who did
   let res = await volunteer.get(`/admin/checkin/${token}`);
   assert.match(res.text, /Valid ticket/);
   assert.doesNotMatch(res.text, /not today/);
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${token}`, { guests: '3' }));
-  assert.match(res.text, /Checked in Asha Member — 3 people\./);
-  // Quick mode (if switched on on this device) returns to the running camera after a check-in…
-  assert.match(res.text, new RegExp(`id="auto-return" data-url="/admin/checkin\\?event=${todayEvent}#scanner"`));
-  assert.match(res.text, /Stay on this page/);
+  // Quick mode (on by default; the page sends quick=1) goes straight back to the camera, with the confirmation there.
+  assert.match(res.text, /name="quick" value="" data-quick/);
+  res = await volunteer.post(`/admin/checkin/${token}`, { guests: '3', quick: '1' });
+  assert.equal(res.location, `/admin/checkin?event=${todayEvent}#scanner`);
+  res = await volunteer.follow(res);
+  assert.match(res.text, /id="scanner"[\s\S]*class="scan-confirm"[^>]*>✅ Checked in Asha Member — 3 people\./);
+  assert.doesNotMatch((await volunteer.get(`/admin/checkin?event=${todayEvent}`)).text, /scan-confirm/, 'shown once');
+  res = await volunteer.get(`/admin/checkin/${token}`);
   assert.match(res.text, /by Dhruv Member — 3 of 4 people/);
   assert.equal(t.rsvpFor(todayEvent, 'family1@test.org').checked_in_by, userId('door@test.org'));
   // The same code can't be used twice.
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${token}`, { guests: '1' }));
   assert.match(res.text, /already been used/);
-  assert.doesNotMatch(res.text, /id="auto-return"/); // …but never when something needs attention
+  assert.match(res.text, /Already used/); // a problem always stays on the ticket page, even in Quick mode
   // The running count updates.
   res = await volunteer.get(`/admin/checkin?event=${todayEvent}`);
   assert.match(res.text, /1 of 2 tickets scanned/); // Asha's family, plus Zara from the earlier test
@@ -193,11 +196,12 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   res = await admin.follow(await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'check', checkin: '1', guests: '1' }));
   assert.match(res.text, /Event fees are cash only at the door — checks are not accepted/);
   assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_at, null);
-  // One tap: the volunteer's Cash records the money and checks them in (Quick mode then returns to the camera).
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  // One tap: the volunteer's Cash records the money and checks them in; Quick mode goes straight back to the camera.
+  res = await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1', quick: '1' });
+  assert.equal(res.location, `/admin/checkin?event=${paid}#scanner`);
+  res = await volunteer.follow(res);
   assert.match(res.text, /Recorded \$15\.00 paid by cash and checked in Dev Member — 1 person/);
-  assert.match(res.text, /✅ Checked in/);
-  assert.match(res.text, /id="auto-return"/, 'Quick mode goes back to the camera');
+  res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
   assert.match(res.text, /class="pay-panel paid"[\s\S]*PAID[\s\S]*\$15\.00 paid \(cash\)/);
   assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_count, 1);
   const pay = t.db.prepare(`SELECT * FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id);

@@ -848,9 +848,7 @@ module.exports = {
   'Changes your level from today. Renewals after that are at this level.': 'આજથી તમારું સ્તર બદલાશે. ત્યાર પછીનું રિન્યૂઅલ આ સ્તરે થશે.',
   // Door check-in quick mode
   'Quick mode': 'ઝડપી મોડ',
-  'go back to the camera 3 seconds after each check-in': 'દરેક પ્રવેશ પછી 3 સેકન્ડમાં કેમેરા પર પાછા જાઓ',
-  'Back to the camera in {n} seconds…': '{n} સેકન્ડમાં કેમેરા પર પાછા…',
-  'Stay on this page': 'આ પેજ પર જ રહો',
+  'go straight back to the camera after each check-in': 'દરેક પ્રવેશ પછી તરત કેમેરા પર પાછા જાઓ',
   'Only for committee members, and for volunteers the committee has given door access. Volunteers go straight to door check-in.': 'ફક્ત સમિતિના સભ્યો માટે, અને જે સ્વયંસેવકોને સમિતિએ દરવાજે પ્રવેશની મંજૂરી આપી છે તેમના માટે. સ્વયંસેવકો સીધા દરવાજે પ્રવેશ સ્ક્રીન પર જશે.',
   'Members: please use the member sign-in.': 'સભ્યો: કૃપા કરી સભ્ય સાઇન ઇનનો ઉપયોગ કરો.',
 
