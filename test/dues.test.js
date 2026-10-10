@@ -54,7 +54,7 @@ test('a member can pay for next year, but not the year after', async () => {
 });
 
 test('upgrading after paying ahead moves this year and the prepaid year up, at the difference for both', async () => {
-  const m = await t.login('dues@test.org', 'secret123');
+  const m = await t.login('dues@test.org', 'Chai#Masala2026');
   const year = new Date().getFullYear();
   const uid = userId('dues@test.org');
   // Married Couple ($275) is paid for this year and next; Family is $330 → $55 × 2.
@@ -97,7 +97,7 @@ test('two payment screens open at once: starting the second closes the first', a
   const m = await t.register('twotabs@test.org', 'Tara');
   const year = new Date().getFullYear();
   await pay(m, 'Married Couple'); // this year
-  const tabB = await t.login('twotabs@test.org', 'secret123');
+  const tabB = await t.login('twotabs@test.org', 'Chai#Masala2026');
   const a = await m.post('/membership/pay', { plan_id: String(t.planId('Married Couple')) });
   const b = await tabB.post('/membership/pay', { plan_id: String(t.planId('Married Couple')) });
   const [idA, idB] = [a, b].map((r) => Number(r.location.match(/\/pay\/(\d+)\/demo/)[1]));

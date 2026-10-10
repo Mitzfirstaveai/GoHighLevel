@@ -24,7 +24,7 @@ test('signing up needs phone, birth month and year, native place and full addres
   assert.doesNotMatch(res.text, /name="address_line2"[^>]*required/, 'apartment is optional');
   assert.doesNotMatch(res.text, /type="date"/, 'only the month and year of birth are asked for');
 
-  const signUp = (fields) => c.post('/register', t.profile({ email: 'newbie@test.org', password: 'secret123', password_confirm: 'secret123', ...fields }));
+  const signUp = (fields) => c.post('/register', t.profile({ email: 'newbie@test.org', password: 'Chai#Masala2026', password_confirm: 'Chai#Masala2026', ...fields }));
   res = await signUp({ phone: '', native_place: '', postal_code: '' });
   assert.equal(res.status, 400);
   assert.match(res.text, /Please fill in: Phone, Native place \(Vatan\) and ZIP code\./);
@@ -74,8 +74,8 @@ test('everyone on the family list needs a birth month and year', async () => {
 test('members added by the committee or imported are asked to complete their profile before paying dues', async () => {
   // An imported member with a login but only a name, email and city.
   await admin.post('/admin/members/new', { first_name: 'Old', last_name: 'Record', email: 'oldrecord@test.org', city: 'Conway', create_login: '1' });
-  t.db.prepare(`UPDATE users SET password_hash = (SELECT password_hash FROM users WHERE email = 'famreq@test.org') WHERE email = 'oldrecord@test.org'`).run();
-  const m = await t.login('oldrecord@test.org', 'secret123');
+  t.db.prepare(`UPDATE users SET password_hash = (SELECT password_hash FROM users WHERE email = 'famreq@test.org'), password_temporary = 0 WHERE email = 'oldrecord@test.org'`).run(); // (as if they'd chosen their own)
+  const m = await t.login('oldrecord@test.org', 'Chai#Masala2026');
   let res = await m.get('/dashboard');
   assert.match(res.text, /Please complete your profile[\s\S]*Still needed: Phone, Birth month, Birth year, Native place \(Vatan\), Address, State and ZIP code\.[\s\S]*href="\/profile"/);
   res = await m.follow(await m.post('/membership/pay', { plan_id: String(t.planId('Individual')) }));
@@ -102,7 +102,7 @@ test("a family login starts with the family's address, native place and the birt
   assert.match(res.text, /<option value="11" selected>November<\/option>/);
   assert.match(res.text, /name="birth_year"[^>]*value="1987"/);
   assert.match(res.text, /name="phone" value=""[^>]*required/);
-  res = await s.post(`/join/family/${token}`, { email: 'sita@test.org', password: 'secret123', password_confirm: 'secret123', first_name: 'Sita', last_name: 'Member', phone: '501-555-0177' });
+  res = await s.post(`/join/family/${token}`, { email: 'sita@test.org', password: 'Chai#Masala2026', password_confirm: 'Chai#Masala2026', first_name: 'Sita', last_name: 'Member', phone: '501-555-0177' });
   assert.equal(res.location, '/dashboard');
   const u = t.db.prepare(`SELECT birth_month, birth_year, native_place, city, postal_code FROM users WHERE email = 'sita@test.org'`).get();
   assert.deepEqual({ ...u }, { birth_month: 11, birth_year: 1987, native_place: 'Navsari', city: 'Benton', postal_code: '72015' });

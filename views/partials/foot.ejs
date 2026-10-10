@@ -1,5 +1,5 @@
 </main>
-<% if (user && !doorMode && !adminMode) { %>
+<% if (user && !doorMode && !adminMode && !locals.passwordGate) { %>
 <%
   const tabs = [
     ['/dashboard', 'Home', 'home', true],
@@ -31,7 +31,7 @@
     </div>
   </dialog>
 <% } %>
-<% } else if (user && adminMode) { %>
+<% } else if (user && adminMode && !locals.passwordGate) { %>
 <%# Phones: the admin bottom bar. "More" covers the admin pages not on the bar. %>
 <nav class="tabbar mobile-only admin-tabbar" aria-label="Admin" lang="en">
   <% const onAdmin = (href, exact) => (exact ? path === href : path === href || path.startsWith(href + '/'));

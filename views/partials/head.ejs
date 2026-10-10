@@ -85,7 +85,7 @@
 
 <%# Main menus: a band of large buttons (icon above the label) under the header. Members get it on
     computers and tablets (phones use the bottom tab bar); the admin area gets it on every screen. %>
-<% if (user && !doorMode && !adminMode) { %>
+<% if (user && !doorMode && !adminMode && !locals.passwordGate) { %>
   <nav class="menu-band member-menu desktop-only" aria-label="<%= t('Main menu') %>">
     <div class="inner">
       <% for (const [href, label, icon, exact] of memberTabs) { %>
@@ -104,7 +104,7 @@
     </div>
   </nav>
 <% } %>
-<% if (adminMode) { %>
+<% if (adminMode && !locals.passwordGate) { %>
   <nav class="subnav menu-band admin-menu" aria-label="Admin" lang="en">
     <div class="inner">
       <% for (const [href, label, icon, exact] of adminTabs) { %>

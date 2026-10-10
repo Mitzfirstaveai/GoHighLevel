@@ -14,7 +14,7 @@ const PLANS_SQL = `INSERT INTO membership_plans (name, amount_cents, duration_mo
 
 async function startTestApp(overrides = {}) {
   const app = createApp(loadConfig({
-    databaseFile: ':memory:', adminEmail: 'admin@test.org', adminPassword: 'adminpass1',
+    databaseFile: ':memory:', adminEmail: 'admin@test.org', adminPassword: 'Mango#Ledger2026',
     stripeSecretKey: '', allowDemoPayments: true, baseUrl: 'http://test.local', orgName: 'Test Samaj', demoMode: false,
     ...overrides,
   }));
@@ -85,7 +85,7 @@ async function startTestApp(overrides = {}) {
   }
 
   // Admins work in the admin area, which they enter through the committee sign-in.
-  async function adminLogin(email = 'admin@test.org', password = 'adminpass1') {
+  async function adminLogin(email = 'admin@test.org', password = 'Mango#Ledger2026') {
     const c = new Client();
     await c.get('/admin/login');
     const res = await c.post('/admin/login', { email, password });
@@ -106,7 +106,7 @@ async function startTestApp(overrides = {}) {
     const c = new Client();
     await c.get('/register');
     const res = await c.post('/register', profile({
-      email, password: 'secret123', password_confirm: 'secret123', first_name: first, last_name: 'Member',
+      email, password: 'Chai#Masala2026', password_confirm: 'Chai#Masala2026', first_name: first, last_name: 'Member',
     }));
     assert.equal(res.status, 302);
     await c.get('/profile');
@@ -156,6 +156,7 @@ const ADDED_COLUMNS = {
   15: [['users', 'birth_year'], ['users', 'birth_month'], ['users', 'birthday']],
   16: [['events', 'remind_day_of'], ['events', 'remind_day_before'], ['events', 'remind_week_before'], ['events', 'invite_at']],
   18: [['events', 'announce'], ['events', 'announce_note'], ['events', 'announce_note_gu']],
+  19: [['users', 'password_temporary']],
 };
 // Columns a later version removed (put back when rewinding to before it).
 const REMOVED_COLUMNS = { 15: [['users', 'date_of_birth TEXT']] };

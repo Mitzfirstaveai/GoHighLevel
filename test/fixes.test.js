@@ -48,7 +48,7 @@ test('late-evening payments are dated and reported in local time', async () => {
   await t.register('nye@test.org', 'Nina');
   const pid = Number(t.db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, paid_at)
     VALUES (?, 'donation', 'Donation — General fund', 50100, 'paid', 'check', ?)`).run(userId('nye@test.org'), stamp).lastInsertRowid);
-  const m = await t.login('nye@test.org', 'secret123');
+  const m = await t.login('nye@test.org', 'Chai#Masala2026');
   let res = await m.get(`/receipts/${pid}`);
   assert.match(res.text, /Dec 31, 2026/);
   res = await admin.get('/admin/reports/quickbooks.csv?year=2026');
@@ -73,7 +73,7 @@ test('repeated wrong passwords pause sign-in for that email', async () => {
   const c = new t.Client();
   await c.get('/login');
   for (let i = 0; i < 8; i++) assert.equal((await c.post('/login', { email: 'guess@test.org', password: 'wrong' })).status, 401);
-  const res = await c.post('/login', { email: 'guess@test.org', password: 'secret123' });
+  const res = await c.post('/login', { email: 'guess@test.org', password: 'Chai#Masala2026' });
   assert.equal(res.status, 429);
   assert.match(res.text, /Too many attempts/);
 });

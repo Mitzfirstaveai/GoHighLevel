@@ -700,3 +700,11 @@ td .btn { white-space: nowrap; }
 .reminder-plan legend { font-weight: 600; padding: 0 4px; }
 .reminder-plan label.check { flex-wrap: wrap; }
 .reminder-plan input[type=time], .reminder-plan input[type=datetime-local] { width: auto; min-width: 0; }
+/* New-password fields: Show/Hide inside the box, and the rules as a checklist that ticks itself. */
+.pw-wrap { display: flex; gap: 8px; align-items: stretch; }
+.pw-wrap input { flex: 1; min-width: 0; }
+.pw-toggle { flex: none; min-width: 64px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--brand-dark); font-weight: 600; cursor: pointer; }
+.pw-rules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 2px 16px; color: var(--muted); }
+.pw-rules li::before { content: '○'; display: inline-block; width: 1.4em; }
+.pw-rules li.ok { color: var(--ok, #2e7d32); font-weight: 600; }
+.pw-rules li.ok::before { content: '✓'; }

@@ -160,11 +160,8 @@
   <h2><%= t('Change password') %></h2>
   <form method="post" action="/profile/password" class="stack">
     <%- include('../partials/csrf') %>
-    <div class="fields">
-      <label><%= t('Current password') %> <input type="password" name="current_password" required autocomplete="current-password"></label>
-      <label><%= t('New password') %> <input type="password" name="new_password" minlength="8" required autocomplete="new-password"></label>
-      <label><%= t('Confirm new password') %> <input type="password" name="new_password_confirm" minlength="8" required autocomplete="new-password"></label>
-    </div>
+    <label><%= t('Current password') %> <input type="password" name="current_password" required autocomplete="current-password"></label>
+    <%- include('../partials/password-fields', { min: passwordMin, field: 'new_password', confirmField: 'new_password_confirm', label: t('New password'), confirmLabel: t('Confirm new password') }) %>
     <div><button class="btn secondary"><%= t('Change password') %></button></div>
   </form>
 </div>

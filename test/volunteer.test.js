@@ -13,7 +13,7 @@ let todayEvent;
 
 const userId = (email) => t.db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
 
-async function doorLogin(email, password = 'secret123') {
+async function doorLogin(email, password = 'Chai#Masala2026') {
   const c = new t.Client();
   await c.get('/admin/login');
   const res = await c.post('/admin/login', { email, password });
@@ -60,7 +60,7 @@ test('a door volunteer sees only check-in: no member menus and no other admin pa
 });
 
 test('signed in to the member app, a volunteer is an ordinary member', async () => {
-  const c = await t.login('door@test.org', 'secret123');
+  const c = await t.login('door@test.org', 'Chai#Masala2026');
   for (const path of ['/dashboard', '/events', '/more']) assert.doesNotMatch((await c.get(path)).text, /admin\/checkin|Check-in/, path);
   assert.equal((await c.get('/admin/members')).status, 403);
   // Opening the scanner (or a ticket link) asks them to use the committee & volunteer sign-in, then returns there.
@@ -73,7 +73,7 @@ test('signed in to the member app, a volunteer is an ordinary member', async () 
   assert.equal(res.location, '/admin/login');
   res = await c.get('/admin/login');
   assert.match(res.text, /signed in to the member app as Dhruv Member/);
-  res = await c.post('/admin/login', { email: 'door@test.org', password: 'secret123' });
+  res = await c.post('/admin/login', { email: 'door@test.org', password: 'Chai#Masala2026' });
   assert.equal(res.location, `/admin/checkin/${token}`);
   assert.match((await c.get(res.location)).text, /Valid ticket/);
   // Signing out of door mode leaves the volunteer sign-in ready for the next person.
@@ -89,21 +89,21 @@ test('the committee & volunteer sign-in turns ordinary members away and takes ad
   // It sits right under the member Sign in button, above everything else.
   assert.ok(res.text.indexOf('class="staff-signin"') < res.text.indexOf('New here?'));
   await c.get('/admin/login');
-  res = await c.post('/admin/login', { email: 'plain@test.org', password: 'secret123' });
+  res = await c.post('/admin/login', { email: 'plain@test.org', password: 'Chai#Masala2026' });
   assert.equal(res.status, 403);
   assert.match(res.text, /only for the committee and door volunteers/);
   assert.equal((await c.get('/dashboard')).location, '/login'); // not signed in
   assert.equal((await c.get('/admin/checkin')).location, '/admin/login'); // and no door check-in
   // A family login (spouse) isn't let in either, unless an admin assigns them as a door volunteer.
   t.db.prepare(`UPDATE users SET owner_id = (SELECT id FROM users WHERE email = 'door@test.org') WHERE email = 'plain@test.org'`).run();
-  res = await c.post('/admin/login', { email: 'plain@test.org', password: 'secret123' });
+  res = await c.post('/admin/login', { email: 'plain@test.org', password: 'Chai#Masala2026' });
   assert.equal(res.status, 403);
   t.db.prepare(`UPDATE users SET owner_id = NULL WHERE email = 'plain@test.org'`).run();
   res = await c.post('/admin/login', { email: 'door@test.org', password: 'wrong-password' });
   assert.equal(res.status, 401);
   const a = new t.Client();
   await a.get('/admin/login');
-  res = await a.post('/admin/login', { email: 'admin@test.org', password: 'adminpass1' });
+  res = await a.post('/admin/login', { email: 'admin@test.org', password: 'Mango#Ledger2026' });
   assert.equal(res.location, '/admin');
   res = await a.get('/admin');
   assert.match(res.text, /class="subnav[ "]/);
@@ -259,7 +259,7 @@ test('door access needs an email, and can be turned off again', async () => {
   res = await volunteer.post(`/admin/members/${tempId}/checkin-access`, { access: '1' });
   assert.equal(res.location, '/admin/checkin');
   assert.equal(t.db.prepare('SELECT checkin_access FROM users WHERE id = ?').get(tempId).checkin_access, 0);
-  const asMember = await t.login('door@test.org', 'secret123');
+  const asMember = await t.login('door@test.org', 'Chai#Masala2026');
   assert.equal((await asMember.post(`/admin/members/${tempId}/checkin-access`, { access: '1' })).status, 403);
 });
 
@@ -282,7 +282,7 @@ test('the check-in screens are fully translated for Gujarati-reading volunteers'
   await anon.get('/prefs?lang=gu&back=/');
   assert.match((await anon.get('/admin/login')).text, /સમિતિ અને સ્વયંસેવક સાઇન ઇન/);
   await t.register('plain-gu@test.org', 'Gita');
-  res = await anon.post('/admin/login', { email: 'plain-gu@test.org', password: 'secret123' });
+  res = await anon.post('/admin/login', { email: 'plain-gu@test.org', password: 'Chai#Masala2026' });
   assert.match(res.text, /કૃપા કરી સભ્ય સાઇન ઇનનો ઉપયોગ કરો/);
   assert.deepEqual([...missing], [], `Untranslated text: ${[...missing].join(' | ')}`);
   await volunteer.get('/prefs?lang=en&back=/');

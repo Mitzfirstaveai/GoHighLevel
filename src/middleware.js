@@ -56,10 +56,10 @@ function requireCheckin(req, res, next) {
 // Staff modes show only their own pages: door mode only check-in (a phone handed around at the
 // door never opens the volunteer's own member pages), admin mode only the admin area (plus the
 // photo files and receipts the admin pages show).
-const DOOR_PATHS = ['/admin/checkin', '/logout', '/prefs', '/admin/login'];
+const DOOR_PATHS = ['/admin/checkin', '/logout', '/prefs', '/admin/login', '/password/new'];
 // The admin area has no member pages (no profile, dues or tickets), only the public information
 // pages it edits, plus the photo files and receipts it links to.
-const ADMIN_PATHS = ['/admin', '/logout', '/prefs', '/photos/file', '/receipts', '/about', '/committee', '/sponsors', '/contact'];
+const ADMIN_PATHS = ['/admin', '/logout', '/prefs', '/password/new', '/photos/file', '/receipts', '/about', '/committee', '/sponsors', '/contact'];
 const allowed = (paths, path) => paths.some((p) => path === p || path.startsWith(`${p}/`));
 function doorModeOnly(req, res, next) {
   if (req.session.doorMode && !allowed(DOOR_PATHS, req.path)) return res.redirect('/admin/checkin');

@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { passwordProblem, hashPassword, needsRehash, minLength } = require('../passwords');
 const {
   cleanProfile, PROFILE_FIELDS, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
 } = require('../services');
@@ -55,6 +56,15 @@ function authenticate(req, res, view) {
     return null;
   }
   failures.delete(keys[0][0]);
+  const password = String(req.body.password);
+  // A password chosen before today's rules (or for a committee or door role it's too short for), or one
+  // handed out by a committee member, has to be replaced before anything else (see /password/new).
+  // The demo's sample accounts keep their shared password.
+  const demoAccount = req.app.locals.config.demoMode && user.email.endsWith('@example.com');
+  user.mustChangePassword = !demoAccount && Boolean(user.password_temporary || passwordProblem(password, user));
+  if (!user.mustChangePassword && needsRehash(user.password_hash)) {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), user.id);
+  }
   return user;
 }
 
@@ -65,6 +75,11 @@ function signIn(req, res, next, user, { doorMode = false, adminMode = false, fal
     req.session.userId = user.id;
     if (doorMode) req.session.doorMode = true;
     if (adminMode) req.session.adminMode = true;
+    if (user.mustChangePassword) {
+      req.session.mustChangePassword = true;
+      req.session.returnTo = returnTo;
+      return res.redirect('/password/new');
+    }
     const safe = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
     // Go back where they were heading, if that page belongs to the mode they signed in to.
     const fits = !safe ? false : doorMode ? safe.startsWith('/admin/checkin') : adminMode ? safe.startsWith('/admin') : !safe.startsWith('/admin');
@@ -105,22 +120,55 @@ function createAccount(req, form) {
   const email = String(form.email || '').trim().toLowerCase();
   const password = String(form.password || '');
   if (!EMAIL_RE.test(email)) throw new UserError('Please enter a valid email address.');
-  if (password.length < 8) throw new UserError('Password must be at least 8 characters.');
-  if (password !== form.password_confirm) throw new UserError('Passwords do not match.');
   const existing = db.prepare('SELECT password_hash FROM users WHERE email = ?').get(email);
   if (existing && !existing.password_hash) {
     // Imported from WildApricot or added by the committee: an admin issues the first login.
     throw new UserError('You are already in our member records. Please ask a committee member to set up your login.');
   }
   if (existing) throw new UserError('An account with that email already exists. Try signing in.');
+  const problem = passwordProblem(password, { email, first_name: form.first_name, last_name: form.last_name });
+  if (problem) throw new UserError(problem.message, problem.vars);
+  if (password !== form.password_confirm) throw new UserError('Passwords do not match.');
   // Every member gives their phone, birth month and year, native place and address when signing up.
   const profile = cleanProfile(form, { complete: true });
   // With no ADMIN_EMAIL configured, the very first account becomes the administrator.
   const noAdmin = !config.adminEmail && !db.prepare(`SELECT 1 FROM users WHERE role = 'admin'`).get();
   return Number(db.prepare(`INSERT INTO users (email, password_hash, role, ${PROFILE_FIELDS.join(', ')})
                             VALUES (?, ?, ?, ${PROFILE_FIELDS.map(() => '?').join(', ')})`)
-    .run(email, bcrypt.hashSync(password, 10), noAdmin ? 'admin' : 'member', ...PROFILE_FIELDS.map((f) => profile[f])).lastInsertRowid);
+    .run(email, hashPassword(password), noAdmin ? 'admin' : 'member', ...PROFILE_FIELDS.map((f) => profile[f])).lastInsertRowid);
 }
+
+// ---------- Choosing a new password ----------
+// After signing in with a password that doesn't meet the rules, or a temporary one from a committee member,
+// this is the only page until a new password is chosen (the app sends every other page here).
+const afterPasswordChange = (req) => {
+  const back = req.session.returnTo;
+  delete req.session.returnTo;
+  if (back?.startsWith('/') && !back.startsWith('//')) return back;
+  return req.session.adminMode ? '/admin' : req.session.doorMode ? '/admin/checkin' : '/dashboard';
+};
+
+router.get('/password/new', (req, res) => {
+  if (!req.user || !req.session.mustChangePassword) return res.redirect('/');
+  res.render('auth/password_new', { title: 'Choose a new password', passwordMin: minLength(req.user) });
+});
+
+router.post('/password/new', (req, res) => {
+  if (!req.user || !req.session.mustChangePassword) return res.redirect('/');
+  const { password, password_confirm: confirm } = req.body;
+  const problem = passwordProblem(password, req.user);
+  const error = problem ? req.t(problem.message, problem.vars)
+    : password !== confirm ? req.t('Passwords do not match.')
+    : bcrypt.compareSync(String(password), req.user.password_hash) ? req.t('Please choose a password different from the one you signed in with.') : null;
+  if (error) {
+    res.locals.flash = [{ type: 'error', message: error }];
+    return res.status(400).render('auth/password_new', { title: 'Choose a new password', passwordMin: minLength(req.user) });
+  }
+  req.app.locals.db.prepare('UPDATE users SET password_hash = ?, password_temporary = 0 WHERE id = ?').run(hashPassword(password), req.user.id);
+  delete req.session.mustChangePassword;
+  req.flash('success', 'Password changed.');
+  res.redirect(afterPasswordChange(req));
+});
 
 function startSession(req, res, next, userId, flash, to) {
   req.session.regenerate((err) => {

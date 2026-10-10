@@ -225,3 +225,40 @@
   document.addEventListener('click', hideAll);
   window.addEventListener('resize', hideAll);
 })();
+
+// New-password fields: tick each rule as it's met while typing, and a Show/Hide button. The server checks
+// the same rules (and also refuses common passwords and the person's own name or email).
+(function () {
+  const RULES = {
+    length: (pw, min) => pw.length >= min,
+    upper: (pw) => /\p{Lu}/u.test(pw),
+    lower: (pw) => /\p{Ll}/u.test(pw),
+    number: (pw) => /\d/.test(pw),
+    symbol: (pw) => /[^\p{L}\p{N}\s]/u.test(pw),
+  };
+  document.querySelectorAll('[data-password-rules]').forEach((box) => {
+    const input = box.querySelector('[data-password]');
+    const confirm = box.querySelector('[data-password-confirm]');
+    const min = Number(input.dataset.min) || 10;
+    const check = () => {
+      const pw = input.value;
+      let all = true;
+      box.querySelectorAll('[data-rule]').forEach((li) => {
+        const ok = RULES[li.dataset.rule](pw, min);
+        li.classList.toggle('ok', ok);
+        all = all && ok;
+      });
+      input.setCustomValidity(pw && !all ? box.querySelector('[data-rule]:not(.ok)').textContent : '');
+      if (confirm) confirm.setCustomValidity(confirm.value && confirm.value !== pw ? (document.documentElement.lang === 'gu' ? 'બંને પાસવર્ડ સરખા નથી.' : 'Passwords do not match.') : '');
+    };
+    input.addEventListener('input', check);
+    confirm?.addEventListener('input', check);
+    const toggle = box.querySelector('[data-pw-toggle]');
+    toggle?.addEventListener('click', () => {
+      const show = input.type === 'password';
+      for (const el of [input, confirm]) if (el) el.type = show ? 'text' : 'password';
+      toggle.textContent = show ? toggle.dataset.hide : toggle.dataset.show;
+      toggle.setAttribute('aria-pressed', String(show));
+    });
+  });
+})();

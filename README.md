@@ -71,6 +71,21 @@ Everything — members, contacts, events, payments, photos — is stored in one 
 pick a paid plan with a **persistent disk** (in `render.yaml`, uncomment the `disk:` section and set `DATABASE_FILE`
 to a path on it); Render snapshots the disk daily so you can restore from a backup.
 
+## Passwords
+
+- **Rules** (checked at sign-up, family invites and *Profile → Change password*, with a checklist that ticks itself
+  while typing): at least **10 characters** for members and **12** for committee members and door volunteers;
+  an **uppercase letter, a lowercase letter, a number and a symbol**; not a common or easily guessed password
+  (e.g. `Garba@2026`, `Password#1`, `Qwerty!12345`); not the person's own name or email.
+- **Older or weaker passwords** (chosen before these rules, or too short for someone given committee or door
+  access later) work once more: at that sign-in the person must choose a new one before anything else.
+- **Temporary passwords** a committee member hands out (*Reset password*, or a new contact's first login) are random
+  16-character ones, and must be replaced at the first sign-in.
+- **Storage:** passwords are never stored or shown. The app keeps only a **bcrypt hash** (one-way, salted, work
+  factor 12), so no one — committee members included — can read a password back, and a copy of the database
+  doesn't reveal them. Repeated wrong passwords pause sign-in for 15 minutes.
+- The demo's sample accounts keep the shared password `demo1234`.
+
 ## Put the demo online (free, about 10 minutes)
 
 1. Create a free account at [render.com](https://render.com) and sign in with GitHub.

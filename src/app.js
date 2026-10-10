@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const express = require('express');
 const session = require('express-session');
-const bcrypt = require('bcryptjs');
+const { passwordProblem, hashPassword } = require('./passwords');
 
 const { openDb } = require('./db');
 const { SqliteStore } = require('./session-store');
@@ -107,6 +107,12 @@ function createApp(config) {
   });
   app.use(flash);
   app.use(loadUser(db));
+  // Someone who signed in with a password that has to be replaced sees only the new-password page.
+  app.use((req, res, next) => {
+    if (req.user && req.session.mustChangePassword && !['/password/new', '/logout', '/prefs'].includes(req.path)) return res.redirect('/password/new');
+    res.locals.passwordGate = Boolean(req.user && req.session.mustChangePassword); // (no menus on that page: they'd lead back to it)
+    next();
+  });
   app.use(doorModeOnly);
   app.use(i18nMiddleware);
   app.use(csrf);
@@ -181,9 +187,12 @@ function ensureAdmin(db, config) {
     if (existing.role !== 'admin') db.prepare(`UPDATE users SET role = 'admin' WHERE id = ?`).run(existing.id);
     return;
   }
-  db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name)
-              VALUES (?, ?, 'admin', 'Admin', 'User')`)
-    .run(config.adminEmail, bcrypt.hashSync(config.adminPassword, 10));
+  // A weak ADMIN_PASSWORD only gets the administrator in once: they choose a proper password at that sign-in.
+  const weak = Boolean(passwordProblem(config.adminPassword, { role: 'admin', email: config.adminEmail, first_name: 'Admin', last_name: 'User' }));
+  if (weak) console.warn('ADMIN_PASSWORD does not meet the password rules; the administrator will be asked to change it at first sign-in.');
+  db.prepare(`INSERT INTO users (email, password_hash, password_temporary, role, first_name, last_name)
+              VALUES (?, ?, ?, 'admin', 'Admin', 'User')`)
+    .run(config.adminEmail, hashPassword(config.adminPassword), weak ? 1 : 0);
 }
 
 module.exports = { createApp };

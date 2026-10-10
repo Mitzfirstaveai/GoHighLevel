@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   -- Contacts (donors, sponsors, imported members…) may have no email and no login yet.
   email TEXT UNIQUE COLLATE NOCASE,
   password_hash TEXT,
+  password_temporary INTEGER NOT NULL DEFAULT 0, -- set by a committee member (or too weak): must be changed at sign-in
   role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'admin')),
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
@@ -333,16 +334,18 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 18; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 19; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
 // 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
 // 16: event-day reminders (devices, sent log) and each event's reminder schedule and RSVP invitation;
 // 17: every event has an RSVP invitation (existing ones: a week before at 10 AM)
 // 18: events announce themselves in GSA announcements, with an optional message from the committee
+// 19: temporary passwords (handed out by the committee) must be replaced at the next sign-in
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  19: ['ALTER TABLE users ADD COLUMN password_temporary INTEGER NOT NULL DEFAULT 0'],
   18: [
     'ALTER TABLE events ADD COLUMN announce INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE events ADD COLUMN announce_note TEXT',

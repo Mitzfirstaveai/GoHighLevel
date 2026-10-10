@@ -1,9 +1,9 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
+const { hashPassword, temporaryPassword } = require('../passwords');
 const { requireAdmin } = require('../middleware');
 const { getContent, setContent } = require('../site');
 const newsfeed = require('../newsfeed');
-const { TAGS, cleanTags, cleanEmail, addContact, temporaryPassword, importContacts, SPONSOR_LEVELS, addBusiness, updateBusiness, setContactType } = require('../contacts');
+const { TAGS, cleanTags, cleanEmail, addContact, importContacts, SPONSOR_LEVELS, addBusiness, updateBusiness, setContactType } = require('../contacts');
 const { csvUpload, removeUpload } = require('../uploads');
 const svc = require('../services');
 const { DEMO_ACCOUNTS } = require('../demo');
@@ -305,9 +305,10 @@ router.post('/members/:id/reset-password', (req, res) => {
   const contact = req.app.locals.db.prepare('SELECT email FROM users WHERE id = ?').get(req.params.id);
   if (!contact?.email) throw new svc.UserError('Add an email address first — it is what they sign in with.');
   const temp = temporaryPassword();
-  req.app.locals.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(temp, 10), req.params.id);
+  // They choose their own password the first time they sign in with it.
+  req.app.locals.db.prepare('UPDATE users SET password_hash = ?, password_temporary = 1 WHERE id = ?').run(hashPassword(temp), req.params.id);
   req.app.locals.db.prepare(`DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?`).run(Number(req.params.id));
-  req.flash('success', `Temporary password: ${temp} — share it with the member and ask them to change it.`);
+  req.flash('success', `Temporary password: ${temp} — share it with the member. They'll choose their own password when they first sign in.`);
   res.redirect(`/admin/members/${req.params.id}`);
 });
 

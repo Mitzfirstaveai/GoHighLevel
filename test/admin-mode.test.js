@@ -37,7 +37,7 @@ test('signed in to the admin area, member pages send the admin back to the admin
 });
 
 test('an admin using the member sign-in gets a plain member app with no admin access', async () => {
-  const m = await t.login('admin@test.org', 'adminpass1');
+  const m = await t.login('admin@test.org', 'Mango#Ledger2026');
   let res = await m.get('/dashboard');
   assert.equal(res.status, 200);
   assert.doesNotMatch(res.text, /href="\/admin"/, 'no Admin link in the member app');
@@ -50,7 +50,7 @@ test('an admin using the member sign-in gets a plain member app with no admin ac
   assert.equal(res.location, '/admin/login');
 
   // Committee sign-in from there opens the admin page they were heading to.
-  res = await m.post('/admin/login', { email: 'admin@test.org', password: 'adminpass1' });
+  res = await m.post('/admin/login', { email: 'admin@test.org', password: 'Mango#Ledger2026' });
   assert.equal(res.location, '/admin/members');
 });
 
@@ -63,7 +63,7 @@ test("in the member app an admin sees only their own family's tickets and receip
   const paymentId = Number(t.db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, paid_at)
     VALUES (?, 'donation', 'Gift', 5000, 'paid', 'cash', datetime('now'))`).run(otherId).lastInsertRowid);
 
-  const m = await t.login('admin@test.org', 'adminpass1');
+  const m = await t.login('admin@test.org', 'Mango#Ledger2026');
   assert.notEqual((await m.get(`/tickets/${rsvp.id}`)).status, 200);
   assert.equal((await m.get(`/receipts/${paymentId}`)).status, 404);
   // The admin area can still open any receipt.

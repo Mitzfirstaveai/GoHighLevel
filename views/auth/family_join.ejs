@@ -21,10 +21,7 @@
       <%- include('../partials/csrf') %>
       <%# The family's address and native place, and the birth month and year on the family list, are filled in already. %>
       <%- include('../partials/profile-fields', { p: form, required: true, email: true }) %>
-      <div class="fields">
-        <label><span><%= t('Password (at least 8 characters)') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password" minlength="8" required autocomplete="new-password"></label>
-        <label><span><%= t('Confirm password') %> <span class="req" aria-hidden="true">*</span></span> <input type="password" name="password_confirm" minlength="8" required autocomplete="new-password"></label>
-      </div>
+      <%- include('../partials/password-fields') %>
       <button class="btn big"><%= t('Create my login') %></button>
     </form>
     <p class="muted small"><%= t('Already have a GSA login?') %> <a href="/login"><%= t('Sign in') %></a> — <%= t("you'll come back to this page.") %></p>

@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { passwordProblem, hashPassword, minLength } = require('../passwords');
 const QRCode = require('qrcode');
 const { requireAuth } = require('../middleware');
 const svc = require('../services');
@@ -63,6 +64,7 @@ router.get('/profile', requireAuth, (req, res) => {
   // A family login sees the family it belongs to (managed by the member who listed them).
   const owner = req.user.owner_id ? db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?').get(req.user.owner_id) : null;
   res.render('member/profile', {
+    passwordMin: minLength(req.user),
     title: 'My profile', profile: req.user, household: svc.getHousehold(db, owner?.id ?? req.user.id), membership, owner,
     baseUrl: req.app.locals.config.baseUrl, today: today(), now: db.prepare(`SELECT datetime('now') AS n`).get().n,
     coverageParts: membership.active && membership.plan ? svc.planCoverageParts(membership.plan) : null,
@@ -126,9 +128,10 @@ router.post('/profile/household/:id/invite/cancel', requireAuth, requireFamilyMa
 router.post('/profile/password', requireAuth, (req, res) => {
   const { current_password: current, new_password: next, new_password_confirm: confirm } = req.body;
   if (!req.user.password_hash || !bcrypt.compareSync(String(current || ''), req.user.password_hash)) throw new svc.UserError('Current password is incorrect.');
-  if (String(next || '').length < 8) throw new svc.UserError('New password must be at least 8 characters.');
+  const problem = passwordProblem(next, req.user);
+  if (problem) throw new svc.UserError(problem.message, problem.vars);
   if (next !== confirm) throw new svc.UserError('New passwords do not match.');
-  req.app.locals.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(next, 10), req.user.id);
+  req.app.locals.db.prepare('UPDATE users SET password_hash = ?, password_temporary = 0 WHERE id = ?').run(hashPassword(next), req.user.id);
   req.flash('success', 'Password changed.');
   res.redirect('/profile');
 });

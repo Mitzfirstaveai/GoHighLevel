@@ -1,7 +1,6 @@
 // Contact database: members and everyone else the samaj keeps in touch with (donors, sponsors,
 // vendors, volunteers, former members). Contacts may have no email and no login.
-const crypto = require('node:crypto');
-const bcrypt = require('bcryptjs');
+const { hashPassword, temporaryPassword } = require('./passwords');
 const { transaction } = require('./db');
 const { UserError, cleanProfile, PROFILE_FIELDS, periodEnd } = require('./services');
 const { today } = require('./util');
@@ -23,10 +22,6 @@ function cleanEmail(email) {
 }
 
 // Short random password an admin hands to someone so they can sign in for the first time.
-function temporaryPassword() {
-  return crypto.randomBytes(6).toString('base64url');
-}
-
 function addContact(db, body) {
   const profile = cleanProfile(body);
   const email = cleanEmail(body.email);
@@ -34,9 +29,9 @@ function addContact(db, body) {
     throw new UserError('That email is already used by someone else in the app.');
   }
   const temp = body.create_login && email ? temporaryPassword() : null;
-  const id = Number(db.prepare(`INSERT INTO users (email, password_hash, role, ${PROFILE_FIELDS.join(', ')}, notes, tags, source)
-    VALUES (?, ?, 'member', ${PROFILE_FIELDS.map(() => '?').join(', ')}, ?, ?, 'admin')`)
-    .run(email, temp ? bcrypt.hashSync(temp, 10) : null, ...PROFILE_FIELDS.map((f) => profile[f]),
+  const id = Number(db.prepare(`INSERT INTO users (email, password_hash, password_temporary, role, ${PROFILE_FIELDS.join(', ')}, notes, tags, source)
+    VALUES (?, ?, 1, 'member', ${PROFILE_FIELDS.map(() => '?').join(', ')}, ?, ?, 'admin')`)
+    .run(email, temp ? hashPassword(temp) : null, ...PROFILE_FIELDS.map((f) => profile[f]),
       String(body.notes || '').slice(0, 2000) || null, cleanTags(body.tags)).lastInsertRowid);
   return { id, temporaryPassword: temp };
 }
