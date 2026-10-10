@@ -61,12 +61,12 @@ test('passwords are stored only as a slow, salted hash — never as text', async
   await t.register('hashme@test.org', 'Hash');
   const { password_hash: hash } = t.db.prepare(`SELECT password_hash FROM users WHERE email = 'hashme@test.org'`).get();
   assert.doesNotMatch(hash, /Masala/);
-  assert.match(hash, /^\$2[aby]\$12\$/, 'bcrypt, work factor 12');
+  assert.match(hash, /^\$2[aby]\$10\$/, 'bcrypt, work factor 10 (the standard; PASSWORD_HASH_ROUNDS raises it)');
   assert.ok(bcrypt.compareSync('Chai#Masala2026', hash));
   // An older, quicker hash is upgraded when they next sign in.
-  t.db.prepare(`UPDATE users SET password_hash = ? WHERE email = 'hashme@test.org'`).run(bcrypt.hashSync('Chai#Masala2026', 10));
+  t.db.prepare(`UPDATE users SET password_hash = ? WHERE email = 'hashme@test.org'`).run(bcrypt.hashSync('Chai#Masala2026', 8));
   await t.login('hashme@test.org', 'Chai#Masala2026');
-  assert.match(t.db.prepare(`SELECT password_hash FROM users WHERE email = 'hashme@test.org'`).get().password_hash, /^\$2[aby]\$12\$/);
+  assert.match(t.db.prepare(`SELECT password_hash FROM users WHERE email = 'hashme@test.org'`).get().password_hash, /^\$2[aby]\$10\$/);
 });
 
 test('a weak older password, or a temporary one from the committee, must be replaced before anything else', async () => {

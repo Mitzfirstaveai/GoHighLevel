@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { passwordProblem, hashPassword, needsRehash, minLength } = require('../passwords');
+const { passwordProblem, hashPassword, hashPasswordAsync, checkPassword, needsRehash, minLength } = require('../passwords');
 const { isDoorAccount } = require('../door-login');
 const {
   cleanProfile, PROFILE_FIELDS, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
@@ -39,7 +39,7 @@ function recordFailure(keys) {
 }
 
 // Checks the email and password; renders the sign-in page again (with the error) on failure.
-function authenticate(req, res, view) {
+async function authenticate(req, res, view) {
   const { db } = req.app.locals;
   const email = String(req.body.email || '').trim();
   const keys = [[`email:${email.toLowerCase()}`, FAILED_LIMIT.perEmail], [`ip:${req.ip}`, FAILED_LIMIT.perIp]];
@@ -51,7 +51,7 @@ function authenticate(req, res, view) {
   // Emails are stored in lower case; the shared door login's username ("door") is looked up the same way.
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
   // Contacts added by an admin or imported have no password until they're given a login.
-  if (!user?.password_hash || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
+  if (!user?.password_hash || !(await checkPassword(req.body.password, user.password_hash))) {
     recordFailure(keys);
     res.locals.flash = [{ type: 'error', message: 'Incorrect email or password.' }];
     res.status(401).render(view, { title: 'Sign in', email });
@@ -66,7 +66,7 @@ function authenticate(req, res, view) {
   const demoAccount = req.app.locals.config.demoMode && user.email.endsWith('@example.com');
   user.mustChangePassword = !demoAccount && !isDoorAccount(user) && Boolean(user.password_temporary || passwordProblem(password, user));
   if (!user.mustChangePassword && needsRehash(user.password_hash)) {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), user.id);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await hashPasswordAsync(password), user.id);
   }
   return user;
 }
@@ -91,8 +91,8 @@ function signIn(req, res, next, user, { doorMode = false, doorShared = false, ad
   });
 }
 
-router.post('/login', (req, res, next) => {
-  const user = authenticate(req, res, 'auth/login');
+router.post('/login', async (req, res, next) => {
+  const user = await authenticate(req, res, 'auth/login');
   if (!user) return;
   if (isDoorAccount(user)) {
     res.locals.flash = [{ type: 'error', message: 'The door login is used on the Committee & volunteer sign-in.' }];
@@ -109,8 +109,8 @@ router.get('/admin/login', (req, res) => {
   res.render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: '' });
 });
 
-router.post('/admin/login', (req, res, next) => {
-  const user = authenticate(req, res, 'auth/staff_login');
+router.post('/admin/login', async (req, res, next) => {
+  const user = await authenticate(req, res, 'auth/staff_login');
   if (!user) return;
   if (user.role === 'admin') return signIn(req, res, next, user, { adminMode: true, fallback: '/admin' });
   // The shared door login: door check-in only, after the volunteer types their first name.

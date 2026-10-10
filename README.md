@@ -82,8 +82,9 @@ to a path on it); Render snapshots the disk daily so you can restore from a back
 - **Temporary passwords** a committee member hands out (*Reset password*, or a new contact's first login) are random
   16-character ones, and must be replaced at the first sign-in.
 - **Storage:** passwords are never stored or shown. The app keeps only a **bcrypt hash** (one-way, salted, work
-  factor 12), so no one — committee members included — can read a password back, and a copy of the database
-  doesn't reveal them. Repeated wrong passwords pause sign-in for 15 minutes.
+  factor 10 — the usual standard), so no one — committee members included — can read a password back, and a copy of
+  the database doesn't reveal them. On paid hosting, set `PASSWORD_HASH_ROUNDS=12` to make each check 4x slower for
+  anyone guessing (sign-in takes a little longer; existing hashes are upgraded at sign-in). Repeated wrong passwords pause sign-in for 15 minutes.
 - The demo's sample accounts keep the shared password `demo1234`.
 
 ## Put the demo online (free, about 10 minutes)

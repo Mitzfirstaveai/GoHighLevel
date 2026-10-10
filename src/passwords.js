@@ -7,7 +7,10 @@
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 
-const ROUNDS = 12; // bcrypt work factor: about a quarter of a second per check, which slows guessing
+// bcrypt work factor: each step doubles the time per check (for us at sign-in, and for anyone trying to guess).
+// 10 is the usual standard (OWASP's minimum): about 0.1 s on a normal server, about 1 s on Render's small free
+// plan. On paid hosting it can be raised with PASSWORD_HASH_ROUNDS=12 (4x slower); hashes are upgraded at sign-in.
+const ROUNDS = Math.min(14, Math.max(10, Number(process.env.PASSWORD_HASH_ROUNDS) || 10));
 const MAX_LENGTH = 64; // bcrypt only uses the first 72 bytes
 const MIN_LENGTH = 8;
 const minLength = () => MIN_LENGTH; // the same for members, the committee and door volunteers
@@ -48,6 +51,9 @@ function passwordProblem(password, user = {}) {
 }
 
 const hashPassword = (password) => bcrypt.hashSync(String(password), ROUNDS);
+// For sign-in: checked in the background, so one person signing in doesn't hold up everyone else's pages.
+const checkPassword = (password, hash) => bcrypt.compare(String(password || ''), hash);
+const hashPasswordAsync = (password) => bcrypt.hash(String(password), ROUNDS);
 // Hashes made before the work factor was raised are upgraded the next time the person signs in.
 const needsRehash = (hash) => bcrypt.getRounds(hash) < ROUNDS;
 
@@ -62,4 +68,4 @@ function temporaryPassword() {
   return `${groups.join('-')}!`; // e.g. Kmp4-Rtx7-Hbn3! (16 characters)
 }
 
-module.exports = { passwordProblem, hashPassword, needsRehash, temporaryPassword, minLength, MIN_LENGTH, MAX_LENGTH };
+module.exports = { passwordProblem, hashPassword, hashPasswordAsync, checkPassword, needsRehash, ROUNDS, temporaryPassword, minLength, MIN_LENGTH, MAX_LENGTH };
