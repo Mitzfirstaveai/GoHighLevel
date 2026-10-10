@@ -6,9 +6,10 @@
   <div class="stat"><div class="label">Expiring in 60 days</div><div class="value"><%= expiringSoon %></div><div class="muted small">not yet renewed</div></div>
   <div class="stat"><div class="label">Contacts never a member</div><div class="value"><%= status.never %></div><div class="muted small"><a href="/admin/members?status=none">Donors, sponsors, guests…</a></div></div>
 </div>
-<div class="card"><h2>New members per month</h2><p class="muted small" style="margin-top:0">First membership, last 12 months</p><%- joinsChart %></div>
+<%# Events first and full width (the busiest numbers); new members are only a few a year, so a smaller chart. %>
+<div class="card"><h2>Recent events: registered vs. arrived</h2><%- eventsChart || '<p class="muted">No past events yet.</p>' %></div>
 <div class="grid grid-2">
   <div class="card"><h2>Active memberships by level</h2><%- levelsChart || '<p class="muted">No active memberships.</p>' %></div>
-  <div class="card"><h2>Recent events: registered vs. arrived</h2><%- eventsChart || '<p class="muted">No past events yet.</p>' %></div>
+  <div class="card"><h2>New members per month</h2><p class="muted small" style="margin-top:0">First membership, last 12 months</p><%- joinsChart %></div>
 </div>
 <%- include('../partials/foot') %>

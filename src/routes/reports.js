@@ -121,7 +121,7 @@ router.get('/insights', (req, res) => {
   res.render('admin/insights', {
     title: 'Trends', status, families, expiringSoon,
     joinsChart: columnChart({
-      title: 'New members per month', series: ['New members'],
+      title: 'New members per month', series: ['New members'], height: 170,
       rows: months.map((m, i) => ({ label: MONTHS[Number(m.slice(5)) - 1], values: [joins[i]] })),
     }),
     levelsChart: levels.length ? barChart({ title: 'Active memberships by level', rows: levels.map((l) => ({ label: l.name, value: l.n })) }) : '',
