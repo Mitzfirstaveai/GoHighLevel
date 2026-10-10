@@ -319,7 +319,14 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 }
 /* ---------- Charts (palette validated for CVD + contrast in light and dark) ---------- */
 :root { --series-1: #C8650F; --series-2: #2a78d6; --chart-grid: #ecebe7; --chart-ink: #52514e; }
-.chart { margin: 0; }
+.chart { margin: 0; position: relative; }
+/* The amount of the tapped bar, in a label just above it (app.js places it). */
+.chart .mark { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chart .mark.active path { opacity: .75; }
+.chart-tip { position: absolute; z-index: 5; pointer-events: none; white-space: nowrap; padding: 6px 10px; border-radius: 8px;
+  background: var(--text); color: var(--bg); font-size: .9rem; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.chart-tip[hidden] { display: none; }
+.chart-hint { margin: 4px 0 0; font-size: .8rem; color: var(--muted); }
 .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 .chart .grid { stroke: var(--chart-grid); stroke-width: 1; }
 .chart .axis { stroke: var(--chart-ink); stroke-width: 1; opacity: .5; }
@@ -332,7 +339,7 @@ body.staff-mode .site-footer { padding-bottom: 24px; }
 .chart .mark.s2 path { fill: var(--series-2); }
 .chart .mark:hover path, .chart .mark:focus path { opacity: .75; }
 .chart .mark:focus { outline: none; }
-.chart .mark:focus .hit { stroke: var(--text); stroke-width: 1; }
+.chart .mark:focus-visible .hit { stroke: var(--text); stroke-width: 1; }
 .legend { display: flex; gap: 16px; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
 .legend .key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
 .key.s1 { background: var(--series-1); } .key.s2 { background: var(--series-2); }

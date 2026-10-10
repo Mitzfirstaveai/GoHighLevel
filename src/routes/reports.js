@@ -2,7 +2,7 @@
 const express = require('express');
 const { requireAdmin } = require('../middleware');
 const { columnChart, barChart } = require('../charts');
-const { toCsv, nowLocal, localDate } = require('../util');
+const { toCsv, nowLocal, localDate, formatMoney } = require('../util');
 const { receiptNumber } = require('./donations');
 
 const router = express.Router();
@@ -58,7 +58,7 @@ router.get('/reports', (req, res) => {
     eventsTotal: sum(events), fundsTotal: sum(funds), donorCount,
     grandTotal: monthTotals.reduce((a, b) => a + b, 0),
     chart: columnChart({
-      title: `Income by month, ${year}`, series: ['Income'], format: compactMoney,
+      title: `Income by month, ${year}`, series: ['Income'], format: compactMoney, tipFormat: (c) => formatMoney(c),
       rows: MONTHS.map((m, i) => ({ label: m, values: [monthTotals[i]] })),
     }),
   });
@@ -127,7 +127,7 @@ router.get('/insights', (req, res) => {
     levelsChart: levels.length ? barChart({ title: 'Active memberships by level', rows: levels.map((l) => ({ label: l.name, value: l.n })) }) : '',
     eventsChart: recentEvents.length ? columnChart({
       title: 'Registered vs. arrived at recent events', series: ['Registered', 'Arrived'],
-      rows: recentEvents.map((e) => ({ label: short(e.title), values: [e.registered, e.arrived] })),
+      rows: recentEvents.map((e) => ({ label: short(e.title), fullLabel: e.title, values: [e.registered, e.arrived] })),
     }) : '',
   });
 });

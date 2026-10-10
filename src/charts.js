@@ -1,6 +1,6 @@
 // Server-rendered SVG charts (no client library): column charts with one or two series and
-// horizontal bar charts. Each mark has a <title> for hover/focus, and every chart ships a
-// table view so no value depends on hovering.
+// horizontal bar charts. Tapping or clicking a bar (or tabbing to it) shows its amount in a label
+// above it (data-tip, shown by app.js); each mark also has a <title>, and every chart ships a table view.
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -24,10 +24,10 @@ function barPath(x, y, w, h) {
 }
 
 /**
- * Column chart. rows: [{ label, values: [n, …] }]; series: names (1 or 2).
- * format: number -> display string.
+ * Column chart. rows: [{ label, values: [n, …], fullLabel? }]; series: names (1 or 2).
+ * format: number -> display string (axis and labels); tipFormat: the exact amount for a tapped bar.
  */
-function columnChart({ rows, series, format = String, height = 220, title }) {
+function columnChart({ rows, series, format = String, tipFormat = format, height = 220, title }) {
   const width = 640;
   const pad = { top: 18, right: 8, bottom: 28, left: 56 };
   const plotH = height - pad.top - pad.bottom;
@@ -50,7 +50,10 @@ function columnChart({ rows, series, format = String, height = 220, title }) {
       const h = Math.max(0, y(0) - y(v));
       const x = x0 + s * (barW + gap);
       const label = `${series.length > 1 ? `${series[s]} · ` : ''}${r.label}: ${format(v)}`;
-      svg += `<g class="mark s${s + 1}" tabindex="0"><title>${esc(label)}</title>`
+      // The tapped column's label gives every series for that month or event, e.g. "Sep: Members 12 · Guests 3".
+      const name = r.fullLabel || r.label;
+      const tip = series.length > 1 ? `${name}: ${series.map((sName, k) => `${sName} ${tipFormat(r.values[k])}`).join(' · ')}` : `${name}: ${tipFormat(v)}`;
+      svg += `<g class="mark s${s + 1}" tabindex="0" data-tip="${esc(tip)}"><title>${esc(label)}</title>`
         + `<rect class="hit" x="${x0 - 2}" y="${pad.top}" width="${groupW + 4}" height="${plotH}"/>`
         + (h > 0 ? `<path d="${columnPath(x, y(v), barW, h)}"/>` : '') + '</g>';
       // Label only the peak value; the rest are in the tooltip and table.
@@ -77,7 +80,7 @@ function barChart({ rows, format = String, title }) {
     const yy = 4 + i * rowH;
     const w = (r.value / max) * plotW;
     svg += `<text class="cat" x="${labelW - 10}" y="${yy + 20}" text-anchor="end">${esc(r.label)}</text>`
-      + `<g class="mark s1" tabindex="0"><title>${esc(`${r.label}: ${format(r.value)}`)}</title>`
+      + `<g class="mark s1" tabindex="0" data-tip="${esc(`${r.label}: ${format(r.value)}`)}"><title>${esc(`${r.label}: ${format(r.value)}`)}</title>`
       + `<rect class="hit" x="${labelW}" y="${yy}" width="${plotW + 60}" height="${rowH - 2}"/>`
       + (w > 0 ? `<path d="${barPath(labelW, yy + 5, w, 20)}"/>` : '') + '</g>'
       + `<text class="value" x="${labelW + w + 6}" y="${yy + 20}">${esc(format(r.value))}</text>`;
@@ -92,7 +95,8 @@ function wrap({ svg, width, height, title, series, rows, format }) {
   const table = `<details class="chart-table"><summary>Show as table</summary><table><thead><tr><th></th>${series.map((s) => `<th class="num">${esc(s)}</th>`).join('')}</tr></thead><tbody>`
     + rows.map((r) => `<tr><td>${esc(r.label)}</td>${r.values.map((v) => `<td class="num">${esc(format(v))}</td>`).join('')}</tr>`).join('')
     + '</tbody></table></details>';
-  return `<figure class="chart">${legend}<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}">${svg}</svg>${table}</figure>`;
+  const hint = '<p class="chart-hint">Tap or click a bar to see its amount.</p>';
+  return `<figure class="chart">${legend}<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(title)}">${svg}</svg>${hint}${table}</figure>`;
 }
 
 module.exports = { columnChart, barChart };

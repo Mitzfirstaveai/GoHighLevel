@@ -181,3 +181,47 @@
     if (res.ok) { try { localStorage.setItem('gsa-push-sync', `${session}|${Date.now()}`); } catch { /* no storage */ } }
   })().catch(() => {});
 })();
+
+// Charts: tapping or clicking a bar (or tabbing to it) shows its amount in a label just above it.
+// Tapping it again, or anywhere else, hides it.
+(function () {
+  const charts = document.querySelectorAll('figure.chart');
+  if (!charts.length) return;
+  const hideAll = () => document.querySelectorAll('.chart-tip').forEach((tip) => {
+    tip.hidden = true;
+    tip.closest('.chart').querySelectorAll('.mark.active').forEach((m) => m.classList.remove('active'));
+  });
+  for (const fig of charts) {
+    const tip = document.createElement('div');
+    tip.className = 'chart-tip';
+    tip.hidden = true;
+    tip.setAttribute('role', 'status');
+    fig.append(tip);
+    const show = (mark) => {
+      hideAll();
+      mark.classList.add('active');
+      tip.textContent = mark.dataset.tip;
+      tip.hidden = false;
+      // Centred above the bar itself (or its tap area when the bar is zero), kept inside the chart.
+      const box = (mark.querySelector('path') || mark.querySelector('.hit') || mark).getBoundingClientRect();
+      const area = fig.getBoundingClientRect();
+      const w = tip.offsetWidth;
+      const left = Math.min(Math.max(box.left + box.width / 2 - area.left - w / 2, 0), Math.max(0, area.width - w));
+      tip.style.left = `${left}px`;
+      tip.style.top = `${Math.max(0, box.top - area.top - tip.offsetHeight - 8)}px`;
+    };
+    fig.addEventListener('click', (e) => {
+      const mark = e.target.closest('.mark');
+      if (!mark) return;
+      e.stopPropagation();
+      if (mark.classList.contains('active')) hideAll(); else show(mark);
+    });
+    fig.addEventListener('keydown', (e) => {
+      const mark = e.target.closest('.mark');
+      if (mark && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); show(mark); }
+      if (e.key === 'Escape') hideAll();
+    });
+  }
+  document.addEventListener('click', hideAll);
+  window.addEventListener('resize', hideAll);
+})();
