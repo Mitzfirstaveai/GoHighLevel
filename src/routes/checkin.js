@@ -8,6 +8,7 @@ const QRCode = require('qrcode');
 const { requireCheckin, canCheckIn } = require('../middleware');
 const svc = require('../services');
 const { parseIntInRange, nowLocal } = require('../util');
+const { doorAccount, cleanVolunteerName } = require('../door-login');
 
 const router = express.Router();
 
@@ -23,6 +24,32 @@ router.get('/:token', (req, res, next) => {
 });
 
 router.use(requireCheckin);
+
+// The shared door login: each volunteer types their first name first; it's kept with every check-in and
+// payment they record, and shown at the top of the door screen ("Helping: Mitesh — not you?").
+const doorName = (req) => (req.session.doorShared ? req.session.doorName : null);
+router.use((req, res, next) => {
+  if (req.session.doorShared && !req.session.doorName && req.path !== '/name') return res.redirect('/admin/checkin/name');
+  res.locals.doorName = doorName(req);
+  next();
+});
+
+router.get('/name', (req, res) => {
+  if (!req.session.doorShared) return res.redirect('/admin/checkin');
+  res.render('admin/door_name', { title: 'Who is helping at the door?', name: req.session.doorName || '' });
+});
+
+router.post('/name', (req, res) => {
+  if (!req.session.doorShared) return res.redirect('/admin/checkin');
+  try {
+    req.session.doorName = cleanVolunteerName(req.body.name);
+  } catch (err) {
+    if (!(err instanceof svc.UserError)) throw err;
+    res.locals.flash = [{ type: 'error', message: req.t(err.template) }];
+    return res.status(400).render('admin/door_name', { title: 'Who is helping at the door?', name: '' });
+  }
+  res.redirect('/admin/checkin');
+});
 
 function addDays(date, days) {
   const d = new Date(`${date}T12:00:00`);
@@ -69,9 +96,10 @@ router.get('/', (req, res) => {
   const results = selected && q ? searchRsvps(db, selected.id, q) : null;
   // Admins see who has door access, so they can add or remove volunteers.
   const volunteers = req.session.adminMode
-    ? db.prepare(`SELECT id, first_name, last_name FROM users WHERE checkin_access = 1 AND role != 'admin' ORDER BY first_name, last_name`).all()
+    ? db.prepare(`SELECT id, first_name, last_name FROM users WHERE checkin_access = 1 AND role != 'admin' AND contact_type = 'member' ORDER BY first_name, last_name`).all()
     : [];
-  res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers });
+  const doorLogin = req.session.adminMode ? doorAccount(db) : null;
+  res.render('admin/checkin', { title: 'Door check-in', events, selected, q, results, volunteers, doorLogin });
 });
 
 // Manual entry: the short code under the QR code (K7Q-3MX), a bare token or a pasted ticket link.
@@ -130,7 +158,7 @@ router.post('/:token/payment', (req, res) => {
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
   const method = String(req.body.method || 'cash');
-  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
+  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id, recordedName: doorName(req) });
   const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', venmo: 'Venmo', paypal: 'PayPal', other: 'Zelle / other' }[method]) };
   if (!req.body.checkin) {
     req.flash('success', 'Recorded {amount} paid by {method}.', vars);
@@ -138,7 +166,7 @@ router.post('/:token/payment', (req, res) => {
   }
   const guests = parseIntInRange(req.body.guests, 1, 1000);
   try {
-    const done = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id });
+    const done = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id, byName: doorName(req) });
     req.session.justCheckedIn = req.params.token;
     req.flash('success', guests === 1 ? 'Recorded {amount} paid by {method} and checked in {name} — 1 person.'
       : 'Recorded {amount} paid by {method} and checked in {name} — {n} people.', { ...vars, name: `${done.first_name} ${done.last_name}`, n: guests });
@@ -156,7 +184,7 @@ router.post('/:token', (req, res) => {
   const back = `/admin/checkin/${encodeURIComponent(req.params.token)}`;
   let rsvp;
   try {
-    rsvp = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id });
+    rsvp = svc.checkIn(db, { token: req.params.token, guests, adminId: req.user.id, byName: doorName(req) });
   } catch (err) {
     if (!(err instanceof svc.UserError)) throw err;
     delete req.session.justCheckedIn;

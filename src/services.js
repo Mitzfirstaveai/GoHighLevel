@@ -932,7 +932,7 @@ function payAtDoorInstead(db, { rsvpId, userId }) {
 }
 
 // Money collected for an RSVP (at the door or by the committee): records what's still owed as paid.
-function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
+function recordRsvpPayment(db, { rsvpId, method, recordedBy, recordedName = null }) {
   // At the door: cash, or Venmo / PayPal / Zelle sent straight to GSA's account ("other" covers Zelle).
   // Checks aren't accepted for events.
   if (!DOOR_METHODS.includes(method)) throw new UserError('Event fees are cash only at the door — checks are not accepted.');
@@ -945,6 +945,7 @@ function recordRsvpPayment(db, { rsvpId, method, recordedBy }) {
   const payment = createPayment(db, { userId: rsvp.user_id, kind: 'event', referenceId: rsvp.id, amountCents: due,
     description: `${event.title} — ${rsvp.party_size} ${rsvp.party_size === 1 ? 'person' : 'people'}` });
   markPaymentPaid(db, payment.id, { method, recordedBy });
+  if (recordedName) db.prepare('UPDATE payments SET recorded_name = ? WHERE id = ?').run(recordedName, payment.id);
   return { due, payment };
 }
 
@@ -985,7 +986,7 @@ function findRsvpByToken(db, token) {
   return db.prepare(`
     SELECT r.*, e.title AS event_title, e.starts_at, e.fee_cents,
            u.first_name, u.last_name, u.email, u.phone,
-           a.first_name AS checker_first, a.last_name AS checker_last
+           COALESCE(r.checked_in_name, a.first_name) AS checker_first, CASE WHEN r.checked_in_name IS NULL THEN a.last_name ELSE '' END AS checker_last
     FROM rsvps r
     JOIN events e ON e.id = r.event_id
     JOIN users u ON u.id = r.user_id
@@ -1007,7 +1008,7 @@ function findRetiredToken(db, token) {
   `).get(String(token));
 }
 
-function checkIn(db, { token, guests, adminId }) {
+function checkIn(db, { token, guests, adminId, byName = null }) {
   const rsvp = findRsvpByToken(db, token);
   if (!rsvp && findRetiredToken(db, token)) {
     throw new UserError('This QR code was replaced by a newer one. Ask the member to open My tickets and show the latest code.');
@@ -1022,9 +1023,9 @@ function checkIn(db, { token, guests, adminId }) {
     throw new UserError('Guests arriving must be between 1 and {n}.', { n: rsvp.party_size });
   }
   const result = db.prepare(`
-    UPDATE rsvps SET checked_in_at = datetime('now'), checked_in_by = ?, checked_in_count = ?
+    UPDATE rsvps SET checked_in_at = datetime('now'), checked_in_by = ?, checked_in_name = ?, checked_in_count = ?
     WHERE qr_token = ? AND status = 'confirmed' AND checked_in_at IS NULL
-  `).run(adminId, guests, String(token));
+  `).run(adminId, byName, guests, String(token));
   if (result.changes === 0) throw new UserError('This QR code has already been used.');
   return findRsvpByToken(db, token);
 }

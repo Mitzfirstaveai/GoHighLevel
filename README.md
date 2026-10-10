@@ -74,11 +74,11 @@ to a path on it); Render snapshots the disk daily so you can restore from a back
 ## Passwords
 
 - **Rules** (checked at sign-up, family invites and *Profile → Change password*, with a checklist that ticks itself
-  while typing): at least **10 characters** for members and **12** for committee members and door volunteers;
+  while typing): at least **8 characters**, for members, committee members and door volunteers alike;
   an **uppercase letter, a lowercase letter, a number and a symbol**; not a common or easily guessed password
   (e.g. `Garba@2026`, `Password#1`, `Qwerty!12345`); not the person's own name or email.
-- **Older or weaker passwords** (chosen before these rules, or too short for someone given committee or door
-  access later) work once more: at that sign-in the person must choose a new one before anything else.
+- **Older or weaker passwords** (chosen before these rules) work once more: at that sign-in the person must choose a
+  new one before anything else.
 - **Temporary passwords** a committee member hands out (*Reset password*, or a new contact's first login) are random
   16-character ones, and must be replaced at the first sign-in.
 - **Storage:** passwords are never stored or shown. The app keeps only a **bcrypt hash** (one-way, salted, work
@@ -149,7 +149,16 @@ tickets; that member app has no Admin link and no access to other families' tick
    it off — e.g. Navratri Garba #1 in the demo.
 8. *Overview → Reset demo data* before the next presentation.
 
-**As a door volunteer** (Dhruv Amin in the demo)
+**Shared door login** (the demo's **Door team (shared login)** button: username `door`, password `demo1234`)
+- On the real site the committee turns it on under *Admin → Check-in → Shared door login*: set a password (or tap
+  **Suggest one** for something easy to say out loud, like `Sunrise-Parrot-54!`) and give everyone helping at the door
+  the username `door` and that password — no accounts needed.
+- Volunteers sign in on **Committee & volunteer sign-in**, type their first name, and see only door check-in. Their
+  name is saved with every check-in and door payment they record ("Checked in … by Mitesh"); **Not you?** switches
+  the name when the phone is handed over.
+- Changing the password, or **Turn off the door login**, signs out every phone using it — e.g. after each event.
+
+**As a door volunteer with their own login** (Dhruv Amin in the demo)
 1. Open **Committee & volunteer sign-in** and tap **Door volunteer**. The app opens straight into door check-in: scan
    tickets, search for a family by name or phone, check people in. There are no member menus and no admin pages. A ticket that
    still owes money shows the amount due: the volunteer records cash, Venmo, PayPal or Zelle, or the family scans a

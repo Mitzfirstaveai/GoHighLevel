@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { passwordProblem, hashPassword, needsRehash, minLength } = require('../passwords');
+const { isDoorAccount } = require('../door-login');
 const {
   cleanProfile, PROFILE_FIELDS, UserError, findFamilyInvite, familyJoinProblem, acceptFamilyInvite,
 } = require('../services');
@@ -47,7 +48,8 @@ function authenticate(req, res, view) {
     res.status(429).render(view, { title: 'Sign in', email });
     return null;
   }
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  // Emails are stored in lower case; the shared door login's username ("door") is looked up the same way.
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase());
   // Contacts added by an admin or imported have no password until they're given a login.
   if (!user?.password_hash || !bcrypt.compareSync(String(req.body.password || ''), user.password_hash)) {
     recordFailure(keys);
@@ -60,20 +62,22 @@ function authenticate(req, res, view) {
   // A password chosen before today's rules (or for a committee or door role it's too short for), or one
   // handed out by a committee member, has to be replaced before anything else (see /password/new).
   // The demo's sample accounts keep their shared password.
+  // (The shared door login's password is set by the committee and stays as it is.)
   const demoAccount = req.app.locals.config.demoMode && user.email.endsWith('@example.com');
-  user.mustChangePassword = !demoAccount && Boolean(user.password_temporary || passwordProblem(password, user));
+  user.mustChangePassword = !demoAccount && !isDoorAccount(user) && Boolean(user.password_temporary || passwordProblem(password, user));
   if (!user.mustChangePassword && needsRehash(user.password_hash)) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), user.id);
   }
   return user;
 }
 
-function signIn(req, res, next, user, { doorMode = false, adminMode = false, fallback = '/' } = {}) {
+function signIn(req, res, next, user, { doorMode = false, doorShared = false, adminMode = false, fallback = '/' } = {}) {
   const returnTo = req.session.returnTo;
   req.session.regenerate((err) => {
     if (err) return next(err);
     req.session.userId = user.id;
     if (doorMode) req.session.doorMode = true;
+    if (doorShared) req.session.doorShared = true;
     if (adminMode) req.session.adminMode = true;
     if (user.mustChangePassword) {
       req.session.mustChangePassword = true;
@@ -89,7 +93,12 @@ function signIn(req, res, next, user, { doorMode = false, adminMode = false, fal
 
 router.post('/login', (req, res, next) => {
   const user = authenticate(req, res, 'auth/login');
-  if (user) signIn(req, res, next, user);
+  if (!user) return;
+  if (isDoorAccount(user)) {
+    res.locals.flash = [{ type: 'error', message: 'The door login is used on the Committee & volunteer sign-in.' }];
+    return res.status(403).render('auth/login', { title: 'Sign in', email: '' });
+  }
+  signIn(req, res, next, user);
 });
 
 // Committee & door volunteer sign-in. Volunteers land in door check-in mode: a check-in-only
@@ -104,6 +113,14 @@ router.post('/admin/login', (req, res, next) => {
   const user = authenticate(req, res, 'auth/staff_login');
   if (!user) return;
   if (user.role === 'admin') return signIn(req, res, next, user, { adminMode: true, fallback: '/admin' });
+  // The shared door login: door check-in only, after the volunteer types their first name.
+  if (isDoorAccount(user)) {
+    if (!user.checkin_access) {
+      res.locals.flash = [{ type: 'error', message: 'The shared door login is turned off. Please ask a committee member.' }];
+      return res.status(403).render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: user.email });
+    }
+    return signIn(req, res, next, user, { doorMode: true, doorShared: true, fallback: '/admin/checkin/name' });
+  }
   if (user.checkin_access) return signIn(req, res, next, user, { doorMode: true, fallback: '/admin/checkin' });
   res.locals.flash = [{ type: 'error', message: 'This sign-in is only for the committee and door volunteers. Please use the member sign-in.' }];
   res.status(403).render('auth/staff_login', { title: 'Committee & volunteer sign-in', email: user.email });

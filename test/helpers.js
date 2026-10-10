@@ -157,6 +157,7 @@ const ADDED_COLUMNS = {
   16: [['events', 'remind_day_of'], ['events', 'remind_day_before'], ['events', 'remind_week_before'], ['events', 'invite_at']],
   18: [['events', 'announce'], ['events', 'announce_note'], ['events', 'announce_note_gu']],
   19: [['users', 'password_temporary']],
+  20: [['rsvps', 'checked_in_name'], ['payments', 'recorded_name']],
 };
 // Columns a later version removed (put back when rewinding to before it).
 const REMOVED_COLUMNS = { 15: [['users', 'date_of_birth TEXT']] };

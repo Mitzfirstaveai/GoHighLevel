@@ -2,16 +2,15 @@
 // deliberately slow), so nobody — committee members included — can read them back.
 //
 // Rules (checked whenever a password is chosen, and at sign-in for passwords chosen before the rules):
-// at least 10 characters for members and 12 for committee members and door volunteers; an uppercase letter,
-// a lowercase letter, a number and a symbol; not a common or easily guessed password; not the person's
-// own name or email.
+// at least 8 characters; an uppercase letter, a lowercase letter, a number and a symbol; not a common or
+// easily guessed password; not the person's own name or email.
 const crypto = require('node:crypto');
 const bcrypt = require('bcryptjs');
 
 const ROUNDS = 12; // bcrypt work factor: about a quarter of a second per check, which slows guessing
 const MAX_LENGTH = 64; // bcrypt only uses the first 72 bytes
-const minLength = (user) => (isStaff(user) ? 12 : 10);
-const isStaff = (user) => Boolean(user && (user.role === 'admin' || user.checkin_access));
+const MIN_LENGTH = 8;
+const minLength = () => MIN_LENGTH; // the same for members, the committee and door volunteers
 
 // Words people reach for first (compared with the password's letters only, so "Garba@2026" counts as "garba").
 const COMMON_WORDS = new Set([
@@ -28,10 +27,10 @@ const SEQUENCES = ['0123', '1234', '2345', '3456', '4567', '5678', '6789', '9876
   'abcd', 'bcde', 'qwer', 'wert', 'asdf', 'zxcv'];
 
 // Why this password can't be used (an English message for UserError, with {n}), or null when it's fine.
-// `user` gives the email and names it must not contain, and whether the stricter staff length applies.
+// `user` gives the email and names it must not contain.
 function passwordProblem(password, user = {}) {
   const pw = String(password || '');
-  const min = minLength(user);
+  const min = MIN_LENGTH;
   if (pw.length < min) return { message: 'Password must be at least {n} characters.', vars: { n: min } };
   if (pw.length > MAX_LENGTH) return { message: 'Password is too long (at most {n} characters).', vars: { n: MAX_LENGTH } };
   if (!/\p{Lu}/u.test(pw) || !/\p{Ll}/u.test(pw) || !/\d/.test(pw) || !/[^\p{L}\p{N}\s]/u.test(pw)) {
@@ -63,4 +62,4 @@ function temporaryPassword() {
   return `${groups.join('-')}!`; // e.g. Kmp4-Rtx7-Hbn3! (16 characters)
 }
 
-module.exports = { passwordProblem, hashPassword, needsRehash, temporaryPassword, minLength, isStaff, MAX_LENGTH };
+module.exports = { passwordProblem, hashPassword, needsRehash, temporaryPassword, minLength, MIN_LENGTH, MAX_LENGTH };

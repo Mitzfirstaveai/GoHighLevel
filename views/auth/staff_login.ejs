@@ -10,7 +10,7 @@
   <% } %>
   <form method="post" action="/admin/login" class="stack">
     <%- include('../partials/csrf') %>
-    <label><%= t('Email') %> <input type="email" name="email" value="<%= email %>" required autocomplete="email"></label>
+    <label><%= t('Email (or the door username)') %> <input type="text" inputmode="email" name="email" value="<%= email %>" required autocomplete="username" autocapitalize="none" spellcheck="false"></label>
     <label><%= t('Password') %> <input type="password" name="password" required autocomplete="current-password"></label>
     <button class="btn big"><%= t('Sign in') %></button>
   </form>

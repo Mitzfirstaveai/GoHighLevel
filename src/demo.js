@@ -15,6 +15,8 @@ const DEMO_ACCOUNTS = [
   { label: 'Member (Family level)', email: 'member@example.com' },
   { label: 'Spouse (family login)', email: 'amit.shah@example.com' },
   { label: 'Door volunteer', email: 'dhruv.amin@example.com', staff: true, door: true },
+  // The shared door login (username "door"), as the committee would give it to everyone helping at an event.
+  { label: 'Door team (shared login)', email: 'door', staff: true, door: true },
 ];
 
 const LEVELS = [
@@ -145,6 +147,9 @@ function seedDemo(db, { photosDir } = {}) {
     contact(null, 'Kokila', 'Shah', '501-555-0153', 'Conway', 'Volunteer', 'Kitchen volunteer for festivals (no email)');
     db.prepare(`UPDATE users SET tags = 'Committee' WHERE email = 'admin@example.com'`).run();
     db.prepare(`UPDATE users SET tags = 'Volunteer', checkin_access = 1 WHERE email = 'dhruv.amin@example.com'`).run();
+    // The shared door login, on, with the demo password (set on Admin → Check-in on the real site).
+    db.prepare(`INSERT INTO users (email, password_hash, role, first_name, last_name, contact_type, checkin_access, source)
+      VALUES ('door', ?, 'member', 'Door', 'volunteers', 'door', 1, 'admin')`).run(hash);
     // Celebrations this week (dates relative to today, so the demo always has some): members who chose to share.
     const monthDay = (days) => localDateTime(days, '00:00').slice(5, 10);
     db.prepare(`UPDATE users SET anniversary = ?, share_anniversary = 1 WHERE email = 'member@example.com'`).run(`2008-${monthDay(0)}`);

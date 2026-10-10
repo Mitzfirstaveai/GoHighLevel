@@ -1,5 +1,5 @@
-// Strong passwords: long, mixed (upper, lower, number, symbol), not common, not the person's own name or
-// email; 12+ characters for the committee and door volunteers. Stored only as a bcrypt hash.
+// Strong passwords: 8+ characters, mixed (upper, lower, number, symbol), not common, not the person's own name
+// or email — for members, the committee and door volunteers alike. Stored only as a bcrypt hash.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const bcrypt = require('bcryptjs');
@@ -17,8 +17,8 @@ test('the rules: length, a mix of characters, not common, not your own name or e
   const priya = { email: 'priya.shah@example.org', first_name: 'Priya', last_name: 'Shah', role: 'member' };
   assert.equal(problem('Chai#Masala2026', priya), null);
   assert.equal(problem('Mango!Tree7Rain', priya), null);
-  assert.match(problem('Ab#45678', priya), /at least \{n\} characters/);
-  assert.equal(passwordProblem('Lotus#4927', priya), null, '10 is enough for a member');
+  assert.match(problem('Lo#4927', priya), /at least \{n\} characters/);
+  assert.equal(passwordProblem('Lotus#49', priya), null, '8 is enough');
   assert.match(problem('chai#masala2026', priya), /uppercase letter, a lowercase letter, a number and a symbol/);
   assert.match(problem('ChaiMasala2026', priya), /a symbol/);
   assert.match(problem('Chai#Masala#Rain', priya), /a number/);
@@ -27,10 +27,9 @@ test('the rules: length, a mix of characters, not common, not your own name or e
   assert.match(problem('Priya#Garden2026', priya), /your name or email/);
   assert.match(problem('Shah!Garden2026', priya), /your name or email/);
   assert.match(problem('x'.repeat(60) + 'Ab#1Zq', priya), /too long/);
-  // Committee members and door volunteers: 12 or more.
-  assert.match(problem('Lotus#49270', { ...priya, role: 'admin' }), /at least/);
-  assert.match(problem('Lotus#49270', { ...priya, checkin_access: 1 }), /at least/);
-  assert.equal(passwordProblem('Lotus#492705', { ...priya, role: 'admin' }), null);
+  // The same for the committee and door volunteers.
+  assert.equal(passwordProblem('Lotus#49', { ...priya, role: 'admin' }), null);
+  assert.match(problem('Lo#4927', { ...priya, checkin_access: 1 }), /at least/);
   // Temporary passwords handed out by the committee meet every rule.
   for (let i = 0; i < 50; i++) assert.equal(problem(temporaryPassword(), { role: 'admin' }), null);
 });
@@ -38,10 +37,10 @@ test('the rules: length, a mix of characters, not common, not your own name or e
 test('sign-up, family invites and the profile refuse weak passwords, in the member’s language; the form lists the rules', async () => {
   const c = new t.Client();
   let res = await c.get('/register');
-  assert.match(res.text, /data-password-rules[\s\S]*data-pw-toggle[\s\S]*At least 10 characters[\s\S]*An uppercase letter[\s\S]*A symbol, like ! # \$ @/);
-  res = await c.post('/register', t.profile({ email: 'weak@test.org', password: 'garba2026', password_confirm: 'garba2026' }));
+  assert.match(res.text, /data-password-rules[\s\S]*data-pw-toggle[\s\S]*At least 8 characters[\s\S]*An uppercase letter[\s\S]*A symbol, like ! # \$ @/);
+  res = await c.post('/register', t.profile({ email: 'weak@test.org', password: 'Ga#2026', password_confirm: 'Ga#2026' }));
   assert.equal(res.status, 400);
-  assert.match(res.text, /Password must be at least 10 characters\./);
+  assert.match(res.text, /Password must be at least 8 characters\./);
   res = await c.post('/register', t.profile({ email: 'weak@test.org', password: 'Garba@20261', password_confirm: 'Garba@20261' }));
   assert.match(res.text, /too common or easy to guess/);
   assert.ok(!t.db.prepare(`SELECT 1 FROM users WHERE email = 'weak@test.org'`).get());
@@ -50,8 +49,8 @@ test('sign-up, family invites and the profile refuse weak passwords, in the memb
   assert.match(res.text, /પાસવર્ડમાં એક મોટો અક્ષર/);
 
   const m = await t.register('changer@test.org', 'Changer');
-  res = await m.follow(await m.post('/profile/password', { current_password: 'Chai#Masala2026', new_password: 'short1!A', new_password_confirm: 'short1!A' }));
-  assert.match(res.text, /at least 10 characters/);
+  res = await m.follow(await m.post('/profile/password', { current_password: 'Chai#Masala2026', new_password: 'shrt1!A', new_password_confirm: 'shrt1!A' }));
+  assert.match(res.text, /at least 8 characters/);
   res = await m.follow(await m.post('/profile/password', { current_password: 'Chai#Masala2026', new_password: 'Changer#Lake2026', new_password_confirm: 'Changer#Lake2026' }));
   assert.match(res.text, /your name or email/);
   res = await m.follow(await m.post('/profile/password', { current_password: 'Chai#Masala2026', new_password: 'Mango!Tree7Rain', new_password_confirm: 'Mango!Tree7Rain' }));
@@ -81,24 +80,13 @@ test('a weak older password, or a temporary one from the committee, must be repl
   res = await c.get('/dashboard');
   assert.equal(res.location, '/password/new', 'every page leads to the new-password page');
   res = await c.get('/password/new');
-  assert.match(res.text, /GSA now asks for stronger passwords[\s\S]*At least 10 characters/);
+  assert.match(res.text, /GSA now asks for stronger passwords[\s\S]*At least 8 characters/);
   res = await c.post('/password/new', { password: 'Weakish12', password_confirm: 'Weakish12' });
   assert.equal(res.status, 400);
   res = await c.post('/password/new', { password: 'Mango!Tree7Rain', password_confirm: 'Mango!Tree7Rain' });
   assert.equal(res.location, '/dashboard');
   assert.equal((await c.get('/dashboard')).status, 200);
   await t.login('older@test.org', 'Mango!Tree7Rain');
-
-  // A door volunteer needs 12+: an 11-character password is replaced at the committee & volunteer sign-in.
-  await t.register('doorvol@test.org', 'Door');
-  t.db.prepare(`UPDATE users SET checkin_access = 1, password_hash = ? WHERE email = 'doorvol@test.org'`).run(bcrypt.hashSync('Lotus#49270', 12));
-  const d = new t.Client();
-  await d.get('/admin/login');
-  res = await d.post('/admin/login', { email: 'doorvol@test.org', password: 'Lotus#49270' });
-  assert.equal(res.location, '/password/new');
-  assert.match((await d.get('/password/new')).text, /At least 12 characters/);
-  res = await d.post('/password/new', { password: 'Mango!Tree7Rain', password_confirm: 'Mango!Tree7Rain' });
-  assert.equal(res.location, '/admin/checkin', 'then on to door check-in');
 
   // A password reset by the committee is strong, and must be replaced at first sign-in (not with itself).
   const ramesh = await t.register('ramesh2@test.org', 'Ramesh');

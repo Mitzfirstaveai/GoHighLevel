@@ -239,7 +239,7 @@
   document.querySelectorAll('[data-password-rules]').forEach((box) => {
     const input = box.querySelector('[data-password]');
     const confirm = box.querySelector('[data-password-confirm]');
-    const min = Number(input.dataset.min) || 10;
+    const min = Number(input.dataset.min) || 8;
     const check = () => {
       const pw = input.value;
       let all = true;
@@ -260,5 +260,23 @@
       toggle.textContent = show ? toggle.dataset.hide : toggle.dataset.show;
       toggle.setAttribute('aria-pressed', String(show));
     });
+  });
+})();
+
+// Committee: "Suggest one" for the shared door login — two everyday words, a number and a symbol, easy to say
+// out loud to volunteers (e.g. "Mango-Peacock-47!").
+(function () {
+  const button = document.querySelector('[data-suggest-password]');
+  if (!button) return;
+  const WORDS = ['Mango', 'Lotus', 'Peacock', 'Saffron', 'Tiger', 'River', 'Kite', 'Lantern', 'Jasmine', 'Monsoon', 'Coconut',
+    'Banyan', 'Parrot', 'Marigold', 'Tabla', 'Sitar', 'Cardamom', 'Elephant', 'Rainbow', 'Sunrise', 'Pearl', 'Falcon'];
+  const pick = (list) => list[crypto.getRandomValues(new Uint32Array(1))[0] % list.length];
+  button.addEventListener('click', () => {
+    let a = pick(WORDS); let b = pick(WORDS);
+    while (b === a) b = pick(WORDS);
+    const n = 10 + (crypto.getRandomValues(new Uint32Array(1))[0] % 89);
+    const input = document.querySelector('[data-door-password]');
+    input.value = `${a}-${b}-${n}!`;
+    input.focus();
   });
 })();

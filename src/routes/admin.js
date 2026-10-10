@@ -1,5 +1,6 @@
 const express = require('express');
 const { hashPassword, temporaryPassword } = require('../passwords');
+const { setDoorPassword, turnOffDoorLogin } = require('../door-login');
 const { requireAdmin } = require('../middleware');
 const { getContent, setContent } = require('../site');
 const newsfeed = require('../newsfeed');
@@ -299,6 +300,24 @@ router.post('/members/:id/checkin-access', (req, res) => {
     ? `Door check-in turned on. They sign in at Committee & volunteer sign-in (link on the sign-in page) to open check-in.${contact.password_hash ? '' : ' They have no app login yet — use "Create app login" below.'}`
     : 'Door check-in turned off.');
   res.redirect(req.body.return_to === '/admin/checkin' ? '/admin/checkin' : `/admin/members/${req.params.id}`);
+});
+
+// The shared door login (username "door"): set or change its password, or turn it off. In the demo it keeps
+// its password, so the "Door team (shared login)" sign-in button keeps working during a presentation.
+const guardDemoDoorLogin = (req) => {
+  if (req.app.locals.config.demoMode) throw new svc.UserError('In the demo, the shared door login keeps the password demo1234 so its sign-in button works. On the real site you set it here.');
+};
+router.post('/door-login', (req, res) => {
+  guardDemoDoorLogin(req);
+  setDoorPassword(req.app.locals.db, String(req.body.password || '').trim());
+  req.flash('success', 'Shared door login is on. Username: door — give volunteers the password you just set. Any phone using the old password has been signed out.');
+  res.redirect('/admin/checkin#door-login');
+});
+router.post('/door-login/off', (req, res) => {
+  guardDemoDoorLogin(req);
+  turnOffDoorLogin(req.app.locals.db);
+  req.flash('success', 'Shared door login turned off; phones using it have been signed out.');
+  res.redirect('/admin/checkin#door-login');
 });
 
 router.post('/members/:id/reset-password', (req, res) => {

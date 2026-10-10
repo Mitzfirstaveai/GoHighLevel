@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS rsvps (
   notes TEXT,
   checked_in_at TEXT,
   checked_in_by INTEGER REFERENCES users(id),
+  checked_in_name TEXT,                       -- the volunteer's name, when checked in with the shared door login
   checked_in_count INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS payments (
   method TEXT CHECK (method IN ('stripe', 'paypal', 'venmo', 'demo', 'cash', 'check', 'other')),
   provider_ref TEXT,
   recorded_by INTEGER REFERENCES users(id),
+  recorded_name TEXT,                         -- the volunteer's name, when collected with the shared door login
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   paid_at TEXT,
   refunded_at TEXT -- money that arrived but couldn't be applied (e.g. dues beyond one year ahead) and was given back
@@ -334,7 +336,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 19; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 20; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
 // 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
@@ -342,9 +344,11 @@ const SCHEMA_VERSION = 19; // 6: photo albums (new tables only, created by SCHEM
 // 17: every event has an RSVP invitation (existing ones: a week before at 10 AM)
 // 18: events announce themselves in GSA announcements, with an optional message from the committee
 // 19: temporary passwords (handed out by the committee) must be replaced at the next sign-in
+// 20: the shared door login: the volunteer's first name kept with each check-in and door payment
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  20: ['ALTER TABLE rsvps ADD COLUMN checked_in_name TEXT', 'ALTER TABLE payments ADD COLUMN recorded_name TEXT'],
   19: ['ALTER TABLE users ADD COLUMN password_temporary INTEGER NOT NULL DEFAULT 0'],
   18: [
     'ALTER TABLE events ADD COLUMN announce INTEGER NOT NULL DEFAULT 1',
