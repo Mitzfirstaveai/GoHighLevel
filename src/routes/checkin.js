@@ -25,8 +25,8 @@ router.get('/:token', (req, res, next) => {
 
 router.use(requireCheckin);
 
-// The shared door login: each volunteer types their first name first; it's kept with every check-in and
-// payment they record, and shown at the top of the door screen ("Helping: Mitesh — not you?").
+// The shared door login: each volunteer types their first name first; it's kept with every check-in they
+// record, and shown at the top of the door screen ("Helping at the door: Mitesh · Not you?").
 const doorName = (req) => (req.session.doorShared ? req.session.doorName : null);
 router.use((req, res, next) => {
   if (req.session.doorShared && !req.session.doorName && req.path !== '/name') return res.redirect('/admin/checkin/name');
@@ -154,11 +154,13 @@ router.get('/:token/due', (req, res) => {
 // the same tap also checks them in, so Quick mode goes straight back to the camera.
 router.post('/:token/payment', (req, res) => {
   const { db } = req.app.locals;
+  // Door volunteers don't handle money: they send families who owe to a committee member, who records it here.
+  if (!req.session.adminMode) throw new svc.UserError("Door volunteers don't take payments. Please send the family to a committee member to pay.");
   const back = `/admin/checkin/${encodeURIComponent(req.params.token)}`;
   const rsvp = svc.findRsvpByToken(db, req.params.token);
   if (!rsvp) throw new svc.UserError('This QR code is not valid.');
   const method = String(req.body.method || 'cash');
-  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id, recordedName: doorName(req) });
+  const { due } = svc.recordRsvpPayment(db, { rsvpId: rsvp.id, method, recordedBy: req.user.id });
   const vars = { amount: req.app.locals.money(due), method: req.t({ cash: 'cash', venmo: 'Venmo', paypal: 'PayPal', other: 'Zelle / other' }[method]) };
   if (!req.body.checkin) {
     req.flash('success', 'Recorded {amount} paid by {method}.', vars);

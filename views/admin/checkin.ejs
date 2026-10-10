@@ -73,9 +73,9 @@
 <% if (adminMode) { %>
 <div class="card stack" lang="en" id="door-login">
   <h2>Shared door login</h2>
-  <p class="muted small" style="margin:0">One username and password to give everyone helping at the door — no account needed. It opens only this
-    check-in screen (no contact details, payments history or admin pages). Each person types their first name after signing in,
-    and it's saved with every check-in and payment they record.</p>
+  <p class="muted small" style="margin:0">One username and a simple password to give everyone helping at the door — no account needed. It opens only this
+    check-in screen: volunteers see who has paid and check people in, and send anyone who owes to a committee member (they can't take
+    payments, see contact details or open admin pages). Each person types their first name after signing in; it's saved with every check-in.</p>
   <% if (doorLogin && doorLogin.checkin_access) { %>
     <p style="margin:0"><span class="badge ok">On</span> Sign in at <strong>Committee &amp; volunteer sign-in</strong> with username <code style="font-size:1.05rem">door</code> and the password you set.</p>
   <% } else { %>
@@ -84,9 +84,9 @@
   <form method="post" action="/admin/door-login" class="stack">
     <%- include('../partials/csrf') %>
     <label><%= doorLogin && doorLogin.checkin_access ? 'New password' : 'Password' %>
-      <span class="pw-wrap"><input name="password" type="text" required minlength="8" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" data-door-password>
+      <span class="pw-wrap"><input name="password" type="text" required minlength="4" maxlength="64" autocomplete="off" autocapitalize="none" spellcheck="false" data-door-password>
         <button type="button" class="pw-toggle" data-suggest-password>Suggest one</button></span></label>
-    <p class="muted small" style="margin:0">8 or more characters with an uppercase letter, a lowercase letter, a number and a symbol — easy to say out loud, like the suggestions.
+    <p class="muted small" style="margin:0">Keep it short and easy to say out loud: 4 or more characters, e.g. <code>garba25</code>.
       <% if (doorLogin && doorLogin.checkin_access) { %>Changing it signs out every phone using the door login (do it after each event if you like).<% } %></p>
     <div class="actions">
       <button class="btn"><%= doorLogin && doorLogin.checkin_access ? 'Change password' : 'Turn on with this password' %></button>

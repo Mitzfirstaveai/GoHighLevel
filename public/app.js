@@ -263,8 +263,8 @@
   });
 })();
 
-// Committee: "Suggest one" for the shared door login — two everyday words, a number and a symbol, easy to say
-// out loud to volunteers (e.g. "Mango-Peacock-47!").
+// Committee: "Suggest one" for the shared door login — an everyday word and a number, easy to say out loud to
+// volunteers (e.g. "mango47").
 (function () {
   const button = document.querySelector('[data-suggest-password]');
   if (!button) return;
@@ -272,11 +272,9 @@
     'Banyan', 'Parrot', 'Marigold', 'Tabla', 'Sitar', 'Cardamom', 'Elephant', 'Rainbow', 'Sunrise', 'Pearl', 'Falcon'];
   const pick = (list) => list[crypto.getRandomValues(new Uint32Array(1))[0] % list.length];
   button.addEventListener('click', () => {
-    let a = pick(WORDS); let b = pick(WORDS);
-    while (b === a) b = pick(WORDS);
     const n = 10 + (crypto.getRandomValues(new Uint32Array(1))[0] % 89);
     const input = document.querySelector('[data-door-password]');
-    input.value = `${a}-${b}-${n}!`;
+    input.value = `${pick(WORDS).toLowerCase()}${n}`;
     input.focus();
   });
 })();

@@ -170,9 +170,15 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   assert.match(res.text, /data:image\/png;base64/, 'QR code shown before paying');
   assert.match((await m.get('/dashboard')).text, /Pay \$15\.00 at the door/);
 
-  // At the door: big amount due, and the volunteer records the cash.
+  // At the door: big amount due; the volunteer doesn't take money but sends them to a committee member.
   res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*They chose to pay at the door/);
+  assert.match(res.text, /class="pay-panel due"[\s\S]*\$15\.00 DUE[\s\S]*Please send them to a committee member to pay/);
+  assert.doesNotMatch(res.text, /name="method"/, 'no payment buttons for volunteers');
+  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  assert.match(res.text, /Door volunteers don&#39;t take payments/);
+  assert.equal(t.db.prepare(`SELECT COUNT(*) AS n FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(rsvp.id).n, 0);
+  // The committee member at the payment table sees the payment buttons.
+  assert.match((await admin.get(`/admin/checkin/${rsvp.qr_token}`)).text, /They chose to pay at the door[\s\S]*name="method" value="cash"/);
   assert.doesNotMatch(res.text, /Check in without payment|<button class="btn big ok">Check in<\/button>/, 'no way in without paying');
   // Even sent directly, check-in is refused while money is owed.
   res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}`, { guests: '1' }));
@@ -183,12 +189,12 @@ test('pay at the door: QR code straight away, the door sees what is due, collect
   res = await volunteer.post(`/admin/rsvps/${rsvp.id}/record-payment`, { method: 'cash' });
   assert.equal(res.location, '/admin/checkin');
   // Event fees are cash at the door: no Check button, and a check is refused even if sent directly.
-  assert.doesNotMatch((await volunteer.get(`/admin/checkin/${rsvp.qr_token}`)).text, /value="check"/);
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'check', checkin: '1', guests: '1' }));
+  assert.doesNotMatch((await admin.get(`/admin/checkin/${rsvp.qr_token}`)).text, /value="check"/);
+  res = await admin.follow(await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'check', checkin: '1', guests: '1' }));
   assert.match(res.text, /Event fees are cash only at the door — checks are not accepted/);
   assert.equal(t.rsvpFor(paid, 'family4@test.org').checked_in_at, null);
   // One tap: Cash records the money and checks them in (Quick mode then returns to the camera).
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
+  res = await admin.follow(await admin.post(`/admin/checkin/${rsvp.qr_token}/payment`, { method: 'cash', checkin: '1', guests: '1' }));
   assert.match(res.text, /Recorded \$15\.00 paid by cash and checked in Dev Member — 1 person/);
   assert.match(res.text, /✅ Checked in/);
   assert.match(res.text, /id="auto-return"/, 'Quick mode goes back to the camera');
@@ -288,16 +294,19 @@ test('the check-in screens are fully translated for Gujarati-reading volunteers'
   await volunteer.get('/prefs?lang=en&back=/');
 });
 
-test('at the door, a family can pay on their phone (screen turns green) or by Venmo / PayPal / Zelle to GSA', async () => {
+test('at the door, a family can pay on their own phone (screen turns green), or pay a committee member by cash, Venmo, PayPal or Zelle', async () => {
   const ev = await t.createEvent(admin, { title: 'Garba At The Door', fee: '20', starts_at: `${nowLocal().slice(0, 10)}T23:59` });
   const m = await t.register('phonepay@test.org', 'Pia');
   await m.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
   const rsvp = t.rsvpFor(ev, 'phonepay@test.org');
 
-  // The door shows Cash, Venmo, PayPal, Zelle / other — and a QR code to pay on their own phone.
+  // The volunteer sends them to a committee member — or the family can pay now on their own phone (QR code).
   let res = await volunteer.get(`/admin/checkin/${rsvp.qr_token}`);
-  assert.match(res.text, /value="cash"[\s\S]*value="venmo"[\s\S]*value="paypal"[\s\S]*value="other">Zelle \/ other/);
-  assert.match(res.text, /id="pay-online" data-due-url="\/admin\/checkin\/[^"]+\/due"[\s\S]*<img src="data:image\/png;base64/);
+  assert.doesNotMatch(res.text, /name="method"/);
+  assert.match(res.text, /send them to a committee member[\s\S]*id="pay-online" data-due-url="\/admin\/checkin\/[^"]+\/due"[\s\S]*or they can pay now on their own phone[\s\S]*<img src="data:image\/png;base64/);
+  // The committee member sees Cash, Venmo, PayPal, Zelle / other, and the same QR code.
+  res = await admin.get(`/admin/checkin/${rsvp.qr_token}`);
+  assert.match(res.text, /value="cash"[\s\S]*value="venmo"[\s\S]*value="paypal"[\s\S]*value="other">Zelle \/ other[\s\S]*id="pay-online"/);
   assert.deepEqual(JSON.parse((await volunteer.get(`/admin/checkin/${rsvp.qr_token}/due`)).text), { due: 2000 });
 
   // The QR opens the pay page on their phone; paying with Venmo there settles it.
@@ -317,12 +326,12 @@ test('at the door, a family can pay on their phone (screen turns green) or by Ve
   const other = await t.register('notmine@test.org', 'Omar');
   assert.equal((await other.get(`/tickets/${rsvp.id}/pay`)).status, 404);
 
-  // Money sent to GSA's PayPal: the volunteer taps PayPal, which records it and checks them in.
+  // Money sent to GSA's PayPal: the committee member taps PayPal, which records it and checks them in.
   const m2 = await t.register('paypalsent@test.org', 'Ravi');
   await m2.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
   const r2 = t.rsvpFor(ev, 'paypalsent@test.org');
-  res = await volunteer.follow(await volunteer.post(`/admin/checkin/${r2.qr_token}/payment`, { method: 'paypal', checkin: '1', guests: '1' }));
+  res = await admin.follow(await admin.post(`/admin/checkin/${r2.qr_token}/payment`, { method: 'paypal', checkin: '1', guests: '1' }));
   assert.match(res.text, /Recorded \$20\.00 paid by PayPal and checked in Ravi Member — 1 person/);
   const pay = t.db.prepare(`SELECT method, recorded_by FROM payments WHERE kind = 'event' AND reference_id = ? AND status = 'paid'`).get(r2.id);
-  assert.deepEqual({ ...pay }, { method: 'paypal', recorded_by: userId('door@test.org') });
+  assert.deepEqual({ ...pay }, { method: 'paypal', recorded_by: userId('admin@test.org') });
 });
