@@ -300,6 +300,9 @@ function seedDemo(db, { photosDir } = {}) {
     garbaPaid('hemant.thakkar@example.com', 1, 500);
     garbaPaid('dhruv.amin@example.com', 1, 500);
 
+    // Every event tells ticket holders when doors open (at its start time), with their QR ticket one tap away.
+    db.prepare('UPDATE events SET remind_doors_open = substr(starts_at, 12, 5)').run();
+
     // Tonight's Garba: the Joshis and the Bhatts pay at the door ($55 and $15 due), the Vyases paid online.
     // Everyone else, Priya included, can RSVP live.
     const tonightPaid = (email, n, total, extra = {}) => {
@@ -368,6 +371,7 @@ function resetDemo(db, { photosDir } = {}) {
     for (const t of TABLES) db.exec(`DELETE FROM ${t}`);
     db.exec('DELETE FROM push_subscriptions');
     db.exec('DELETE FROM reminders_sent'); // ticket numbers start again, so earlier reminders must not count
+    db.exec('DELETE FROM doors_open_sent');
     db.exec(`DELETE FROM sqlite_sequence WHERE name IN (${TABLES.map((t) => `'${t}'`).join(', ')})`);
   });
   seedDemo(db, { photosDir });

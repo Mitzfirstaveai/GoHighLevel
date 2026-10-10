@@ -20,7 +20,9 @@ Organization details (About, Committee, Sponsors, Contact) live in `src/content.
 - **Event reminders**: members get notifications on the phones, tablets and computers where they turned reminders on
   (Profile → Event reminders, or on a ticket) — even when the app is closed or they are signed out. Each event sets its
   own schedule (Edit event → Phone reminders): the morning of (9 AM by default, never later than two hours before the
-  start), the day before and/or a week before, each at a chosen time, plus a one-time "RSVP now" invitation (every event
+  start), the day before and/or a week before, each at a chosen time, and **"Doors are open"** (at the start time unless
+  another time is set) to everyone on a ticket who hasn't checked in yet — tapping it opens their QR ticket, ready for the
+  door — plus a one-time "RSVP now" invitation (every event
   has one: a week before at 10 AM unless the committee picks a time) to members whose family has no ticket. Reminders say the time and place and anything still to pay at the door, and
   open the QR ticket. On iPhone and iPad this needs the app added to the
   Home Screen (iOS 16.4 or later). Opening the app that day also shows a pop-up with the ticket. Push keys are made

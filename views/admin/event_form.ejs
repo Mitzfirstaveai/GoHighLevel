@@ -62,7 +62,8 @@
       <label class="check"><input type="checkbox" name="remind_day_of" value="1" <%= event.remind_day_of ? 'checked' : '' %>> Morning of the event, at <input type="time" name="remind_day_of_time" value="<%= event.remind_day_of || '09:00' %>" aria-label="Time for the morning-of reminder"></label>
       <label class="check"><input type="checkbox" name="remind_day_before" value="1" <%= event.remind_day_before ? 'checked' : '' %>> The day before, at <input type="time" name="remind_day_before_time" value="<%= event.remind_day_before || '18:00' %>" aria-label="Time for the day-before reminder"></label>
       <label class="check"><input type="checkbox" name="remind_week_before" value="1" <%= event.remind_week_before ? 'checked' : '' %>> One week before, at <input type="time" name="remind_week_before_time" value="<%= event.remind_week_before || '09:00' %>" aria-label="Time for the week-before reminder"></label>
-      <p class="muted small" style="margin:0">A morning event is reminded no later than two hours before it starts.</p>
+      <label class="check"><input type="checkbox" name="remind_doors_open" value="1" <%= event.remind_doors_open != null ? 'checked' : '' %>> When doors open, at <input type="time" name="remind_doors_open_time" value="<%= event.remind_doors_open || '' %>" aria-label="Time doors open"> <span class="muted small">(blank = start time)</span></label>
+      <p class="muted small" style="margin:0">A morning event is reminded no later than two hours before it starts. “Doors are open” goes to everyone on a ticket who hasn't checked in yet; tapping it opens their QR ticket, ready to show at the door.</p>
     </fieldset>
     <fieldset class="reminder-plan">
       <legend>To members without a ticket</legend>

@@ -415,6 +415,7 @@ function parseEventForm(body) {
     remind_day_of: remindTime(body.remind_day_of, body.remind_day_of_time, '09:00'),
     remind_day_before: remindTime(body.remind_day_before, body.remind_day_before_time, '18:00'),
     remind_week_before: remindTime(body.remind_week_before, body.remind_week_before_time, '09:00'),
+    remind_doors_open: remindTime(body.remind_doors_open, body.remind_doors_open_time, startsAt.slice(11, 16)),
     invite_at: inviteAt,
     announce: body.announce ? 1 : 0,
     announce_note: String(body.announce_note || '').trim().slice(0, 1000) || null,
@@ -445,7 +446,7 @@ function parseEventForm(body) {
 
 const EVENT_COLUMNS = ['title', 'description', 'title_gu', 'description_gu', 'location', 'starts_at', 'ends_at', 'rsvp_deadline', 'fee_cents', 'capacity',
   'max_party_size', 'members_only', 'status', 'guest_fee_cents', 'out_of_state_fee_cents', 'student_fee_cents', 'child_free_age',
-  'max_guests', 'early_fee_cents', 'early_until', 'questions', 'remind_day_of', 'remind_day_before', 'remind_week_before', 'invite_at',
+  'max_guests', 'early_fee_cents', 'early_until', 'questions', 'remind_day_of', 'remind_day_before', 'remind_week_before', 'remind_doors_open', 'invite_at',
   'announce', 'announce_note', 'announce_note_gu'];
 
 router.get('/events', (req, res) => {
@@ -458,7 +459,7 @@ router.get('/events', (req, res) => {
 router.get('/events/new', (req, res) => {
   res.render('admin/event_form', {
     title: 'New event', questionsText: '',
-    event: { max_party_size: 10, max_guests: 4, status: 'published', location: getContent(req.app.locals.db, 'org').venue, remind_day_of: '09:00' },
+    event: { max_party_size: 10, max_guests: 4, status: 'published', location: getContent(req.app.locals.db, 'org').venue, remind_day_of: '09:00', remind_doors_open: '' },
   });
 });
 

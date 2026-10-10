@@ -249,3 +249,47 @@ test('the push keys come from the app secret, so they survive the server startin
   assert.doesNotThrow(() => require('web-push').setVapidDetails('mailto:x@example.com', a.publicKey, a.privateKey));
   reminders.setup(t.db, t.config()); // back to the test server's keys
 });
+
+test('"Doors are open" goes once to everyone on a ticket who has not checked in, and opens their QR ticket', async () => {
+  const day = t.futureDate(12).slice(0, 10);
+  // New events have it ticked, at the start time unless a time is given.
+  assert.match((await admin.get('/admin/events/new')).text, /name="remind_doors_open" value="1" checked[\s\S]*name="remind_doors_open_time" value=""/);
+  const ev = await t.createEvent(admin, { title: 'Sharad Garba', fee: '5', starts_at: `${day}T19:30`, ends_at: `${day}T23:00`, remind_doors_open: '1', remind_doors_open_time: '19:00' });
+  const blank = await t.createEvent(admin, { title: 'Bhajan Sandhya', starts_at: `${day}T18:00`, remind_doors_open: '1', remind_doors_open_time: '' });
+  assert.equal(t.db.prepare('SELECT remind_doors_open FROM events WHERE id = ?').get(blank).remind_doors_open, '18:00', 'blank = start time');
+  assert.match((await admin.get(`/admin/events/${ev}`)).text, /doors open at 7:00 PM/);
+
+  const a = await t.register('doors-a@test.org', 'Anika');
+  await a.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
+  await a.post('/reminders/subscribe', device(21));
+  const b = await t.register('doors-b@test.org', 'Bina');
+  await b.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
+  await b.post('/reminders/subscribe', device(22));
+  const ra = t.rsvpFor(ev, 'doors-a@test.org');
+  const rb = t.rsvpFor(ev, 'doors-b@test.org');
+  const mine = (now) => reminders.dueDoorsOpen(t.db, now).filter((d) => d.rsvp.event_id === ev).map((d) => d.rsvp.id);
+
+  assert.deepEqual(mine(`${day}T18:59`), [], 'not before doors open');
+  assert.deepEqual(mine(`${day}T19:00`).sort(), [ra.id, rb.id].sort());
+  // Bina is checked in early by the door (paid cash): she isn't told.
+  t.db.prepare(`UPDATE rsvps SET checked_in_at = datetime('now') WHERE id = ?`).run(rb.id);
+  sent.length = 0;
+  await reminders.sendDue(t.db, `${day}T19:05`);
+  const doors = sent.filter((s) => s.tag === `event-${ev}`);
+  assert.deepEqual(doors.map((s) => [s.title, s.url]), [['Doors are open: Sharad Garba', `/tickets/${ra.id}`]]);
+  assert.equal(doors[0].body, 'Please pay $5.00 at the door. Tap to open your QR ticket.');
+  assert.deepEqual(mine(`${day}T19:10`), [], 'only once');
+
+  // After the start it says the event has started; never more than three hours late, or after it ends.
+  const c = await t.register('doors-c@test.org', 'Chetan');
+  await c.post(`/events/${ev}/rsvp`, { party_size: '1', pay: 'door' });
+  await c.post('/reminders/subscribe', device(23));
+  const rc = t.rsvpFor(ev, 'doors-c@test.org');
+  const late = reminders.dueDoorsOpen(t.db, `${day}T19:40`).find((d) => d.rsvp.id === rc.id);
+  assert.equal(reminders.doorsOpenMessage(t.db, late.rsvp, late.userId, `${day}T19:40`).title, 'Sharad Garba has started');
+  assert.deepEqual(mine(`${day}T22:01`), [], 'more than three hours after doors opened');
+  assert.deepEqual(mine(`${day}T21:59`), [rc.id]);
+  // Turned off on the event: nothing.
+  t.db.prepare('UPDATE events SET remind_doors_open = NULL WHERE id = ?').run(ev);
+  assert.deepEqual(mine(`${day}T21:59`), []);
+});

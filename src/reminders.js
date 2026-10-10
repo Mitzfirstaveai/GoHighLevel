@@ -87,12 +87,14 @@ function dueReminders(db, now = nowLocal()) {
   const day = now.slice(0, 10);
   const due = [];
   for (const [kind, daysAhead, column] of KINDS) {
-    const rows = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.${column} AS remind_time FROM rsvps r JOIN events e ON e.id = r.event_id
+    const rows = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location, e.remind_doors_open, e.${column} AS remind_time FROM rsvps r JOIN events e ON e.id = r.event_id
       WHERE e.status = 'published' AND substr(e.starts_at, 1, 10) = ? AND e.starts_at > ? AND e.${column} IS NOT NULL
         AND r.status = 'confirmed' AND r.checked_in_at IS NULL`).all(addDays(day, daysAhead), now);
     for (const r of rows) {
       const at = kind === 'day_of' ? remindAt(r.starts_at, r.remind_time) : r.remind_time;
       if (now.slice(11, 16) < at) continue;
+      // Once doors are open, "Doors are open" takes over from a morning reminder that hasn't gone out yet.
+      if (kind === 'day_of' && r.remind_doors_open && now.slice(11, 16) >= r.remind_doors_open) continue;
       for (const userId of ticketPeople(db, r)) {
         if (db.prepare('SELECT 1 FROM reminders_sent WHERE rsvp_id = ? AND user_id = ? AND sent_on = ?').get(r.id, userId, day)) continue;
         if (!db.prepare('SELECT 1 FROM push_subscriptions WHERE user_id = ?').get(userId)) continue; // nowhere to send it yet
@@ -101,6 +103,44 @@ function dueReminders(db, now = nowLocal()) {
     }
   }
   return due;
+}
+
+// "Doors are open" for ticket holders who haven't checked in yet, as of `now`: from the event's doors-open time
+// on the event day until it ends (and no more than three hours late, e.g. if the server was off). Tapping it opens
+// the QR ticket, ready to show at the door. Once per person per ticket.
+function dueDoorsOpen(db, now = nowLocal()) {
+  const day = now.slice(0, 10);
+  const time = now.slice(11, 16);
+  const threeHoursAgo = (() => { const [h, m] = time.split(':').map(Number); const t = Math.max(0, h * 60 + m - 180); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; })();
+  const rows = db.prepare(`SELECT r.*, e.title, e.title_gu, e.starts_at, e.location FROM rsvps r JOIN events e ON e.id = r.event_id
+    WHERE e.status = 'published' AND substr(e.starts_at, 1, 10) = ? AND e.remind_doors_open IS NOT NULL
+      AND e.remind_doors_open <= ? AND e.remind_doors_open > ? AND COALESCE(e.ends_at, ? || 'T23:59') > ?
+      AND r.status = 'confirmed' AND r.checked_in_at IS NULL`).all(day, time, threeHoursAgo, day, now);
+  const due = [];
+  for (const r of rows) {
+    for (const userId of ticketPeople(db, r)) {
+      if (db.prepare('SELECT 1 FROM doors_open_sent WHERE rsvp_id = ? AND user_id = ?').get(r.id, userId)) continue;
+      if (!db.prepare('SELECT 1 FROM push_subscriptions WHERE user_id = ?').get(userId)) continue;
+      due.push({ rsvp: r, userId });
+    }
+  }
+  return due;
+}
+
+// "Doors are open: Navratri Garba" (or "… has started" once it has) / "Tap to open your QR ticket." — on the lock
+// screen it replaces the morning reminder for the same event.
+function doorsOpenMessage(db, rsvp, userId, now = nowLocal()) {
+  const lang = languageOf(db, userId);
+  const t = translator(lang);
+  const title = (lang === 'gu' && rsvp.title_gu) || rsvp.title;
+  const due = svc.amountDue(db, rsvp);
+  const pay = due ? `${t('Please pay {amount} at the door.', { amount: formatMoney(due, 'USD') })} ` : '';
+  return {
+    title: t(now >= rsvp.starts_at ? '{event} has started' : 'Doors are open: {event}', { event: title }),
+    body: `${pay}${t('Tap to open your QR ticket.')}`,
+    url: `/tickets/${rsvp.id}`,
+    tag: `event-${rsvp.event_id}`,
+  };
 }
 
 // Members without a ticket to invite to RSVP, as of `now`: events whose invitation time has come and which
@@ -182,6 +222,11 @@ async function sendDue(db, now = nowLocal()) {
     if (n) db.prepare('INSERT OR IGNORE INTO reminders_sent (rsvp_id, user_id, sent_on) VALUES (?, ?, ?)').run(rsvp.id, userId, now.slice(0, 10));
     sent += n;
   }
+  for (const { rsvp, userId } of dueDoorsOpen(db, now)) {
+    const n = await deliver(db, userId, doorsOpenMessage(db, rsvp, userId, now));
+    if (n) db.prepare('INSERT OR IGNORE INTO doors_open_sent (rsvp_id, user_id) VALUES (?, ?)').run(rsvp.id, userId);
+    sent += n;
+  }
   for (const { event, userId } of dueInvites(db, now)) {
     const n = await deliver(db, userId, inviteMessage(db, event, userId));
     if (n) db.prepare('INSERT OR IGNORE INTO invites_sent (event_id, user_id) VALUES (?, ?)').run(event.id, userId);
@@ -204,4 +249,4 @@ function startReminders(db, config) {
   return setInterval(run, config.reminderMinutes * 60 * 1000);
 }
 
-module.exports = { setup, vapidKeys, saveSubscription, removeSubscription, dueReminders, dueInvites, remindAt, message, inviteMessage, sendDue, sendTest, startReminders, ticketPeople };
+module.exports = { setup, vapidKeys, saveSubscription, removeSubscription, dueReminders, dueDoorsOpen, doorsOpenMessage, dueInvites, remindAt, message, inviteMessage, sendDue, sendTest, startReminders, ticketPeople };

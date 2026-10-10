@@ -899,6 +899,8 @@ module.exports = {
   "Everyone's birth month and year are required (children's event prices depend on age). Once saved, a child's can only be changed by a committee member.": 'દરેકનો જન્મનો મહિનો અને વર્ષ જરૂરી છે (બાળકોની કાર્યક્રમ ફી ઉંમર પર આધારિત છે). એકવાર સાચવ્યા પછી બાળકના ફક્ત સમિતિના સભ્ય બદલી શકે છે.',
   'Your birthday': 'તમારો જન્મદિવસ',
   'Today: {event}': 'આજે: {event}',
+  'Doors are open: {event}': 'દરવાજા ખુલ્લા છે: {event}',
+  '{event} has started': '{event} શરૂ થઈ ગયું છે',
   'Happening now: {event}': 'હમણાં ચાલુ છે: {event}',
   'Coming up: {event}': 'આગામી: {event}',
   'Events coming up': 'આગામી કાર્યક્રમો',

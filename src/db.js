@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS events (
   remind_day_of TEXT DEFAULT '09:00',
   remind_day_before TEXT,
   remind_week_before TEXT,
+  remind_doors_open TEXT,                     -- 'HH:MM' on the event day: "Doors are open — tap for your QR ticket"
   invite_at TEXT,
   -- GSA announcements: the event announces itself on Home from its invitation date (announce = 0: off),
   -- with the committee's own message added below the automatic text.
@@ -323,6 +324,12 @@ CREATE TABLE IF NOT EXISTS reminders_sent (
   sent_on TEXT NOT NULL,
   PRIMARY KEY (rsvp_id, user_id, sent_on)
 );
+-- "Doors are open" sent to each person on a ticket (once each).
+CREATE TABLE IF NOT EXISTS doors_open_sent (
+  rsvp_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (rsvp_id, user_id)
+);
 -- Members invited to an event (once each).
 CREATE TABLE IF NOT EXISTS invites_sent (
   event_id INTEGER NOT NULL,
@@ -336,7 +343,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const SCHEMA_VERSION = 21; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
+const SCHEMA_VERSION = 22; // 6: photo albums (new tables only, created by SCHEMA); 7: payments.refunded_at; 8: family invite links; 9: light/dark choice;
 // 10: celebrations (birthdays, anniversaries) and Gujarat & India news (new tables created by SCHEMA); 11: sponsors & vendors;
 // 12: pay at the door; 13: PayPal and Venmo payment methods; 14: children's birth month, guest types, age-free children;
 // 15: members' birth month and year (the day only for Celebrations) in place of a full date of birth;
@@ -346,9 +353,14 @@ const SCHEMA_VERSION = 21; // 6: photo albums (new tables only, created by SCHEM
 // 19: temporary passwords (handed out by the committee) must be replaced at the next sign-in
 // 20: the shared door login: the volunteer's first name kept with each check-in
 // 21: ...and with the cash they collect at the door
+// 22: "Doors are open" notification to ticket holders, at a time set per event (existing events: their start time)
 
 // Upgrades for databases created by an earlier version (keyed by the version they produce).
 const MIGRATIONS = {
+  22: [
+    'ALTER TABLE events ADD COLUMN remind_doors_open TEXT',
+    `UPDATE events SET remind_doors_open = substr(starts_at, 12, 5)`,
+  ],
   21: ['ALTER TABLE payments ADD COLUMN recorded_name TEXT'],
   20: ['ALTER TABLE rsvps ADD COLUMN checked_in_name TEXT'],
   19: ['ALTER TABLE users ADD COLUMN password_temporary INTEGER NOT NULL DEFAULT 0'],
