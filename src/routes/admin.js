@@ -28,7 +28,10 @@ router.get('/', (req, res) => {
     members: db.prepare(`SELECT COUNT(*) AS n FROM users WHERE contact_type = 'member'`).get().n,
     activeMembers: db.prepare('SELECT COUNT(DISTINCT user_id) AS n FROM memberships WHERE end_date >= ?').get(today).n,
     upcomingEvents: db.prepare(`SELECT COUNT(*) AS n FROM events WHERE status = 'published' AND starts_at >= ?`).get(today).n,
-    collected: db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS c FROM payments WHERE status = 'paid'`).get().c,
+    // This year's money, counted the same way as Reports (by the local date it was paid), so the two match.
+    year: today.slice(0, 4),
+    collected: db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS c FROM payments
+      WHERE status = 'paid' AND substr(datetime(paid_at, 'localtime'), 1, 4) = ?`).get(today.slice(0, 4)).c,
   };
   const events = db.prepare(`SELECT * FROM events WHERE status != 'cancelled' AND starts_at >= ? ORDER BY starts_at LIMIT 5`).all(today)
     .map((e) => ({ ...e, stats: svc.eventStats(db, e.id) }));

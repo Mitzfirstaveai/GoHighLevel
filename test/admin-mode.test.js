@@ -70,3 +70,21 @@ test("in the member app an admin sees only their own family's tickets and receip
   assert.equal((await admin.get(`/receipts/${paymentId}`)).status, 200);
   assert.equal((await other.get(`/receipts/${paymentId}`)).status, 200);
 });
+
+test('Overview shows the money collected this year, matching the Reports total', async () => {
+  const admin = await t.adminLogin();
+  const year = new Date().getFullYear();
+  const u = t.db.prepare(`SELECT id FROM users WHERE email = 'admin@test.org'`).get().id;
+  const pay = (cents, when) => t.db.prepare(`INSERT INTO payments (user_id, kind, description, amount_cents, status, method, paid_at)
+    VALUES (?, 'donation', 'Gift', ?, 'paid', 'cash', ?)`).run(u, cents, when);
+  pay(12345, `${year}-03-01 18:00:00`);
+  pay(27500, `${year - 1}-06-01 18:00:00`); // last year: not counted
+  const res = await admin.get('/admin');
+  const reportTotal = (await admin.get(`/admin/reports?year=${year}`)).text.match(/Total income \d{4}<\/div><div class="value">([^<]+)</)?.[1];
+  const shown = res.text.match(new RegExp(`Collected in ${year}</div><div class="value">([^<]+)<`))[1];
+  assert.ok(reportTotal, 'the Reports total is shown');
+  assert.equal(shown, reportTotal, 'Overview and Reports agree');
+  assert.doesNotMatch(res.text, /Total collected/);
+  const thisYear = t.db.prepare(`SELECT SUM(amount_cents) AS c FROM payments WHERE status = 'paid' AND substr(datetime(paid_at, 'localtime'), 1, 4) = ?`).get(String(year)).c;
+  assert.equal(shown, `$${(thisYear / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, "last year's $275 isn't counted");
+});

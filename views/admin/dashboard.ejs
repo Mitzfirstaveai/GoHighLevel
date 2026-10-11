@@ -11,7 +11,7 @@
   <div class="stat"><div class="label">Registered members</div><div class="value"><%= stats.members %></div></div>
   <div class="stat"><div class="label">Paid memberships</div><div class="value"><%= stats.activeMembers %></div></div>
   <div class="stat"><div class="label">Upcoming events</div><div class="value"><%= stats.upcomingEvents %></div></div>
-  <div class="stat"><div class="label">Total collected</div><div class="value"><%= money(stats.collected) %></div></div>
+  <div class="stat"><div class="label">Collected in <%= stats.year %></div><div class="value"><%= money(stats.collected) %></div><div class="muted small"><a href="/admin/reports">See the report</a></div></div>
 </div>
 <div class="grid grid-2">
   <div class="card">
